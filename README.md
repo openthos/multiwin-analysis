@@ -15,4 +15,4 @@
 - aosp-marshmallow https://source.android.com/
 
 ## Contact
--email : baojunzhen@gmail.com
+- email : baojunzhen@gmail.com
