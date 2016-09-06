@@ -86,7 +86,7 @@
 
   TaskRecord: Just like Task in AMS.
 
-  AppWindowList:
+  AppWindowToken:
 
   At least, it can be express the Activity in APP. It includes
   multiple WindowStates, ordered by displaying Z-order. One
