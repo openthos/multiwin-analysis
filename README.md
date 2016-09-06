@@ -138,7 +138,7 @@
   application Window in front/back.
 
 - Add listener for related View in APP, so can catch all events
-  (move, resize, or front/back ...). But in fact, in AMS, we can
+  (move, resize, or front/back ...). But in fact, in WMS, we can
   perform the same thing too (we will use it, next).
 
 ###2.3. Frame shadow:
