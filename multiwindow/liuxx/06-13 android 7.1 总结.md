@@ -47,4 +47,13 @@
     - /** ID of stack that always on top (always visible) when it exist. */
     
       public static final int PINNED_STACK_ID = DOCKED_STACK_ID + 1;
+      
+  - 2.上面的stackId分别表示的含义：
+    - 【Id：0】Home Stack，这个是Launcher所在的Stack。 其实还有一些系统界面也运行在这个Stack上，例如近期任务
+    - 【Id：1】FullScren Stack，全屏的Activity所在的Stack。 但其实在分屏模式下，Id为1的Stack只占了半个屏幕。
+    - 【Id：2】Freeform模式的Activity所在Stack
+    - 【Id：3】Docked Stack 下文中我们将看到，在分屏模式下，屏幕有一半运行了一个固定的应用，这个就是这里的Docked Stack
+    - 【Id：4】Pinned Stack 这个是画中画Activity所在的Stack
+    
+    需要注意的是，这些Stack并不是系统一启动就全部创建好的。而是在需要用到的时候才会创建。
 
