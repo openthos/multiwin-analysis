@@ -7,7 +7,8 @@
     - 这种模式类似于我们常见的桌面操作系统，应用界面的窗口可以自由拖动和修改大小
 ## Android从API Level24开始，配合多窗口功能的新增机制
   - 1.Manifest新增属性
-    - android:resizeableActivity=["true" | "false"]
+    - android:resizeableActivity=["true" | "false"] 
+    
     这个属性可以用在<activity>或者<application> 上。置为true，表示可以以分屏或者Freeform模式启动。false表示不支持多窗口模式。对于API目标Level为24的应用来说，这个值默认是true。
   - 2.Layout新增属性
     - android:defaultWidth，android:defaultHeight Freeform模式下的默认宽度和高度
