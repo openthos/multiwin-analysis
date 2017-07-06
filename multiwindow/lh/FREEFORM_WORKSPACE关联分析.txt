@@ -1,0 +1,334 @@
+依赖FREEFORM_WORKSPACE_STACK_ID的判断语句共有39处，其中包括33处“==”判断和6出“！=”判断，对这些判断内容的分析归纳如下（按照文件、方法进行区分）
+
+文件1：core/java/android/app/ActivityManager.java
+	方法1：public static boolean hasWindowShadow(int stackId) {return stackId == FREEFORM_WORKSPACE_STACK_ID || stackId == PINNED_STACK_ID;} //用于判断是否显示窗口阴影
+	方法2：public static boolean hasWindowDecor(int stackId) {return stackId == FREEFORM_WORKSPACE_STACK_ID;} //用于判断是否显示WindowDecor，WindowDecor的具体内容尚待分析
+	方法3：public static boolean isTaskResizeAllowed(int stackId) {return stackId == FREEFORM_WORKSPACE_STACK_ID;} //用于判断对应Task是否可以缩放
+	方法4：public static boolean persistTaskBounds(int stackId) {return stackId == FREEFORM_WORKSPACE_STACK_ID;} //Returns true if the task bounds should persist across power cycles（具体意义暂不明）
+	方法5：public static boolean keepFocusInStackIfPossible(int stackId) {return stackId == FREEFORM_WORKSPACE_STACK_ID || stackId == DOCKED_STACK_ID || stackId == PINNED_STACK_ID;}//是否在当前top activity结束时将焦点维持在该task
+	方法6：public static boolean replaceWindowsOnTaskMove(int sourceStackId, int targetStackId) {return sourceStackId == FREEFORM_WORKSPACE_STACK_ID || targetStackId == FREEFORM_WORKSPACE_STACK_ID;} //是否在该Task从某一stack移动到另一Stack时，windowmanager会维持旧的window显示直至新的window准备完毕
+	方法7：public static boolean tasksAreFloating(int stackId) {return stackId == FREEFORM_WORKSPACE_STACK_ID || stackId == PINNED_STACK_ID;} //判断是否为floating
+	方法8：public static boolean useAnimationSpecForAppTransition(int stackId) {
+             // TODO: INVALID_STACK_ID is also animated because we don't persist stack id's across
+              // reboots.
+              return stackId == FREEFORM_WORKSPACE_STACK_ID
+                     || stackId == FULLSCREEN_WORKSPACE_STACK_ID || stackId == DOCKED_STACK_ID
+                     || stackId == INVALID_STACK_ID;
+			} //没太看懂，源码注释如下：
+			/**
+			* Returns true if animation specs should be constructed for app transition that moves
+			* the task to the specified stack.
+			*/
+
+	方法9：public static boolean useWindowFrameForBackdrop(int stackId) {return stackId == FREEFORM_WORKSPACE_STACK_ID || stackId == PINNED_STACK_ID;} //背景是否需要与window的frame契合
+	方法10：public static boolean isMultiWindowStack(int stackId) {return isStaticStack(stackId) || stackId == PINNED_STACK_ID || stackId == FREEFORM_WORKSPACE_STACK_ID || stackId == DOCKED_STACK_ID;} //是否属于multiwindowstack
+
+文件2：packages/SystemUI/src/com/android/systemui/recents/views/RecentsTransitionHelper.java
+	方法1：private List<AppTransitionAnimationSpec> composeAnimationSpecs(final Task task, final TaskStackView stackView, final int destinationStack) {
+	...
+         // Otherwise, for freeform tasks, create a new animation spec for each task we have to
+         // launch
+         TaskStack stack = stackView.getStack();
+         ArrayList<Task> tasks = stack.getStackTasks();
+         int taskCount = tasks.size();
+         for (int i = taskCount - 1; i >= 0; i--) {
+             Task t = tasks.get(i);
+             if (t.isFreeformTask() || targetStackId == FREEFORM_WORKSPACE_STACK_ID) {
+                 TaskView tv = stackView.getChildViewForTask(t);
+                 if (tv == null) {
+                     // TODO: Create a different animation task rect for this case (though it should
+                     //       never happen)
+                     specs.add(composeOffscreenAnimationSpec(t, offscreenTaskRect));
+                 } else {
+                     mTmpTransform.fillIn(taskView);
+                     stackLayout.transformToScreenCoordinates(mTmpTransform,
+                             null /* windowOverrideRect */);
+                     AppTransitionAnimationSpec spec = composeAnimationSpec(stackView, tv,
+                             mTmpTransform, true /* addHeaderBitmap */);
+                     if (spec != null) {
+                         specs.add(spec);
+                     }
+                 }
+             }
+         }
+	... 
+	} //用于判断是否要给每一个要加载的task创建新的animation spec
+	
+文件3：packages/SystemUI/src/com/android/systemui/recents/RecentsImpl.java
+	方法1：private ActivityOptions getThumbnailTransitionActivityOptions(ActivityManager.RunningTaskInfo runningTask, TaskStackView stackView, Rect windowOverrideRect) {
+        if (runningTask != null && runningTask.stackId == FREEFORM_WORKSPACE_STACK_ID) {
+            ArrayList<AppTransitionAnimationSpec> specs = new ArrayList<>();
+            ArrayList<Task> tasks = stackView.getStack().getStackTasks();
+            TaskStackLayoutAlgorithm stackLayout = stackView.getStackAlgorithm();
+            TaskStackViewScroller stackScroller = stackView.getScroller();
+
+            stackView.updateLayoutAlgorithm(true /* boundScroll */);
+            stackView.updateToInitialState();
+
+            for (int i = tasks.size() - 1; i >= 0; i--) {
+                Task task = tasks.get(i);
+                if (task.isFreeformTask()) {
+                    mTmpTransform = stackLayout.getStackTransformScreenCoordinates(task,
+                            stackScroller.getStackScroll(), mTmpTransform, null,
+                            windowOverrideRect);
+                    Bitmap thumbnail = drawThumbnailTransitionBitmap(task, mTmpTransform,
+                            mThumbTransitionBitmapCache);
+                    Rect toTaskRect = new Rect();
+                    mTmpTransform.rect.round(toTaskRect);
+                    specs.add(new AppTransitionAnimationSpec(task.key.id, thumbnail, toTaskRect));
+                }   
+            }   
+            AppTransitionAnimationSpec[] specsArray = new AppTransitionAnimationSpec[specs.size()];
+            specs.toArray(specsArray);
+            return ActivityOptions.makeThumbnailAspectScaleDownAnimation(mDummyStackView,
+                    specsArray, mHandler, null, this);
+        }
+	} //判断对应freeform类型的“Creates the activity options for an app->recents transition.”方法，目前来看大概是生成 	 	
+
+文件4：packages/SystemUI/src/com/android/systemui/recents/model/TaskStack.java
+	方法1：public void moveTaskToStack(Task task, int newStackId) {
+        // Find the index to insert into
+        ArrayList<Task> taskList = mStackTaskList.getTasks();
+        int taskCount = taskList.size();
+        if (!task.isFreeformTask() && (newStackId == FREEFORM_WORKSPACE_STACK_ID)) {
+            // Insert freeform tasks at the front
+            mStackTaskList.moveTaskToStack(task, taskCount, newStackId);
+        } else if (task.isFreeformTask() && (newStackId == FULLSCREEN_WORKSPACE_STACK_ID)) {
+            // Insert after the first stacked task
+            int insertIndex = 0; 
+            for (int i = taskCount - 1; i >= 0; i--) {
+                if (!taskList.get(i).isFreeformTask()) {
+                    insertIndex = i + 1; 
+                    break;
+                }    
+            }    
+            mStackTaskList.moveTaskToStack(task, insertIndex, newStackId);
+        }    
+    } //判断给定的Task应该放入stack还是进入freeform workspace
+	
+文件5：packages/SystemUI/src/com/android/systemui/recents/misc/SystemServicesProxy.java:494
+	方法1：public static boolean isFreeformStack(int stackId) {
+        return stackId == FREEFORM_WORKSPACE_STACK_ID;
+    } //判断给定stack是否为freeformstack
+	
+文件6：services/core/java/com/android/server/am/ActivityRecord.java
+	方法1：boolean isFreeform() {
+        return task != null && task.stack != null 
+                && task.stack.mStackId == FREEFORM_WORKSPACE_STACK_ID;
+    } //用以判断该ActivitRecord对应的TaksRecord是否为FreeForm
+	
+文件7：services/core/java/com/android/server/am/ActivityStarter.java
+	方法1：private ActivityStack computeStackFocus(ActivityRecord r, boolean newTask, Rect bounds,
+            int launchFlags, ActivityOptions aOptions) {
+		...
+        // The fullscreen stack can contain any task regardless of if the task is resizeable
+        // or not. So, we let the task go in the fullscreen task if it is the focus stack.
+        // If the freeform or docked stack has focus, and the activity to be launched is resizeable,
+        // we can also put it in the focused stack.
+        final int focusedStackId = mSupervisor.mFocusedStack.mStackId;
+        final boolean canUseFocusedStack = focusedStackId == FULLSCREEN_WORKSPACE_STACK_ID
+                || (focusedStackId == DOCKED_STACK_ID && r.canGoInDockedStack())
+                || (focusedStackId == FREEFORM_WORKSPACE_STACK_ID && r.isResizeableOrForced());
+        if (canUseFocusedStack && (!newTask
+                || mSupervisor.mFocusedStack.mActivityContainer.isEligibleForNewTasks())) {
+            if (DEBUG_FOCUS || DEBUG_STACK) Slog.d(TAG_FOCUS,
+                    "computeStackFocus: Have a focused stack=" + mSupervisor.mFocusedStack);
+            return mSupervisor.mFocusedStack;
+        }
+		...
+	} //英文注释写的很清楚，用来判断将即将要被focus的activityRecord放入哪个stack
+	
+	方法2：private boolean isValidLaunchStackId(int stackId, ActivityRecord r) {
+        if (stackId == INVALID_STACK_ID || stackId == HOME_STACK_ID
+                || !StackId.isStaticStack(stackId)) {
+            return false; 
+        }           
+                    
+        if (stackId != FULLSCREEN_WORKSPACE_STACK_ID
+                && (!mService.mSupportsMultiWindow || !r.isResizeableOrForced())) {
+            return false;
+        }   
+        
+        if (stackId == DOCKED_STACK_ID && r.canGoInDockedStack()) {
+            return true;
+        }
+        
+        if (stackId == FREEFORM_WORKSPACE_STACK_ID && !mService.mSupportsFreeformWindowManagement) {
+            return false;
+        }               
+                                
+        final boolean supportsPip = mService.mSupportsPictureInPicture
+                && (r.supportsPictureInPicture() || mService.mForceResizableActivities);
+        if (stackId == PINNED_STACK_ID && !supportsPip) {
+            return false;
+        }
+        return true;
+    } //用来判断StackId的加载是否合法。
+	
+文件8：services/core/java/com/android/server/am/ActivityMetricsLogger.java
+	方法1：void logWindowState() {
+		...
+        } else if (stack.mStackId == FREEFORM_WORKSPACE_STACK_ID) {
+            mWindowState = WINDOW_STATE_FREEFORM;
+		}
+		...
+	} //用来判断并记录对应的WindowState
+
+文件9：services/core/java/com/android/server/wm/Task.java
+	方法1：boolean inFreeformWorkspace() {
+        return mStack != null && mStack.mStackId == FREEFORM_WORKSPACE_STACK_ID;
+    } //判断Task是否在FreeFormWorkSpace中。
+	
+文件9：services/core/java/com/android/server/wm/WallpaperController.java
+	方法1：private void findWallpaperTarget(WindowList windows, FindWallpaperTargetResult result) {
+		...
+            if (!inFreeformSpace) {
+                TaskStack stack = w.getStack();
+                inFreeformSpace = stack != null && stack.mStackId == FREEFORM_WORKSPACE_STACK_ID;
+            }
+		...
+        } else if (inFreeformSpace || (replacing && mWallpaperTarget != null)) {
+            // In freeform mode we set the wallpaper as its own target, so we don't need an
+            // additional window to make it visible. When we are replacing a window and there was
+            // wallpaper before replacement, we want to keep the window until the new windows fully
+            // appear and can determine the visibility, to avoid flickering.
+            result.setWallpaperTarget(result.topWallpaper, result.topWallpaperIndex);
+
+        }
+		...
+	} //用来判断壁纸相关内容，具体作用时机和内容尚不明
+	
+文件10：services/core/java/com/android/server/wm/DragResizeMode.java
+	方法1：static boolean isModeAllowedForStack(int stackId, int mode) {
+        switch (mode) {
+            case DRAG_RESIZE_MODE_FREEFORM:
+                return stackId == FREEFORM_WORKSPACE_STACK_ID;
+            case DRAG_RESIZE_MODE_DOCKED_DIVIDER:
+                return stackId == DOCKED_STACK_ID
+                        || stackId == FULLSCREEN_WORKSPACE_STACK_ID
+                        || stackId == HOME_STACK_ID;
+            default:
+                return false;
+        }   
+    } //判断Stack是否允许DragResizeMode，初步认为是拖拽缩放
+	
+文件11：services/core/java/com/android/server/am/TaskRecord.java
+	方法1：/** Updates the task's bounds and override configuration to match what is expected for the
+     * input stack. */
+    void updateOverrideConfigurationForStack(ActivityStack inStack) {
+        if (stack != null && stack == inStack) {
+            return;
+        }    
+
+        if (inStack.mStackId == FREEFORM_WORKSPACE_STACK_ID) {
+            if (!isResizeable()) {
+                throw new IllegalArgumentException("Can not position non-resizeable task="
+                        + this + " in stack=" + inStack);
+            }    
+            if (mBounds != null) {
+                return;
+            }    
+            if (mLastNonFullscreenBounds != null) {
+                updateOverrideConfiguration(mLastNonFullscreenBounds);
+            } else {
+                inStack.layoutTaskInStack(this, null);
+            }    
+        } else {
+            updateOverrideConfiguration(inStack.mBounds);
+        }    
+    } //注释写得比较清楚，大体用来更新Task的边框和设置用来配合Stack属性
+	
+文件12：services/core/java/com/android/server/am/ActivityStack.java
+	方法1：ActivityStack(ActivityStackSupervisor.ActivityContainer activityContainer,
+            RecentTasks recentTasks) {
+        mActivityContainer = activityContainer;
+        mStackSupervisor = activityContainer.getOuter();
+        mService = mStackSupervisor.mService;
+        mHandler = new ActivityStackHandler(mService.mHandler.getLooper());
+        mWindowManager = mService.mWindowManager;
+        mStackId = activityContainer.mStackId;
+        mCurrentUser = mService.mUserController.getCurrentUserIdLocked();
+        mRecentTasks = recentTasks;
+        mTaskPositioner = mStackId == FREEFORM_WORKSPACE_STACK_ID
+                ? new LaunchingTaskPositioner() : null;
+    } //构造函数中用来判断LaunchingTaskPositioner是否需要复制，具体作用尚不明
+	
+	方法2：final void ensureActivitiesVisibleLocked(ActivityRecord starting, int configChanges,
+			boolean preserveWindows) {
+		...
+		if (mStackId == FREEFORM_WORKSPACE_STACK_ID) {
+        // The visibility of tasks and the activities they contain in freeform stack are
+        // determined individually unlike other stacks where the visibility or fullscreen
+        // status of an activity in a previous task affects other.
+        behindFullscreenActivity = stackVisibility == STACK_INVISIBLE;
+        } 
+		...
+	} //判断是否需要隐藏Activities，注释较明确
+	
+文件13：services/core/java/com/android/server/am/ActivityStackSupervisor.java
+	方法1：boolean isUserLockedProfile(@UserIdInt int userId) {
+		...
+            if (activityStack.mStackId == FREEFORM_WORKSPACE_STACK_ID) {
+                // TODO: Only the topmost task should trigger credential confirmation. But first,
+                //       there needs to be a way to block out locked task window surfaces.
+                final List<TaskRecord> tasks = activityStack.getAllTasks();
+                final int size = tasks.size();
+                for (int i = 0; i < size; i++) {
+                    if (taskContainsActivityFromUser(tasks.get(i), userId)) {
+                        return true;
+                    }
+                }
+            } else {
+                final TaskRecord topTask = activityStack.topTask();
+                if (topTask == null) {
+                    continue;
+                }
+                if (taskContainsActivityFromUser(topTask, userId)) {
+                    return true;
+                }
+            }
+		...
+	}// 如果Stack是FreeForm分那个是运行的，则需要对其中所有的Task进行判断用户和这个Task是否对应，否则只需要判断TopTask
+	
+	方法2：void resizeStackUncheckedLocked(ActivityStack stack, Rect bounds, Rect tempTaskBounds,
+            Rect tempTaskInsetBounds) {
+		...
+        for (int i = tasks.size() - 1; i >= 0; i--) {
+            final TaskRecord task = tasks.get(i);
+            if (task.isResizeable()) {
+                if (stack.mStackId == FREEFORM_WORKSPACE_STACK_ID) {
+                    // For freeform stack we don't adjust the size of the tasks to match that
+                    // of the stack, but we do try to make sure the tasks are still contained
+                    // with the bounds of the stack.
+                    tempRect2.set(task.mBounds);
+                    fitWithinBounds(tempRect2, bounds);
+                    task.updateOverrideConfiguration(tempRect2);
+                } else {
+                    task.updateOverrideConfiguration(taskBounds, insetBounds);
+                }
+            }
+
+            mTmpConfigs.put(task.taskId, task.mOverrideConfig);
+            mTmpBounds.put(task.taskId, task.mBounds);
+            if (tempTaskInsetBounds != null) {
+                mTmpInsetBounds.put(task.taskId, tempTaskInsetBounds);
+            }
+        }
+		...
+	} //注释比较明确，用来保证Tasks在resize的同时仍存在于Stack的边界内
+
+	方法3：private boolean restoreRecentTaskLocked(TaskRecord task, int stackId) {
+		...
+        if (stackId == INVALID_STACK_ID) {
+            stackId = task.getLaunchStackId();
+        } else if (stackId == DOCKED_STACK_ID && !task.canGoInDockedStack()) {
+            // Preferred stack is the docked stack, but the task can't go in the docked stack.
+            // Put it in the fullscreen stack. 
+            stackId = FULLSCREEN_WORKSPACE_STACK_ID;
+        } else if (stackId == FREEFORM_WORKSPACE_STACK_ID
+                && mService.mUserController.shouldConfirmCredentials(task.userId)) {
+            // Task is barred from the freeform stack. Put it in the fullscreen stack.
+            stackId = FULLSCREEN_WORKSPACE_STACK_ID;
+        }
+		...
+	} //在存储最近的Task时，如果其原来存在于FREERORM_WORKSPACE，则将其转移到FULLSCREEN_WORKSPACE
