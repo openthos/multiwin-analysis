@@ -1,0 +1,113 @@
+第一类：窗口边框resize分析
+
+1：按住边框触发拖动：
+
+TaskTapPointerEventListener.java：onPointerEvent(MotionEvent motionEvent)
+	-> WindowManagerService.java: handleMessage(Message msg) //接收上一步骤发出的TAP_OUTSIDE_TASK消息
+		-> WindowManagerService.java: handleTapOutsideTask(DisplayContent displayContent, int x, int y)
+			-> WindowManagerService.java: private boolean startPositioningLocked(WindowState win, boolean resize, float startX, float startY) 
+				-> TaskPositioner.java: void startDragLocked(WindowState win, boolean resize, float startX, float startY)
+	
+至此拖动开始
+
+2：拖动缩放过程中：
+	
+TaskPositioner.java: WindowPositionerEventReceiver.onInputEvent(InputEvent event) //处理ACTION_MOVE，获取新的Bounds
+		-> ActivityManagerService.java: void resizeTask(int taskId, Rect bounds, int resizeMode)
+			-> ActivityStackSupervisor.java: boolean resizeTaskLocked(TaskRecord task, Rect bounds, int resizeMode, boolean preserveWindow, boolean deferResume)
+				-> WindowManagerService.java: void resizeTask(int taskId, Rect bounds, Configuration configuration, boolean relayout, boolean forced)
+					-> Task.java: boolean resizeLocked(Rect bounds, Configuration configuration, boolean forced) // 将Bounds设置为最新拖动结果。
+
+在此处不断重新设置Bounds为最新的拖动结果。
+
+3：松开鼠标后：
+
+TaskPositioner.java: WindowPositionerEventReceiver.onInputEvent(InputEvent event) //处理ACTION_UP，将endDrag设置为true
+		-> ActivityManagerService.java: void resizeTask(int taskId, Rect bounds, int resizeMode)
+			-> ActivityStackSupervisor.java: boolean resizeTaskLocked(TaskRecord task, Rect bounds, int resizeMode, boolean preserveWindow, boolean deferResume)
+				-> WindowManagerService.java: void resizeTask(int taskId, Rect bounds, Configuration configuration, boolean relayout, boolean forced)
+					-> Task.java: boolean resizeLocked(Rect bounds, Configuration configuration, boolean forced) //由于松开鼠标时，其Bounds已经进行过处理，此处不处罚boundsChange
+					
+第二类：单机窗口边框最大化分析
+
+1：按住边框触发拖动：
+
+TaskTapPointerEventListener.java：onPointerEvent(MotionEvent motionEvent)
+	-> WindowManagerService.java: handleMessage(Message msg) //接收上一步骤发出的TAP_OUTSIDE_TASK消息
+		-> WindowManagerService.java: handleTapOutsideTask(DisplayContent displayContent, int x, int y)
+			-> WindowManagerService.java: private boolean startPositioningLocked(WindowState win, boolean resize, float startX, float startY) 
+				-> TaskPositioner.java: void startDragLocked(WindowState win, boolean resize, float startX, float startY)
+
+和拖动缩放部分一致
+
+2：松开鼠标：
+
+TaskPositioner.java: WindowPositionerEventReceiver.onInputEvent(InputEvent event) //处理ACTION_UP，将endDrag设置为true
+		-> ActivityManagerService.java: void resizeTask(int taskId, Rect bounds, int resizeMode) 
+			-> ActivityStackSupervisor.java: boolean resizeTaskLocked(TaskRecord task, Rect bounds, int resizeMode, boolean preserveWindow, boolean deferResume)//由于直接松开鼠标，导致bounds为空，出发如下异常：
+			TaskRecord: Received strange task bounds: Rect(0, 0 - 0, 0)
+			TaskRecord: java.lang.Throwable
+			TaskRecord:    at com.android.server.am.TaskRecord.validateBounds(TaskRecord.java:1614)
+			TaskRecord:    at com.android.server.am.ActivityStackSupervisor.resizeTaskLocked(ActivityStackSupervisor.java:2320)
+			TaskRecord:    at com.android.server.am.ActivityManagerService.resizeTask(ActivityManagerService.java:9484)
+			TaskRecord:    at com.android.server.wm.TaskPositioner$WindowPositionerEventReceiver.onInputEvent(TaskPositioner.java:197)
+			TaskRecord:    at android.view.InputEventReceiver.dispatchInputEvent(InputEventReceiver.java:185)
+			TaskRecord:    at android.os.MessageQueue.nativePollOnce(Native Method)
+			TaskRecord:    at android.os.MessageQueue.next(MessageQueue.java:323)
+			TaskRecord:    at android.os.Looper.loop(Looper.java:136)
+			TaskRecord:    at android.os.HandlerThread.run(HandlerThread.java:61)
+			TaskRecord:    at com.android.server.ServiceThread.run(ServiceThread.java:46)
+			导致bounds为空传入下一步。
+				-> WindowManagerService.java: void resizeTask(int taskId, Rect bounds, Configuration configuration, boolean relayout, boolean forced)
+					-> Task.java: boolean resizeLocked(Rect bounds, Configuration configuration, boolean forced) //由于bounds为空，出发其中boolean变量mFullscreen，因此bounds被设置为全屏大小
+
+第三类：最大化按钮
+
+按钮ID为maximize_window，可在资源文件中找到相关xml的使用和布局。
+
+点击：
+
+DecorCaptionView.java: onSingleTapUp(MotionEvent e) //判断mClickTarget为mMaximize按钮
+	-> DecorCaptionView.java: maximizeWindow()
+		-> Activity.java: void exitFreeformMode() throws RemoteException
+			-> ActivityManagerService.java: void exitFreeformMode(IBinder token) throws RemoteException
+				-> ActivityStackSupervisor.java: boolean moveTaskToStackLocked(int taskId, int stackId, boolean toTop, boolean forceFocus, String reason, boolean animate) //这里将目标stackId设置为FULLSCREEN了，因此对应的Task会进入到FULLSCREEN_WORKSPACE中去，变为全屏应用。
+				
+经测试该方法能够反其道而行之，目前为了测试这一内容进行了以下的代码修改：
+
+修改1：修改DecorCaptionView的构建限制，似的FULLSCREEN情况下仍然存在最大化按钮：
+
+         public static boolean hasWindowDecor(int stackId) {
+-            return stackId == FREEFORM_WORKSPACE_STACK_ID;
++            //return stackId == FREEFORM_WORKSPACE_STACK_ID;
++            return true;
+         
+修改2：对exitFreeform方法进行修改，使之变为“判断当前所在StackId，若为FreeForm则进入FULLSCREEN，若为FULLSCREEN则进入FreeForm：
+
+                 }
+                 final ActivityStack stack = r.getStackLocked(token);
+-                if (stack == null || stack.mStackId != FREEFORM_WORKSPACE_STACK_ID) {
+-                    throw new IllegalStateException(
+-                            "exitFreeformMode: You can only go fullscreen from freeform.");
++                //if (stack == null || stack.mStackId != FREEFORM_WORKSPACE_STACK_ID) {
++                //    throw new IllegalStateException(
++                //            "exitFreeformMode: You can only go fullscreen from freeform.");
++                //}
++                if (stack == null) {
++                    throw new IllegalStateException("exitFreeformMode: Stack not found");
+                 }
+                 if (DEBUG_STACK) Slog.d(TAG_STACK, "exitFreeformMode: " + r);
+-                mStackSupervisor.moveTaskToStackLocked(r.task.taskId, FULLSCREEN_WORKSPACE_STACK_ID,
+-                        ON_TOP, !FORCE_FOCUS, "exitFreeformMode", ANIMATE);
++                if (stack.mStackId == FREEFORM_WORKSPACE_STACK_ID) {
++                    mStackSupervisor.moveTaskToStackLocked(r.task.taskId, FULLSCREEN_WORKSPACE_STACK_ID,
++                            ON_TOP, !FORCE_FOCUS, "exitFreeformMode", ANIMATE);
++                } else if (stack.mStackId == FULLSCREEN_WORKSPACE_STACK_ID) {
++                    mStackSupervisor.moveTaskToStackLocked(r.task.taskId, FREEFORM_WORKSPACE_STACK_ID,
++                            ON_TOP, !FORCE_FOCUS, "exitFreeformMode", ANIMATE);
++                }
+             } finally {
+                 Binder.restoreCallingIdentity(ident);
+             }
+			 
+在这种修改下当通过最大化按钮将窗口变为全屏后再次点击最大化按钮，窗口会回复原有的大小（即便经过拖拽缩放也会回复最大化前所处大小而非默认大小）。这说明Multiwindow-7.1对窗口在各个Stack之间切换做的比我们想象的要足够。
