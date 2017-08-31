@@ -1,0 +1,327 @@
+屏幕朝向——窗口尺寸 7.1实现分析
+
+试用效果：
+
+当应用启动后，若处于FreeformStack则会根据当前窗口的大小来调整config中的以下4个属性
+
+CONFIG_ORIENTATION, CONFIG_SCREEN_LAYOUT, CONFIG_SCREEN_SIZE, CONFIG_SMALLEST_SCREEN_SIZE
+
+Config修改了哪些内容可以通过Configuration.java中的configurationDiffToString（int diff）方法来获取。diff可以通过Configuration类的diff(Configuration delta)方法来获取。
+
+应用举例：
+
+config a; config b;
+int diff = a.diff(b);//获取两个config的差异信息
+Log.d(TAG, "diff of a and b is " + Configuration.configurationDiffToString(diff));
+
+输出形式举例：diff of a and b is {CONFIG_ORIENTATION, CONFIG_SCREEN_LAYOUT, CONFIG_SCREEN_SIZE, CONFIG_SMALLEST_SCREEN_SIZE}
+
+在ActivityStack的ensureActivityConfigurationLocked方法中，当得到一个新的config时会将其与Activity原本的config内容进行对比，并在打开log的情况下输出上述内容。从上述内容我们可以看出，7.1的Freeform情况下，系统会根据窗口大小灵活赋予应用朝向（orientation），尺寸级别（screenLayout），屏幕大小（screenSize）和最小屏幕大小（smallestScreenSize）。因此若应用能正确处理这4项config内容，便能够在freeform状态下根据窗口大小获得正确的资源文件显示。也就是在不改变系统根据窗口大小处理Activity的config的方式的前提下，应用若由于运行于freeform情况下而无法正确加载资源，其原因基本可以归结于应用对上述内容的支持不够，或对应的资源加载并非受上述项的制约。个人认为这属于应用的设计问题。
+
+同时，在Freeform模式下，setRequestedOrientation方法是无效的，会直接返回，相关代码如下：
+public void setRequestedOrientation(IBinder token, int requestedOrientation) {
+ ...
+              ActivityRecord r = ActivityRecord.isInStackLocked(token);
+			  TaskRecord task = r.task;
+              if (task != null && (!task.mFullscreen || !task.stack.mFullscreen)) {
+                  // Fixed screen orientation isn't supported when activities aren't in full screen
+                  // mode.
+                  return;
+              }
+ ...
+ }
+
+个人认为，虽然这是谷歌对于应用的一种导向设计，让应用在freeform情况下不要调用这一方法。但对于我们来说，这一方法有必须在多窗口情况下处理的价值，因此仍需考虑实现。实现方法可以再讨论。
+下面是个人对7.1-multiwindow在几种触发config改变的操作发生时，config内容的变化路线的一些分析。
+
+7.1-multiwindow中能过触发config变化的操作目前来看主要由窗口缩放，Task所在Stack的变化，窗口刷新以及全屏（即单窗口）情况下的对config的修改相关操作（例如字体，语言，朝向等等）。对于全屏情况和窗口刷新的内容个人认为不属于多窗口涉及的范畴，因此在这里主要对窗口缩放和Task所属Stack变化所引起的config变化进行分析。
+
+窗口缩放：
+首先通过各种缩放触发ActivityStackSupervisor.resizeTaskLocked方法，在之前的文档中分析过不再细说。
+boolean resizeTaskLocked(TaskRecord task, Rect bounds, int resizeMode, boolean preserveWindow, boolean deferResume) {
+	...
+		bounds = TaskRecord.validateBounds(bounds);
+        final Configuration overrideConfig =  task.updateOverrideConfiguration(bounds);
+        // This variable holds information whether the configuration didn't change in a significant
+        // way and the activity was kept the way it was. If it's false, it means the activity had
+        // to be relaunched due to configuration change.
+        boolean kept = true;
+        if (overrideConfig != null) {
+            final ActivityRecord r = task.topRunningActivityLocked();
+            if (r != null) {
+                final ActivityStack stack = task.stack;
+                kept = stack.ensureActivityConfigurationLocked(r, 0, preserveWindow);
+
+                if (!deferResume) {
+
+                    // All other activities must be made visible with their correct configuration.
+                    ensureActivitiesVisibleLocked(r, 0, !PRESERVE_WINDOWS);
+                    if (!kept) {
+                        resumeFocusedStackTopActivityLocked();
+                    }
+                }
+            }
+        }
+	...
+	}
+	
+上述代码主要完成了两个部分内容。第一部分是updateOverrideConfiguration，通过Task的Bounds改变了OverrideConfiguration的内容，该方法在经过一系列判断后会调用calculateOverrideConfig来计算新的config内容，当该内容与原有config内容不一致的时候便会将其返回，得到上述代码中的overrideConfig变量，但可以看到这一变量在这个方法中是不会被我们之前提到过的关键方法ensureActivityConfigurationLocked调用的，这个config实际上是通过在task的updateOverrideConfiguration方法中直接付给task的成员变量mOverrideConfig的，而这个变量将会是之后关键方法获取config的源头。首先对calculateOverrideConfig方法进行一下分析，具体代码节选如下：
+
+    private Configuration calculateOverrideConfig(Rect bounds, Rect insetBounds,
+                                                  boolean overrideWidth, boolean overrideHeight) {
+	...
+        // For calculating screenWidthDp, screenWidthDp, we use the stable inset screen area,
+        // i.e. the screen area without the system bars.
+        final Configuration serviceConfig = mService.mConfiguration;
+        final Configuration config = new Configuration(Configuration.EMPTY);
+        // TODO(multidisplay): Update Dp to that of display stack is on.
+        final float density = serviceConfig.densityDpi * DisplayMetrics.DENSITY_DEFAULT_SCALE;
+        config.screenWidthDp =
+                Math.min((int)(mTmpStableBounds.width() / density), serviceConfig.screenWidthDp);
+        config.screenHeightDp =
+                Math.min((int)(mTmpStableBounds.height() / density), serviceConfig.screenHeightDp);
+
+        // TODO: Orientation?
+        config.orientation = (config.screenWidthDp <= config.screenHeightDp)
+                ? Configuration.ORIENTATION_PORTRAIT
+                : Configuration.ORIENTATION_LANDSCAPE;
+
+        // Always set fontScale to be euqal to global. Can't set to 0, as that makes the override
+        // config not equal to EMPTY. Also can't set to 1, as Configuration.updateFrom will use
+        // the override scale as long as it's non-zero, and we'll always use 1.
+        config.fontScale = serviceConfig.fontScale;
+
+        // For calculating screen layout, we need to use the non-decor inset screen area for the
+        // calculation for compatibility reasons, i.e. screen area without system bars that could
+        // never go away in Honeycomb.
+        final int compatScreenWidthDp = (int)(mTmpNonDecorBounds.width() / density);
+        final int compatScreenHeightDp = (int)(mTmpNonDecorBounds.height() / density);
+        final int sl = Configuration.resetScreenLayout(serviceConfig.screenLayout);
+        final int longSize = Math.max(compatScreenHeightDp, compatScreenWidthDp);
+        final int shortSize = Math.min(compatScreenHeightDp, compatScreenWidthDp);;
+        config.screenLayout = Configuration.reduceScreenLayout(sl, longSize, shortSize);
+		
+		
+        config.smallestScreenWidthDp = mService.mWindowManager.getSmallestWidthForTaskBounds(
+                insetBounds != null ? insetBounds : bounds);
+        return config;
+    }
+
+上述代码的注释写的还是很清楚的。在缩放的情况下进入到这里时参数inInsetBounds都是为null的。因此上述内容都是通过之前获取的bounds进行计算。在计算宽高的dp值之后，根据宽高的DP值来计算朝向和显示大小，之后根据Bounds和朝向来计算最小宽度。之后将这个config交还，并赋给task.mOverrideConfig。
+
+之后是关键方法stack.ensureActivityConfigurationLocked的分析，由于该方法比较长，这里采取在代码中添加一些中文注解的方式来进行分析说明：
+
+    boolean ensureActivityConfigurationLocked(
+            ActivityRecord r, int globalChanges, boolean preserveWindow) {
+        if (mConfigWillChange) {//这个变量为true说明config正在被修改，因此放弃目前获取的这个修改
+            if (DEBUG_SWITCH || DEBUG_CONFIGURATION) Slog.v(TAG_CONFIGURATION,
+                    "Skipping config check (will change): " + r);
+            return true;
+        }
+
+        if (DEBUG_SWITCH || DEBUG_CONFIGURATION) Slog.e(TAG_CONFIGURATION,
+                "Ensuring correct configuration: " + r, new Exception());
+
+        // Short circuit: if the two configurations are equal (the common case), then there is
+        // nothing to do.
+        final Configuration newConfig = mService.mConfiguration;
+        r.task.sanitizeOverrideConfiguration(newConfig);
+        final Configuration taskConfig = r.task.mOverrideConfig;//由于OverrideConfig本身只处理最开始说的4类config信息，当做为config文件进行类似资源获取等操作时，需要对比系统config来保证其完整性。
+		
+        if (r.configuration.equals(newConfig)
+                && r.taskConfigOverride.equals(taskConfig)
+                && !r.forceNewConfig) {//若同时满足上述判断条件这说明该Activity没有更新config的必要
+            if (DEBUG_SWITCH || DEBUG_CONFIGURATION) Slog.v(TAG_CONFIGURATION,
+                    "Configuration unchanged in " + r);
+            return true;
+        }
+
+        // We don't worry about activities that are finishing.
+        if (r.finishing) {//不对正在结束的Activity进行config的更新
+            if (DEBUG_SWITCH || DEBUG_CONFIGURATION) Slog.v(TAG_CONFIGURATION,
+                    "Configuration doesn't matter in finishing " + r);
+            r.stopFreezingScreenLocked(false);
+            return true;
+        }
+
+        // Okay we now are going to make this activity have the new config.
+        // But then we need to figure out how it needs to deal with that.
+        final Configuration oldConfig = r.configuration;
+        final Configuration oldTaskOverride = r.taskConfigOverride;//备份旧的config进行对比
+        r.configuration = newConfig;
+        r.taskConfigOverride = taskConfig;//将新的config正是赋给目前处理的ActivityRecord
+
+        int taskChanges = getTaskConfigurationChanges(r, taskConfig, oldTaskOverride);//获取Task关心的config类的diff情况
+        final int changes = oldConfig.diff(newConfig) | taskChanges;//获取总体config变化情况
+        if (changes == 0 && !r.forceNewConfig) {//若未发生变化则说明config彼此之间没有直接区别，但仍会将其报给系统进行修改。
+            if (DEBUG_SWITCH || DEBUG_CONFIGURATION) Slog.v(TAG_CONFIGURATION,
+                    "Configuration no differences in " + r);
+            // There are no significant differences, so we won't relaunch but should still deliver
+            // the new configuration to the client process.
+            r.scheduleConfigurationChanged(taskConfig, true);//对全局进行config更新
+            return true;
+        }
+
+        if (DEBUG_SWITCH || DEBUG_CONFIGURATION) Slog.v(TAG_CONFIGURATION,
+                "Configuration changes for " + r + " ; taskChanges="
+                        + Configuration.configurationDiffToString(taskChanges) + ", allChanges="
+                        + Configuration.configurationDiffToString(changes));
+
+        // If the activity isn't currently running, just leave the new
+        // configuration and it will pick that up next time it starts.
+        if (r.app == null || r.app.thread == null) {
+            if (DEBUG_SWITCH || DEBUG_CONFIGURATION) Slog.v(TAG_CONFIGURATION,
+                    "Configuration doesn't matter not running " + r);
+            r.stopFreezingScreenLocked(false);
+            r.forceNewConfig = false;
+            return true;
+        }
+
+        // Figure out how to handle the changes between the configurations.
+        if (DEBUG_SWITCH || DEBUG_CONFIGURATION) Slog.v(TAG_CONFIGURATION,
+                "Checking to restart " + r.info.name + ": changed=0x"
+                + Integer.toHexString(changes) + ", handles=0x"
+                + Integer.toHexString(r.info.getRealConfigChanged()) + ", newConfig=" + newConfig
+                + ", taskConfig=" + taskConfig);
+
+        if ((changes&(~r.info.getRealConfigChanged())) != 0 || r.forceNewConfig) {//changes我们看到了是上面得到的改动内容，getRealConfigChanged是Activity能够自行处理的改动内容。当两者存在差异时，说明目前的config变化Activity不能够直接处理，因此要通过对Activity生命周期操作的方法进行处理，具体处理方法就是这一部分代码块。
+            // Aha, the activity isn't handling the change, so DIE DIE DIE.
+            r.configChangeFlags |= changes;
+            r.startFreezingScreenLocked(r.app, globalChanges);
+            r.forceNewConfig = false;
+            preserveWindow &= isResizeOnlyChange(changes);//若仅仅是发生了最开始描述4类修改时，认为是可以保留当前Window的
+            if (r.app == null || r.app.thread == null) {//无效Activity
+                if (DEBUG_SWITCH || DEBUG_CONFIGURATION) Slog.v(TAG_CONFIGURATION,
+                        "Config is destroying non-running " + r);
+                destroyActivityLocked(r, true, "config");
+            } else if (r.state == ActivityState.PAUSING) {
+                // A little annoying: we are waiting for this activity to finish pausing. Let's not
+                // do anything now, but just flag that it needs to be restarted when done pausing.
+                if (DEBUG_SWITCH || DEBUG_CONFIGURATION) Slog.v(TAG_CONFIGURATION,
+                        "Config is skipping already pausing " + r);
+                r.deferRelaunchUntilPaused = true;
+                r.preserveWindowOnDeferredRelaunch = preserveWindow;
+                return true;
+            } else if (r.state == ActivityState.RESUMED) {
+                // Try to optimize this case: the configuration is changing and we need to restart
+                // the top, resumed activity. Instead of doing the normal handshaking, just say
+                // "restart!".
+                if (DEBUG_SWITCH || DEBUG_CONFIGURATION) Slog.v(TAG_CONFIGURATION,
+                        "Config is relaunching resumed " + r);
+
+                if (DEBUG_STATES && !r.visible) {
+                    Slog.v(TAG_STATES, "Config is relaunching resumed invisible activity " + r
+                            + " called by " + Debug.getCallers(4));
+                }
+
+                relaunchActivityLocked(r, r.configChangeFlags, true, preserveWindow);//重新加载Activity适应新的Config
+            } else {
+                if (DEBUG_SWITCH || DEBUG_CONFIGURATION) Slog.v(TAG_CONFIGURATION,
+                        "Config is relaunching non-resumed " + r);
+                relaunchActivityLocked(r, r.configChangeFlags, false, preserveWindow);
+            }
+
+            // All done...  tell the caller we weren't able to keep this activity around.
+            return false;//无论作何处理，Activity均需要resume
+        }
+
+        // Default case: the activity can handle this new configuration, so hand it over.
+        // NOTE: We only forward the task override configuration as the system level configuration
+        // changes is always sent to all processes when they happen so it can just use whatever
+        // system level configuration it last got.
+        r.scheduleConfigurationChanged(taskConfig, true);//执行config的修改，并调用Activity的onConfigurationChanged方法来让Activity自行处理
+        r.stopFreezingScreenLocked(false);
+
+        return true;
+    }
+	
+通过分析结合注释应该能够比较轻松的看懂这段代码。其主要目的是根据全局config和task的config来考虑通过重新加载Activity的方式还是让Activity自行处理的方式来更新Activity的config。若重新加载在之后会调用resumeFocusedStackTopActivityLocked方法，若交由Activity处理则通过Activity中的onConfiguration方法来完成。至于scheduleConfigurationChanged和relaunchActivityLocked这些方法的具体内容个人认为和多窗口无关，我们只需要知道这两个方法分别是实现修改config并调用Activity处理和修改config并重新加载Activity处理的功能即可。若今后有必要会进一步进行分析。
+
+上面就是通过窗口缩放所导致的Config变化的处理方式。下面对Task所在Stack发生变化的情况进行分析。
+
+对于Task所在Stack发生变化的情况，目前系统中存在的仅为exitFreeformMode方法。由于exitFreeFormMode这一方法之前的文档已经分析过，这里不再进行分析。这一方法会有两个方式去调用上面提到过的ensureActivityConfigurationLocked方法。
+
+第一个方式的调用链是
+ActivityManagerService.exitFreeformMode
+	-> ActivityStackSupervisor.moveTaskToStackLocked
+		-> ActivityStackSupervisor.resizeTaskLocked
+			-> ActivityStack.ensureActivityConfigurationLocked
+
+第二个方式的调用链是
+ActivityManagerService.exitFreeformMode
+	-> ActivityStackSupervisor.moveTaskToStackLocked
+		-> ActivityStackSupervisor.ensureActivitiesVisibleLocked
+			-> ActivityStack.ensureActivitiesVisibleLocked
+				-> ActivityStack.ensureActivityConfigurationLocked
+
+可以看出方法1实质上和之前提到的调用方式是一致的，这里需要注意的在当从FreeFormStack转向FullScreenStack的过程中resizeTaskLocked所接受的Bounds会是空，因此拿到的overrideConfig会是空，Activity的Config会直接变为系统的Config。但OverrideConfig并不会因此被抹掉，当Task再次来到FreeFormStack时便会调用之前的OverrideConfig来再一次计算Task独有的Config。并保持与之前存在与FreeFormStack时所使用的一致。
+
+对于第二个调用方式则是在ensureActivitiesVisibleLocked中调用，下面对其进行分析。
+
+首先来看moveTaskStackLocked的调用：
+
+    boolean moveTaskToStackLocked(int taskId, int stackId, boolean toTop, boolean forceFocus,
+            String reason, boolean animate) {
+        return moveTaskToStackLocked(taskId, stackId, toTop, forceFocus, reason, animate,
+                false /* deferResume */);
+    } 
+
+在exitFreeFormMode方法中调用的是上述方法，进而继续调用，可以看出通过这一条路径调用时，deferResume均为false。
+
+下面看moveTaskToStackLocked对ensureActivitiesVisibleLocked的调用
+
+
+    boolean moveTaskToStackLocked(int taskId, int stackId, boolean toTop, boolean forceFocus,
+            String reason, boolean animate, boolean deferResume) {
+		...
+        if (!deferResume) {
+
+            // The task might have already been running and its visibility needs to be synchronized with
+            // the visibility of the stack / windows.
+            ensureActivitiesVisibleLocked(null, 0, !mightReplaceWindow);
+            resumeFocusedStackTopActivityLocked();
+        }
+		...
+	}
+
+正如之前所说，在exitFreeFormMode的调用情况下，每一次都会执行ensureActivitiesVisibleLocked，下面看ensureActivitiesVisibleLocked的具体内容：
+
+ActivityStackSupervisor.void ensureActivitiesVisibleLocked(ActivityRecord starting, int configChanges,
+            boolean preserveWindows) {
+        // First the front stacks. In case any are not fullscreen and are in front of home.
+        for (int displayNdx = mActivityDisplays.size() - 1; displayNdx >= 0; --displayNdx) {
+            final ArrayList<ActivityStack> stacks = mActivityDisplays.valueAt(displayNdx).mStacks;
+            final int topStackNdx = stacks.size() - 1;
+            for (int stackNdx = topStackNdx; stackNdx >= 0; --stackNdx) {
+                final ActivityStack stack = stacks.get(stackNdx);
+                stack.ensureActivitiesVisibleLocked(starting, configChanges, preserveWindows);
+            }
+        }
+    }
+
+调用每一个ActivityStack并分别调用他们的ensureActivitiesVisibleLocked方法，真正处理的是ActivityStack的该方法：
+ActivityStack. final void ensureActivitiesVisibleLocked(ActivityRecord starting, int configChanges,
+            boolean preserveWindows) {
+		...
+		for (int taskNdx = mTaskHistory.size() - 1; taskNdx >= 0; --taskNdx) {    
+			final TaskRecord task = mTaskHistory.get(taskNdx);
+            final ArrayList<ActivityRecord> activities = task.mActivities;
+            for (int activityNdx = activities.size() - 1; activityNdx >= 0; --activityNdx) {
+				...
+                if (shouldBeVisible(r, behindTranslucentActivity, stackVisibleBehind,
+                        visibleBehind, behindFullscreenActivity)) {
+                    if (r != starting) {
+                        ensureActivityConfigurationLocked(r, 0, preserveWindows);
+                    }
+					...
+				}
+				...
+			}
+			...
+		}
+		...
+	}
+
+其中shouldBeVisible用来判断当前处理的ActivityRecord是否可见，具体内容与当前分析内容关系不大。在其可见的情况下便会调用ensureActivityConfigurationLocked去处理。这里要注意判断条件r != starting。对于exitFreeFormMode方法所调用的该方法而言，starting永远是null的，因此每一个可见的ActivityRecord都一定会进入该分支并触发ensureActivityConfigurationLocked。
+
+目前7.1-multiwindow在改变config方面的内容分析只有这些，各位有什么觉得需要补充或者完善的内容可以随时联系交流，不明白或不清楚甚至不正确的地方也欢迎指出。
