@@ -11,7 +11,7 @@
 
 ## 二、窗口层级结构
   - Android7.1窗口自带阴影效果；
-  - 设计窗口层级结构逻辑：DecorCaptionView与DecorView所属关系
+  - 设计窗口层级结构逻辑：DecorCaptionView与DecorView层级关系
 
 ## 三、窗口的移动、缩放
   - Android7.1原生已实现窗口的拖动、缩放；
@@ -26,6 +26,7 @@
 # 多窗口设计问题
 
 ## 窗口的层级结构
+  - DecorCaptionView与DecorView层级关系重新设计；
 
 ## 窗口拖动、缩放
 
