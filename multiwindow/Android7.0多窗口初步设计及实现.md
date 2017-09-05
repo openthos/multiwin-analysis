@@ -11,14 +11,14 @@
 
 ## 二、窗口层级结构
   - Android7.1窗口自带阴影效果；
-  - 设计窗口层级结构逻辑：Header、Border与Decor所属关系
+  - 设计窗口层级结构逻辑：DecorCaptionView与DecorView所属关系
 
 ## 三、窗口的移动、缩放
   - Android7.1原生已实现窗口的拖动、缩放；
   - 需解决窗口缩放存在的问题：缩放过程中窗口抖动；
 
 ## 四、窗口全屏显示
-  - 设计窗口全屏显示逻辑。
+  - 设计窗口全屏显示逻辑：设计全屏窗口所属ActivityStack（FullScreen_Stack或者FreeForm_Stack）。
 
 ## 五、应用运行适配
   - 适配第三方应用
