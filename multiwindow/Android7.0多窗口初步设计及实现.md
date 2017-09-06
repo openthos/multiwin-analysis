@@ -26,12 +26,16 @@
 # 多窗口设计问题
 
 ## 窗口的层级结构
-  - DecorCaptionView与DecorView层级关系重新设计；
+  - DecorCaptionView与DecorView层级关系设计；
 
 ## 窗口拖动、缩放
+  - Android7.1 原生缩放存在抖动问题，对比Openthos5.1缩放没有此问题，考虑设计“线缩”；
 
 ## 窗口全屏显示
+  - 全屏窗口所属Activitystack设计：FullScreen_Stack或者FreeForm_Stack
 
 ## PhoneStatusBar整体设计
+  - 任务栏整体设计
 
 ## Alt + Tab显示应用
+  - 对比原生Android7.1的Alt + Tab窗口显示，考虑重新设计或者在原有基础上改动；
