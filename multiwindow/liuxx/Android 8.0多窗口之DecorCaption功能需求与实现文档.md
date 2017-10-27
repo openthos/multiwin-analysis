@@ -3,7 +3,7 @@
 ## 内容：
   - 功能需求
   - 设计实现
-  - 存在问题
+  - 重点问题
   
 ### 功能需求:
   - 原生Android8.0 DecorCaption上自带关闭和全屏功能，对比Openthos5.1需增加的功能如下:
@@ -64,7 +64,7 @@
           -> View.getViewTreeObserver().addOnGlobalLayoutListener(new OnGlobalLayoutListener());<br />
           //此方法需要注意：OnGlobalLayoutListener可能会被多次触发，因此在完成实现后，要将OnGlobalLayoutListener注销掉。
 
-### 存在问题
+### 重点问题
   - 1.DecorCaptionView界面UI
     - 原生Android8.0：界面背景色是透明的，在focus和unfocus状态下，颜色会相应改变，关闭和全屏按钮的drawable使用的是矢量图片
     - Openthos5.1： 界面背景色是固定的颜色，且在focus和unfocus状态下，颜色不会相应改变，功能按钮的drawable使用的是png图片
