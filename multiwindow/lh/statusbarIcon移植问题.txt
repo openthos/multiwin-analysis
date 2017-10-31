@@ -1,0 +1,11 @@
+statusbarIcon部分移植文档（先完成移植文档过后会完成设计开发文档）
+
+statusbarIcon由于要频繁与StatusBar进行交互因此采用了通过代码卸载StatusBar.java方法中的方式来实现。
+
+移植过程中主要问题来自于两点：
+
+1.8.0系统中对Task在不同Stack中切换的方法进行了一定的修改，移植过程中在最小化方面遇到了一些由于该问题引起的困难
+
+2.NavigationBar使用Fragment导致openthos_statusbar的设计变更，进而导致合并代码的时候有一些困难
+
+此外，虽然没有造成直接困难，但还是想要提醒一下。ActivityManagerNative虽然不会产生作用了但某些方法还能够通过其进行回调，编译、使用很可能都不会出问题，单从发展方向的角度看还是应该避免使用这一方法了。
