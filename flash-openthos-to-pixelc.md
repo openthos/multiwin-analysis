@@ -16,9 +16,9 @@ repo sync
 
 1.在源码目录下执行：
 
-. build/envsetup.sh
-lunch aosp_dragon-userdebug
-make -j$(线程数) otapackage
+	. build/envsetup.sh
+	lunch aosp_dragon-userdebug
+	make -j$(线程数) otapackage
 
 编译完成后的otapackage为在out/target/product/dragon/aosp_dragon-ota-eng.root.zip
 
