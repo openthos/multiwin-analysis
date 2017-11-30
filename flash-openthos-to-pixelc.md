@@ -50,7 +50,11 @@ make -j$(线程数) otapackage
 
 ## 开启多窗口：
 
-进入系统，开启开发者模式并打开USB debugging，之后在PC端执行 adb shell "settings put global enable_freeform_support 1", 并重启设备
+进入系统，开启开发者模式并打开USB debugging，之后在PC端执行
+
+adb shell "settings put global enable_freeform_support 1"
+
+重启设备
 
 ## 已知问题：
 
