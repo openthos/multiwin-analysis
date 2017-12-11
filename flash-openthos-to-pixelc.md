@@ -14,15 +14,15 @@ repo sync
 
 ## 编译并获取升级包：
 
-1.在源码目录下执行：
+1.找到位于源码目录/build/tools/releasetools/下的ota_from_target_files.py文件，将其中大约在201行的script.AssertDevice(device)删除。以此来避免硬件检测。
+
+2.在源码目录下执行：
 
 	. build/envsetup.sh
 	lunch aosp_dragon-userdebug
 	make -j$(线程数) otapackage
 
 编译完成后的otapackage为在out/target/product/dragon/aosp_dragon-ota-eng.root.zip
-
-之后将[update-binary](https://github.com/openthos/multiwin-analysis/blob/master/pixel-c/update-binary)文件替换压缩包中位于META-INF\com\google\android目录下的同名文件。
 
 到此我们得到了用于刷写openthos的otapackage
 
