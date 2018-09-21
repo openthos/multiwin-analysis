@@ -7,3 +7,5 @@
   - phonewindow的初始化是在Activity方法attach中实现的，针对特殊应用，可以在此处判断、过滤，初始化不同的PhoneWindow。
 
 2.DecorView是activity窗口的根视图，针对特殊应用，设计两个特殊的DecorView，一个real-DecorView（继承DecorView）作为activity窗口的根视图，被WindowManager管理，另一个fake-DecorView（继承Framelayout），应用getDecorView时提供此fake-DecorView。这样可以避免应用更改real-DecorView的结构。
+
+  - DecorView的初始化是在PhoneWindow中方法generateDecor，需要修改次方法返回real-DecorView，而fake-DecorView的初始化在DecorView的onResourcesLoaded方法中。
