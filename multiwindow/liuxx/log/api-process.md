@@ -19,4 +19,7 @@
         DeviceInfoCollector.getCPtr(deviceInfoCollector), deviceInfoCollector, SystemInfo.getCPtr(systeminfo), systeminfo)
   - AndroidDeviceInfoCollector.java中收集device info，包括OsInfo、DisplayInfo、CpuInfo、GpuInfo、MultiGpuInfo、MemoryInfo
   、StorageInfo、BatteryInfo等信息，应用获取CpuInfo，StorageInfo方式，
-  - 通过demo测试，在运行不正常的设备S1上，同样可以获取到CpuInfo，StorageInfo的信息
+  
+4.通过demo测试，在运行不正常的设备S1上，同样可以获取到CpuInfo，StorageInfo等的信息，且通过对比，在正常、不正常版本上java 方法的调用过程相同，
+  获取的device info也相同，最终决定 应用能否初始化成功的方法“status.goog()“是libnetman_jni.so库中的函数，方法”status.goog()“在so库中的具体
+  实现无法抓取，从而无法定位到问 题的关键点。
