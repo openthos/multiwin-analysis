@@ -1,11 +1,15 @@
-## GFXBench OpenGL在oto2.0使用问题汇总
+## GFXBench OpenGL在oto2.0问题汇总
 
 ### 运行环境
 1.openthos2.0
 
 ### 运行问题
-1.kernel版本>4.15，在S1、AMD设备上，打开应用，一段时间后出现“missing parameters”字段，然后提示“无法连接到服务器”，S1、AMD设备的明显的共同点：
-硬盘都是nvme
+1.在S1、AMD设备上，打开应用，一段时间后出现“missing parameters”字段，然后提示“无法连接到服务器”.
+    
+    在kernel4.16正常，4.16.y不正常；
+    在kernel4.17正常，4.17.y不正常；
+    在kernel4.18正常，4.18.y不正常；
+    在kernel4.19不正常。
 
 2.openthos2.0版本2.0.0.181106 kernel版本>4.18, 在T45设备上，打开应用，在测试跑分过程中，弹出“应用停止运行”信息，在最后一项测试结果中显示“out of memory”字段。
 
