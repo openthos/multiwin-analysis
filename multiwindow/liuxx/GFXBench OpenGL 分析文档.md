@@ -72,6 +72,9 @@
         *在kernel4.18正常，4.18.y不正常；
             First bad commit dcd1b109
         *在kernel4.19不正常。
+        
+    - [kernel4.19-4.18 bisect.log记录](https://github.com/openthos/multiwinanalysis/blob/master/multiwindow/liuxx/log/bisect.log)
+    
     基本上，每个branch的first bad commit都不同，而且直接将bad commit在该branch的tip做revert，也无法修正问题，这表示可能有多重原因造成此问题
  
  - 通过指令”strace -p `ps | grep com.glbenchmark.glbenchmark27 | awk '{print $2}'` -o /data/gl.txt“，来分析kernel4.18 和
