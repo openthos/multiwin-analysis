@@ -1,0 +1,30 @@
+# bad: [72f02ba66bd83b54054da20eae550123de84da6f] Merge tag 'scsi-misc' of git://git.kernel.org/pub/scm/linux/kernel/git/jejb/scsi
+# good: [94710cac0ef4ee177a63b5227664b38c95bbf703] Linux 4.18
+git bisect start '72f02ba' '94710ca'
+# bad: [0a957467c5fd46142bc9c52758ffc552d4c5e2f7] x86: i8259: Add missing include file
+git bisect bad 0a957467c5fd46142bc9c52758ffc552d4c5e2f7
+# bad: [958f338e96f874a0d29442396d6adf9c1e17aa2d] Merge branch 'l1tf-final' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip
+git bisect bad 958f338e96f874a0d29442396d6adf9c1e17aa2d
+# bad: [85a0b791bc17f7a49280b33e2905d109c062a47b] Merge branch 'for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/s390/linux
+git bisect bad 85a0b791bc17f7a49280b33e2905d109c062a47b
+# good: [8603596a327c978534f5c45db135e6c36b4b1425] Merge branch 'perf-core-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip
+git bisect good 8603596a327c978534f5c45db135e6c36b4b1425
+# bad: [eac341194426ba7ead3444923b9eba491ae4feeb] Merge branch 'x86/pti' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip
+git bisect bad eac341194426ba7ead3444923b9eba491ae4feeb
+# bad: [30de24c7dd21348b142ee977b687afc70b392af6] Merge branch 'x86-cache-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip
+git bisect bad 30de24c7dd21348b142ee977b687afc70b392af6
+# good: [36f49ca8ca6d786936f48b874d30fded5b2b7bd9] Merge branch 'x86-cleanups-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip
+git bisect good 36f49ca8ca6d786936f48b874d30fded5b2b7bd9
+# good: [e0bdfe8e36f3fbbdc91e70bf927f743ca23917b0] x86/intel_rdt: Support creation/removal of pseudo-locked region
+git bisect good e0bdfe8e36f3fbbdc91e70bf927f743ca23917b0
+# bad: [f4990264565c2ccb8f193d22aad3b429eceee1ef] Merge branch 'x86-hyperv-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip
+git bisect bad f4990264565c2ccb8f193d22aad3b429eceee1ef
+# good: [110d2a7fc39725d2c29d2fede4f34a35a4f98882] x86/hyper-v: Check for VP_INVAL in hyperv_flush_tlb_others()
+git bisect good 110d2a7fc39725d2c29d2fede4f34a35a4f98882
+# bad: [7796916146b8c34cbbef66470ab8b5b28cf47e83] Merge branch 'x86-cpu-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip
+git bisect bad 7796916146b8c34cbbef66470ab8b5b28cf47e83
+# good: [cc9aec03e58fea4dbab04c05d1e15852f801ca53] x86/numa_emulation: Introduce uniform split capability
+git bisect good cc9aec03e58fea4dbab04c05d1e15852f801ca53
+# bad: [301d328a6f8b53bb86c5ecf72db7bc178bcf1999] x86/cpufeatures: Add EPT_AD feature bit
+git bisect bad 301d328a6f8b53bb86c5ecf72db7bc178bcf1999
+# first bad commit: [301d328a6f8b53bb86c5ecf72db7bc178bcf1999] x86/cpufeatures: Add EPT_AD feature bit
