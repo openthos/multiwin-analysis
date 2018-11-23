@@ -47,6 +47,9 @@
   
     通过logcat -v threadtime 分别抓取了设备S1上kernel4.18版本、kernel4.19版本log，对比两个log，两者没有区别，两个kernel版本下获取的device info（包括cpu、gpu、内存、显卡、电池等）都是相同的，排除device info与应用的关联。
     
+    - [kernel4.18抓取log](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/liuxx/log/log-4.18.txt)
+    - [kernel4.19抓取log](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/liuxx/log/log-4.19.txt)
+    
   - 通过反汇编apk，协助分析问题
   
     使用jadx工具，反汇编apk，分析应用初始化方法调用流程，尝试定位问题，最终结果发现应用java代码调用流程，在正常、不正常版本下都一样，最终决定
@@ -73,6 +76,9 @@
  
  - 通过指令”strace -p `ps | grep com.glbenchmark.glbenchmark27 | awk '{print $2}'` -o /data/gl.txt“，来分析kernel4.18 和
  kernel4.19应用在不同kernel和不同硬件的syscall记录，通过对比syscall来协助分析问题。
+ 
+   - [kernel4.18 syscall记录](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/liuxx/log/gl4.18.txt)
+   - [kernel4.19 syscall记录](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/liuxx/log/gl4.19.txt)
  
         
         
