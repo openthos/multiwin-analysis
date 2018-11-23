@@ -1,7 +1,7 @@
 ## GFXBench OpenGL在oto2.0问题汇总
 
 ### 运行环境
-1.openthos2.0
+1.openthos2.0，aosp8.1
 
 ### 运行问题
 1.在S1、AMD设备上，打开应用，一段时间后出现“missing parameters”字段，然后提示“无法连接到服务器”.
