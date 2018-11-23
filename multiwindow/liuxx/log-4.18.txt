@@ -1,0 +1,245 @@
+5668  5696 D systeminfo: Failed to load cbjni: dalvik.system.PathClassLoader[DexPathList[[zip file "/data/app/com.glbenchmark.glbenchmark27-1/base.apk"],nativeLibraryDirectories=[/data/app/com.glbenchmark.glbenchmark27-1/lib/x86_64, /vendor/lib64, /system/lib64]]] couldn't find "libcbjni.so"
+5668  5696 I Device Info: {"api/egl/features/EGL_CLIENT_APIS":"OpenGL_ES","api/egl/features/EGL_EXTENSIONS":"EGL_ANDROID_image_native_buffer EGL_ANDROID_presentation_time EGL_ANDROID_recordable EGL_EXT_create_context_robustness EGL_KHR_create_context EGL_KHR_fence_sync EGL_KHR_get_all_proc_addresses EGL_KHR_gl_renderbuffer_image EGL_KHR_gl_texture_2D_image EGL_KHR_gl_texture_cubemap_image EGL_KHR_image EGL_KHR_image_base EGL_KHR_reusable_sync EGL_KHR_wait_sync","api/egl/features/EGL_VENDOR":"Android","api/egl/features/EGL_VERSION":"1.4 Android META-EGL","api/egl/features/configs/0/EGL_ALPHA_MASK_SIZE":"0","api/egl/features/configs/0/EGL_ALPHA_SIZE":"8","api/egl/features/configs/0/EGL_BIND_TO_TEXTURE_RGB":"1","api/egl/features/configs/0/EGL_BIND_TO_TEXTURE_RGBA":"1","api/egl/features/configs/0/EGL_BLUE_SIZE":"8","api/egl/features/configs/0/EGL_BUFFER_SIZE":"32","api/egl/features/configs/0/EGL_COLOR_BUFFER_TYPE":"EGL_RGB_BUFFER","api/egl/features/configs/0/EGL_CONFIG_CAVEAT":"EGL_NONE","api/egl/features/configs/0/EGL_CONFIG_ID":"1","api/egl/features/configs/0/EGL_CONFORMANT":"EGL_OPENGL_ES_BIT|EGL_OPENGL_ES2_BIT|EGL_OPENGL_ES3_BIT","api/egl/features/configs/0/EGL_DEPTH_SIZE":"0","api/egl/features/configs/0/EGL_GREEN_SIZE":"8","api/egl/features/configs/0/EGL_LEVEL":"0","api/egl/features/configs/0/EGL_LUMINANCE_SIZE":"0","api/egl/features/configs/0/EGL_MAX_PBUFFER_HEIGHT":"4096","api/egl/features/configs/0/EGL_MAX_PBUFFER_PIXELS":"0","api/egl/features/configs/0/EGL_MAX_PBUFFER_WIDTH":"4096","api/egl/features/configs/0/EGL_MAX_SWAP_INTERVAL":"1","api/egl/features/configs/0/EGL_MIN_SWAP_INTERVAL":"0","api/egl/features/configs/0/EGL_NATIVE_RENDERABLE":"1","api/egl/features/configs/0/EGL_NATIVE_VISUAL_ID":"1","api/egl/features/configs/0/EGL_NATIVE_VISUAL_TYPE":"1","api/egl/features/configs/0/EGL_RED_SIZE":"8","api/egl/features/configs/0/EGL_RENDERABLE_TYPE":"EGL_OPENGL_ES_BIT|EGL_OPENGL_ES2_BIT|EGL_OPENGL_ES3_BIT","api/egl/features/configs/0/EGL_SAMPLES":"0","api/egl/features/configs/0/EGL_SAMPLE_BUFFERS":"0","api/egl/features/configs/0/EGL_STENCIL_SIZE":"0","api/egl/features/configs/0/EGL_SURFACE_TYPE":"EGL_PBUFFER_BIT|EGL_WINDOW_BIT","api/egl/features/configs/0/EGL_TRANSPARENT_BLUE_VALUE":"0","api/egl/features/configs/0/EGL_TRANSPARENT_GREEN_VALUE":"0","api/egl/features/configs/0/EGL_TRANSPARENT_RED_VALUE":"0","api/egl/features/configs/0/EGL_TRANSPARENT_TYPE":"EGL_NONE","api/egl/features/configs/1/EGL_ALPHA_MASK_SIZE":"0","api/egl/features/configs/1/EGL_ALPHA_SIZE":"8","api/egl/features/configs/1/EGL_BIND_TO_TEXTURE_RGB":"1","api/egl/features/configs/1/EGL_BIND_TO_TEXTURE_RGBA":"1","api/egl/features/configs/1/EGL_BLUE_SIZE":"8","api/egl/features/configs/1/EGL_BUFFER_SIZE":"32","api/egl/features/configs/1/EGL_COLOR_BUFFER_TYPE":"EGL_RGB_BUFFER","api/egl/features/configs/1/EGL_CONFIG_CAVEAT":"EGL_NONE","api/egl/features/configs/1/EGL_CONFIG_ID":"2","api/egl/features/configs/1/EGL_CONFORMANT":"EGL_OPENGL_ES_BIT|EGL_OPENGL_ES2_BIT|EGL_OPENGL_ES3_BIT","api/egl/features/configs/1/EGL_DEPTH_SIZE":"24","api/egl/features/configs/1/EGL_GREEN_SIZE":"8","api/egl/features/configs/1/EGL_LEVEL":"0","api/egl/features/configs/1/EGL_LUMINANCE_SIZE":"0","api/egl/features/configs/1/EGL_MAX_PBUFFER_HEIGHT":"4096","api/egl/features/configs/1/EGL_MAX_PBUFFER_PIXELS":"0","api/egl/features/configs/1/EGL_MAX_PBUFFER_WIDTH":"4096","api/egl/features/configs/1/EGL_MAX_SWAP_INTERVAL":"1","api/egl/features/configs/1/EGL_MIN_SWAP_INTERVAL":"0","api/egl/features/configs/1/EGL_NATIVE_RENDERABLE":"1","api/egl/features/configs/1/EGL_NATIVE_VISUAL_ID":"1","api/egl/features/configs/1/EGL_NATIVE_VISUAL_TYPE":"1","api/egl/features/configs/1/EGL_RED_SIZE":"8","api/egl/features/configs/1/EGL_RENDERABLE_TYPE":"EGL_OPENGL_ES_BIT|EGL_OPENGL_ES2_BIT|EGL_OPENGL_ES3_BIT","api/egl/features/configs/1/EGL_SAMPLES":"0","api/egl/features/configs/1/EGL_SAMPLE_BUFFERS":"0","api/egl/features/configs/1/EGL_STENCIL_SIZE":"8","api/egl/features/configs/1/EGL_SURFACE_TYPE":"EGL_PBUFFER_BIT|EGL_WINDOW_BIT","api/egl/features/configs/1/EGL_TRANSPARENT_BLUE_VALUE":"0","api/egl/featu
+5668  5696 D Device Info: Properties succesfully saved
+5668  5696 I _logcat_: Trying to add configuration: name     - Basic android
+5668  5696 I _logcat_:                              flags    - 2
+5668  5696 I _logcat_: Comparing to configuration flags...
+5668  5696 I _logcat_:  - Flag: 1
+5668  5696 I _logcat_:  - Flag: 2
+5668  5696 I _logcat_: Match found!
+5668  5696 I _logcat_: Selecting configuration: Basic android
+5668  5696 I _logcat_: Selecting configuration: 0
+5668  5696 I _logcat_: Updating test gl_4 availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_4_off availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_manhattan311_wqhd_off availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_manhattan31 availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_manhattan31_off availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_manhattan availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_manhattan_off availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_trex availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_trex_off availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_tess availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_tess_off availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_alu2 availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_alu2_off availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_driver2 availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_driver2_off availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_fill2 availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_fill2_off availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_trex_qmatch availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_trex_qmatch_highp availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_manhattan31_battery availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 I _logcat_: Updating test gl_trex_battery availability for config Basic android
+5668  5696 I _logcat_: Compatible
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_bitcoin" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_bullet" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_facedetect" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_facedetect_img" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_facedetect_img_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_fft" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_fluid_32k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_fluid_32k_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_fluid_4k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_fluid_4k_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_fluid_64k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_fractal_juliaset" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_fractal_juliaset_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_gauss_buff" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_gauss_img" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_gauss_img_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_hdr" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_histogram_buff" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_histogram_img" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_histogram_img_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_image_filters" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_lsseg_128" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_lsseg_256" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_nbody_1024k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_nbody_128k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_ocean" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_opticalflow_tvl1" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_raytrace_ambocc" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_raytrace_ambocc_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_raytrace_kcl" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_raytrace_raycast" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_raytrace_raycast_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_sss_1cam" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_sss_3cam" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_subdiv_l3" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_subdiv_l5" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_tone_map_2k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_tone_map_4k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_tvl1" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_vcm" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cl_video_proc" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_facedetect_img" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_facedetect_img_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_fluid_32k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_fluid_32k_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_fluid_4k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_fluid_4k_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_fractal_juliaset" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_fractal_juliaset_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_gauss_img" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_gauss_img_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_histogram_img" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_histogram_img_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_raytrace_ambocc" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_raytrace_ambocc_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_raytrace_raycast" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cs_raytrace_raycast_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_facedetect_img" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_facedetect_img_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_fluid_32k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_fluid_32k_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_fluid_4k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_fluid_4k_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_fractal_juliaset" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_fractal_juliaset_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_gauss_img" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_gauss_img_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_histogram_img" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_histogram_img_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_lsseg_128" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_lsseg_256" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_nbody_1024k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_nbody_128k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_ocean" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_raytrace_ambocc" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_raytrace_ambocc_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_raytrace_raycast" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_raytrace_raycast_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_sss_1cam" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_sss_3cam" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_subdiv_l3" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_subdiv_l5" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_tone_map_2k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_tone_map_4k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_tvl1" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "cu_vcm" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx12_5_high" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx12_5_high_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx12_5_normal" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx12_5_normal_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_5_high" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_5_high_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_5_normal" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_5_normal_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_alu" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_alu_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_blending" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_blending_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_driver" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_driver_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_fill" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_fill_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_manhattan" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_manhattan_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_trex" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_trex_battery" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_trex_battery_" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_trex_battery__" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_trex_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_trex_qmatch" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "dx_trex_qmatch_highp" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_5_high" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_5_high_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_5_normal" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_5_normal_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_alu" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_alu_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_blending" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_blending_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_driver" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_driver_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_fill" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_fill_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_manhattan31_battery_" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_manhattan31_battery__" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_trex_battery_" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "gl_trex_battery__" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_4" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_4_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_5_high" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_5_high_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_5_normal" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_5_normal_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_alu" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_alu2" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_alu2_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_alu_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_blending" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_blending_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_driver" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_driver2" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_driver2_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_driver_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_fill" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_fill2" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_fill2_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_fill_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_manhattan" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_manhattan31" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_manhattan311_wqhd_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_manhattan31_battery" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_manhattan31_battery_" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_manhattan31_battery__" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_manhattan31_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_manhattan_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_trex" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_trex_battery" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_trex_battery_" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_trex_battery__" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_trex_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_trex_qmatch" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "metal_trex_qmatch_highp" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_facedetect_img" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_facedetect_img_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_fluid_32k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_fluid_32k_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_fluid_4k" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_fluid_4k_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_fractal_juliaset" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_fractal_juliaset_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_gauss_img" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_gauss_img_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_histogram_img" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_histogram_img_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_raytrace_ambocc" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_raytrace_ambocc_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_raytrace_raycast" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "mtl_raytrace_raycast_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "rs_facedetect_legacy" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "rs_fluid_32k_legacy" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "rs_fluid_4k_legacy" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "rs_fractal_juliaset_legacy" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "rs_gauss_intr_legacy" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "rs_gauss_legacy" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "rs_histogram_intr_legacy" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "rs_histogram_legacy" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "rs_raytrace_ambocc_legacy" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "rs_raytrace_raycast_legacy" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "vulkan_5_high" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "vulkan_5_high_off" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "vulkan_5_normal" not found.
+5668  5696 E UploadDeviceInfoTask: Error during disabling tests: Test "vulkan_5_normal_off" not found.
