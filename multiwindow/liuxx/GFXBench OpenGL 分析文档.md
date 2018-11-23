@@ -52,4 +52,26 @@
     使用jadx工具，反汇编apk，分析应用初始化方法调用流程，尝试定位问题，最终结果发现应用java代码调用流程，在正常、不正常版本下都一样，最终决定
     应用能否初始化成功的方法“status.goog()“是libnetman_jni.so库中的函数，方法”status.goog()“在so库中的具体实现无法抓取，从而无法定位到问
     题的关键点。
+    
+  - 通过bisect定位kernel中bad commit
+  
+    刚开始测试kernel4.16.3不正常，kernel4.15正常，通过bisect kernel4.16.3 kernel4.15定位bad commit56913b1，但是通过测试kernel4.16
+    、4.17、4.18都是正常的，kernel4.19不正，猜测bisect可能误判了，重新bisect kernel4.19 kernel4.18定位到bad commit301d328，最终定位的
+    结果：
+    
+        *在kernel4.16正常，4.16.y不正常；
+            First bad commit 56913b1
+        *在kernel4.17正常，4.17.y不正常；
+            First bad commit ?? (未確認)
+        *在kernel4.18正常，4.18.y不正常；
+            First bad commit dcd1b109
+        *在kernel4.19不正常。
+    基本上，每个branch的first bad commit都不同，而且直接将bad commit在该branch的tip做revert，也无法修正问题，这表示可能有多重原因造成此问题
+ 
+ - 通过指令”“
+        
+        
+        
+        
+        
 
