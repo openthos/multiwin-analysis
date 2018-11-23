@@ -53,6 +53,9 @@
     应用能否初始化成功的方法“status.goog()“是libnetman_jni.so库中的函数，方法”status.goog()“在so库中的具体实现无法抓取，从而无法定位到问
     题的关键点。
     
+  - 通过反汇编apk获取应用全部文件，尝试通过Android studio运行应用，借助debug调试来协助分析问题，由于一些应用没有gradle，Android studio无法
+  运行应用，可以尝试通过eclipse运行应用，协助调试。
+  
   - 通过bisect定位kernel中bad commit
   
     刚开始测试kernel4.16.3不正常，kernel4.15正常，通过bisect kernel4.16.3 kernel4.15定位bad commit56913b1，但是通过测试kernel4.16
@@ -68,7 +71,9 @@
         *在kernel4.19不正常。
     基本上，每个branch的first bad commit都不同，而且直接将bad commit在该branch的tip做revert，也无法修正问题，这表示可能有多重原因造成此问题
  
- - 通过指令”strace -p `ps | grep com.glbenchmark.glbenchmark27 | awk '{print $2}'` -o /data/gl.txt“，来分析kernel4.18 和 kernel4.19应用在不同kernel和不同硬件的syscall记录，通过对比syscall来协助分析问题。
+ - 通过指令”strace -p `ps | grep com.glbenchmark.glbenchmark27 | awk '{print $2}'` -o /data/gl.txt“，来分析kernel4.18 和
+ kernel4.19应用在不同kernel和不同硬件的syscall记录，通过对比syscall来协助分析问题。
+ 
         
         
         
