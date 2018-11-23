@@ -68,7 +68,7 @@
         *在kernel4.19不正常。
     基本上，每个branch的first bad commit都不同，而且直接将bad commit在该branch的tip做revert，也无法修正问题，这表示可能有多重原因造成此问题
  
- - 通过指令”“
+ - 通过指令”strace -p `ps | grep com.glbenchmark.glbenchmark27 | awk '{print $2}'` -o /data/gl.txt“，来分析kernel4.18 和 kernel4.19应用在不同kernel和不同硬件的syscall记录，通过对比syscall来协助分析问题。
         
         
         
