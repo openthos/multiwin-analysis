@@ -56,6 +56,8 @@
     应用能否初始化成功的方法“status.goog()“是libnetman_jni.so库中的函数，方法”status.goog()“在so库中的具体实现无法抓取，从而无法定位到问
     题的关键点。
     
+    - [GFXBench apk 反汇编调用流程](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/liuxx/log/api-process.md)
+    
   - 通过反汇编apk获取应用全部文件，尝试通过Android studio运行应用，借助debug调试来协助分析问题，由于一些应用没有gradle，Android studio无法
   运行应用，可以尝试通过eclipse运行应用，协助调试。
   
