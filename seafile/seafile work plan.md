@@ -1,6 +1,10 @@
 # 2018-12-03 ~ 2018-12-07
 ## 萧络元
 - feature： DATA和UserConfig都有特殊属性
+    - 特殊属性的Library不可删除，不可重命名
+    - 增加接口返回特殊属性的Library，增加list-remote-a
+    - UserConfig的特殊属性具备隐藏功能
+    - 新建用户的初始模板默认创建这两个特殊属性的Library
 ## 罗浩
 - bug： Oauth验证踢掉其他客户端的问题
 - feature：  服务器单用户设置空间限制，单用户默认10G
@@ -9,6 +13,13 @@
 - bug： 目前云服务无法通过文件管理器上传、删除和变更文件，可能和当前版本的kernel没有inotify有关
 ## 卢宁
 - bug： 通知中心显示有时和实际状态不一致
+## 张善民
+- seafile windows client端编译
+## 赵鹏宇 董鹏
+- 根据seafile的流程，出一套seafile client的ui图
+## 刘晓旭
+- 补充测试报告文档
+- 补充seafile需求文档
 
 # 2018-11-26 ~ 2018-11-30
 ## 萧络元
