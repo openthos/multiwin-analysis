@@ -1,8 +1,11 @@
 # service：
-  - 服务器不能创建同名库
-  - DATA和UserConfig这两个库不可删除，不可重命名
+  
+  - DATA和UserConfig这两个库不可删除，不可重命名 （可以理解为DATA和UserConfig都有特殊属性）
   - 修改创建账号的默认模板（新建账号，默认创建DATA和UserConfig）
   - UserConfig设置隐藏属性，并修改list-remote和增加list-remote-a
+  - 服务器单用户设置空间限制，单用户默认10G
+  
+  - 服务器不能创建同名库（可能不需要做，如果能完美避免出现两个DATA和UserConfig）
 
 # client：
 ## seafile keeper
@@ -23,8 +26,11 @@
   - 去掉密码
 
 # 综合：
-  - Oauth验证踢掉其他客户端的问题
+  
   - 目前云服务无法通过文件管理器上传、删除和变更文件，可能和当前版本的kernel没有inotify有关
 
 # 备份还原
   - 应用的还原（由于应用商店的应用太少，暂时搁置）
+  
+# 已解决
+  - Oauth验证踢掉其他客户端的问题 ----- 罗浩18-12-04
