@@ -1,10 +1,10 @@
 # service：
-  
-  - DATA和UserConfig这两个库不可删除，不可重命名 （可以理解为DATA和UserConfig都有特殊属性）
-  - 修改创建账号的默认模板（新建账号，默认创建DATA和UserConfig）
-  - UserConfig设置隐藏属性，并修改list-remote和增加list-remote-a
+  - feature： DATA和UserConfig都有特殊属性（具体工作如下）
+    - 特殊属性的Library不可删除，不可重命名
+    - 增加接口返回特殊属性的Library，增加list-remote-a
+    - UserConfig的特殊属性具备隐藏功能
+    - 新建用户的初始模板默认创建这两个特殊属性的Library
   - 服务器单用户设置空间限制，单用户默认10G
-  
   - 服务器不能创建同名库（可能不需要做，如果能完美避免出现两个DATA和UserConfig）
 
 # client：
