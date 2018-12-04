@@ -25,9 +25,12 @@
   - 通知中心显示有时和实际状态不一致
   - 设置中修改openthos服务器为235或158，无法再将服务器切回dev，仍显示之前的服务器
   - 去掉密码
+  
+# 其他
+  - seafile windows client端编译
+  - seafile client的UI图
 
 # 综合：
-  
   - 目前云服务无法通过文件管理器上传、删除和变更文件，可能和当前版本的kernel没有inotify有关
 
 # 备份还原
