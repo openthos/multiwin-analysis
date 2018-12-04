@@ -26,6 +26,13 @@
   - 设置中修改openthos服务器为235或158，无法再将服务器切回dev，仍显示之前的服务器
   - 去掉密码
   
+# openthos cloud
+  - 仿onedriveUI（手机版，桌面版）
+  - 增加注册入口
+  - 版权声明：seafile的开源协议要求
+  - 配置文件里锁定服务器域名，gui中不提供更改，但通过某些方法可以手工修改
+  - 使用于所有的android环境（手机，openthos等）
+  
 # 其他
   - seafile windows client端编译
   - seafile client的UI图
