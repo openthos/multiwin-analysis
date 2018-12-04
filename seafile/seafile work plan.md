@@ -6,7 +6,6 @@
 - feature：  服务器单用户设置空间限制，单用户默认2G
 - feature： DATA和UserConfig都有特殊属性
     - 特殊属性的Library不可删除，不可重命名
-    - 增加接口返回特殊属性的Library，增加list-remote-a
     - UserConfig的特殊属性具备隐藏功能
 ## 王之旭
 - bug： 云服务备份还原
