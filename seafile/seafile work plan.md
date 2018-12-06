@@ -4,10 +4,8 @@
 ## 罗浩
 - bug： Oauth验证踢掉其他客户端的问题
 - feature：  服务器单用户设置空间限制，单用户默认2G
-- feature： DATA和UserConfig都有特殊属性
-    - 特殊属性的Library不可删除，不可重命名
-    - 增加接口返回特殊属性的Library，增加list-remote-a
-    - UserConfig的特殊属性具备隐藏功能
+- feature： DATA和UserConfig设置特殊属性
+- clone状态打断后不能正常工作
 ## 王之旭
 - bug： 云服务备份还原
 - bug： 目前云服务无法通过文件管理器上传、删除和变更文件，可能和当前版本的kernel没有inotify有关
