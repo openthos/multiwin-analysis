@@ -1,6 +1,6 @@
 # service：
   - feature： DATA和UserConfig都有特殊属性（具体工作如下）
-    - 新建用户的初始模板默认创建这两个特殊属性的Library
+    
 
 # client：
 ## seafile deamon
@@ -48,4 +48,6 @@
   - 特殊属性的Library不可删除，不可重命名 ----- 罗浩 18-12-05
   - 增加接口返回特殊属性的Library，增加list-remote-a ----- 罗浩 18-12-05
   - UserConfig的特殊属性具备隐藏功能 ----- 罗浩 18-12-05
+  - 新建用户的初始模板默认创建DATA和.UserConfig ----- 肖洛元 18-12-06
+  - openthos cloud 仿onedrive UI （桌面版） ----- 赵鹏宇 18-12-06
 
