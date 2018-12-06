@@ -3,6 +3,9 @@
     - 新建用户的初始模板默认创建这两个特殊属性的Library
 
 # client：
+## seafile deamon
+  - clone状态打断后不能正常工作
+
 ## seafile keeper
   - 增加容量检查 80% 90% 两道门槛
     - 增加到80%，提醒用户清理
