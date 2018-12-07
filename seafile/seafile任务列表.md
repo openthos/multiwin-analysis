@@ -1,3 +1,7 @@
+# server
+- 禁用分享
+- 网页修改
+
 # client：
 ## seafile keeper
   - 增加容量检查 80% 90% 两道门槛
