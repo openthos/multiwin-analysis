@@ -1,7 +1,3 @@
-# service：
-  - feature： DATA和UserConfig都有特殊属性（具体工作如下）
-    
-
 # client：
 ## seafile keeper
   - 增加容量检查 80% 90% 两道门槛
@@ -9,7 +5,6 @@
     - 达到90%同步停止，并告知用户
     - 降低到80%，重新启动运行
   - 去掉初始化DATA和UserConfig的代码
-
   - 保存数据中去掉密码
   
 ## seafile GUI
@@ -48,4 +43,6 @@
   - 新建用户的初始模板默认创建DATA和.UserConfig ----- 肖洛元 18-12-06
   - openthos cloud 仿onedrive UI （桌面版） ----- 赵鹏宇 18-12-06
   - clone状态下被打断后，提供继续正常运行云服务功能的操作 ----- 罗浩 18-12-06
+  - 首次配置登录云服务帐号后，会卡在初始化壁纸进不了桌面 ----- 王之旭 18-12-06
+  - 没有正常挂载documents和pictures目录 ----- 王之旭 18-12-06 
 
