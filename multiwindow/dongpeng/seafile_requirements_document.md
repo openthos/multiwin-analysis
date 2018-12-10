@@ -26,7 +26,7 @@
     - 完成app启动动画的实现
     - 完成登录页面的布局的重构
     - 完成了seafile app 页面启动的顺序，规避了原有逻辑
-    - [项目效果图]()
+    - [项目效果图](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_%E7%9B%AE%E5%89%8D%E8%BF%9B%E5%B1%95%E6%95%88%E6%9E%9C%E5%9B%BE.md)
     
   - 2018／12／10-2018／12／14
     - 主要任务 实现seafiel app主页面 左右布局分离
