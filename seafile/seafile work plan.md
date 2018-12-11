@@ -22,6 +22,7 @@
 - 了解seaf-cli源码, 修改脚本，增加容量检查机制
 ## 张善民
 - seafile windows client端编译
+- seafile windows client修改UI一版桌面版
 ## 赵鹏宇
 - 根据seafile的流程，出一套seafile client的ui图(配合完善细节）
 ## 董鹏
