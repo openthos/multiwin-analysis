@@ -52,3 +52,5 @@
   - seaf-cli更新至6.2.8 ----- 罗浩 18-12-11
   - seafile client的UI图 ----- 赵鹏宇 18-12-11
   - seafile windows client端编译 ----- 张善民 18-12-11
+  - seafile 重启需要再给一次账号的问题 ----- 王之旭 18-12-12
+  
