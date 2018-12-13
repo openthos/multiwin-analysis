@@ -4,7 +4,7 @@
 - keeper：clone状态打断容错代码（token失效引起） ----- 卢宁
 - 235服务器无法使用 ----- 王之旭
 - 首次配置的登录openthos id没有服务器选项，只能登dev的账号 ----- 卢宁
-- openthos cloud 
+- openthos cloud ----- 董鹏
   - 需求文档
   - 设计文档
   - 源码
