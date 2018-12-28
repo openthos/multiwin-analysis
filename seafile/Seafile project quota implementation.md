@@ -33,9 +33,9 @@
               此时可以看到dir project id已经设置为123了，而没有明确设定的project id的文件默认为0。与此同时，此时的dir目录并没有project id的继承属性，在该目录下创建的文件不会继承父目录的project id
       - 下面通过设置P属性开启dir目录的project id继承属性：
         - chattr +P /mnt/dir, 这样在dir目录下新创建的文件或子目录都将有用dir的project id，P继承属性也会同时继承，不过设置之前的不会改变。
-    - 配置project quota限额
+    - 4.配置project quota限额
       - setquota -P 123 soft_limit hard_limit inode-softlimit inode-hardlimit /dev/block/sdb1
-    - 限额溢出演示
+    - 5.限额溢出演示
       - repquota -P /dev/block/sdb1
       
             *** Report for project quotas on device /dev/block/sdb1
@@ -46,3 +46,5 @@
             #123      --       4   10240   20480              2     5    10
 
       
+
+[Ext4 Project Quota磁盘配额使用参考](https://blog.csdn.net/luckyapple1028/article/details/75754591)
