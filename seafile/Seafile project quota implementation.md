@@ -40,11 +40,9 @@
       
             *** Report for project quotas on device /dev/block/sdb1
             Block grace time: 00:05; Inode grace time: 00:05
-                        Block limits                File limits
             Project         used    soft    hard  grace    used  soft  hard  grace
             ----------------------------------------------------------------------
             #0        --      20            0           0              2     0     0       
             #123      --       4   10240   20480              2     5    10
-            --------------------- 
 
       
