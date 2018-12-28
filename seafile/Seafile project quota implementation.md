@@ -35,4 +35,16 @@
         - chattr +P /mnt/dir, 这样在dir目录下新创建的文件或子目录都将有用dir的project id，P继承属性也会同时继承，不过设置之前的不会改变。
     - 配置project quota限额
       - setquota -P 123 soft_limit hard_limit inode-softlimit inode-hardlimit /dev/block/sdb1
+    - 限额溢出演示
+      - repquota -P /dev/block/sdb1
+      
+            *** Report for project quotas on device /dev/block/sdb1
+            Block grace time: 00:05; Inode grace time: 00:05
+                        Block limits                File limits
+            Project         used    soft    hard  grace    used  soft  hard  grace
+            ----------------------------------------------------------------------
+            #0        --      20            0           0              2     0     0       
+            #123      --       4   10240   20480              2     5    10
+            --------------------- 
+
       
