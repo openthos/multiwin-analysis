@@ -8,8 +8,7 @@
 ### 实现
   - openthos 2.0 增加Ext4 Project Quota磁盘配额支持
     - 通过project quota 对seafile本地空间设置soft limit、hard limit，以达到seafile本地空间增加容量检查 80% 90% 两道门槛需求
-  - openthos现内核配置quota netlink选项已经打开，安装时使用project quota特性格式化data分区，启动时将使用prjquota特性挂载data分区
-  ，prjquota挂载选项表示project quota的limit功能已经自动开启，毋需quotaon或quotaoff进行额外开关操作，具体实现：
+  - openthos现内核配置quota netlink选项已经打开，安装时使用project quota特性格式化data分区，启动时将使用prjquota特性挂载data分区，prjquota挂载选项表示project quota的limit功能已经自动开启，毋需quotaon或quotaoff进行额外开关操作，具体实现：
     - 1.先配置好运行环境
       - 设置环境变量：
         - export LD_LIBRARY_PATH=$PWD/system/lib （只在找不到运行库时设置，默认不用设置）
