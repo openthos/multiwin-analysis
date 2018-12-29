@@ -22,12 +22,12 @@
         - chattr -p 666 /mnt/dir 
         - lsattr -p /mnt
         
-              123 --------------e---- /mnt/dir
-              此时可以看到dir project id已经设置为123了，而没有明确设定的project id的文件默认为0。与此同时，此时的dir目录并没有project id的继承属性，在该目录下创建的文件不会继承父目录的project id
+              666 --------------e---- /mnt/dir
+              此时可以看到dir project id已经设置为666了，而没有明确设定的project id的文件默认为0。与此同时，此时的dir目录并没有project id的继承属性，在该目录下创建的文件不会继承父目录的project id
       - 下面通过设置P属性开启dir目录的project id继承属性：
         - chattr +P /mnt/dir, 这样在dir目录下新创建的文件或子目录都将有用dir的project id，P继承属性也会同时继承，不过设置之前的不会改变。
     - 3.配置project quota限额
-      - setquota -P 123 soft_limit hard_limit inode-softlimit inode-hardlimit /dev/block/sdb1
+      - setquota -P 666 soft_limit hard_limit inode-softlimit inode-hardlimit /dev/block/sdb1
     - 4.限额溢出演示
       - repquota -P /dev/block/sdb1
       
@@ -36,9 +36,43 @@
             Project         used    soft    hard  grace    used  soft  hard  grace
             ----------------------------------------------------------------------
             #0        --      20            0           0              2     0     0       
-            #123      --       4   10240   20480              2     5    10
-
+            #666      --       4   10240   20480              2     5    10
+    - 5.查看设备分区配额是否打开：
+      - quotaon -Ppv /dev/sdb3
+    - 6.查看id为666的配额详细情况：
+      - quota -P -s 666
+    - 7.查看设备分区的配额详细情况：
+      - repquota -P /dev/sdb3
+  - 通过netlink接受配额警告或错误信息
+    - quota_nld  -DFb；命令默认会把信息输出到stdio,可以把输出定向到tmpfs文件，监听文件变化即可。
+    - 这里openthos使用的是project quota而不是user/group quota，而官方版本project quota不支持向终端输出报警信息，这里patch后会把报警信息都输出
+    - 格式：
+      Warning|Error|Info: Type:project User:xxx <警告内容>
+    - <警告内容>包括：
+        
+          "file limit reached" 到了inode硬限
       
+          "file quota exceeded too long" inode软限超时
+
+          "file quota exceeded" 到了inode软限
+
+          "block limit reached" 到了block硬限
+
+          "block quota exceeded too long" block软限超时
+
+          "block quota exceeded" 到了block软限
+
+          "got below file limit" 降到了inode硬限以下
+
+          "got below file quota" 降到了inode软限以下
+
+          "got below block limit" 降到了block硬限以下
+
+          "got below block quota" 降到了block软限以下
+
+          "unknown quota warning" 未知警告
+
+
 
 ### 参考文档
 [Ext4 Project Quota磁盘配额使用参考](https://blog.csdn.net/luckyapple1028/article/details/75754591)
