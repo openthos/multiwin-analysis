@@ -23,8 +23,8 @@
           - 页面左对齐 
           - 添加账户按钮位置微调
           ```java
-          //触发添加帐号按钮
-          android.accounts.AccountManager.addAccount();
+          //触发添加帐号按钮,交由系统AccountManager处理 原有逻辑
+          android.accounts.AccountManager.addAccount(string,string,string[] ,Bundle,activity,AccountManagerCallback<Bundle>);
           ```
         - 选择服务器页面
           - 去掉seafile 服务器
