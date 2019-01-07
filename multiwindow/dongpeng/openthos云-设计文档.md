@@ -22,6 +22,10 @@
           - 添加openthos云 logo
           - 页面左对齐 
           - 添加账户按钮位置微调
+          ```java
+          //触发添加帐号按钮
+          android.accounts.AccountManager.addAccount();
+          ```
         - 选择服务器页面
           - 去掉seafile 服务器
         - 登录页面
