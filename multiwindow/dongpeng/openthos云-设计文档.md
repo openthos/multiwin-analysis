@@ -23,7 +23,7 @@
           - 页面左对齐 
           - 添加账户按钮位置微调
           ```java
-          //触发添加帐号按钮,交由系统AccountManager处理 原有逻辑
+          //触发添加帐号按钮,由系统AccountManager处理帐号安全问题 （原有逻辑）
           android.accounts.AccountManager.addAccount(string,string,string[] ,Bundle,activity,AccountManagerCallback<Bundle>);
           ```
         - 选择服务器页面
@@ -36,6 +36,21 @@
             
 ### 主页面
   - 主页面布局设计:
+  ```java
+  <LinearLayout
+      ... 
+      android:orientation="horizontal" >
+      
+      <!-- left menu-->
+      <LinearLayout>
+      </LinearLayout>
+      
+      <!-- right menu -->
+      <LinearLayout>
+      </LinearLayout>
+      
+   </LinearLayout>   
+  ```
     - 线性布局的横向展示
     - 添加title 快捷操作条目
     - 左右分栏 ，左边展示资料库，最近修改，暂定
