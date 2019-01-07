@@ -10,8 +10,8 @@
       - 右侧数据展示
     
 ### 登录
-    - 首次登录继续使用原有逻辑，登录到主页面进行第一次token为空判断，代码设计如下：
-      - 判断令牌token是否为空 ，为空进入 添加账户页面，选择服务器页面， 登录页面
+  - 首次登录继续使用原有逻辑，登录到主页面进行第一次token为空判断，代码设计如下：
+    - 判断令牌token是否为空 ，为空进入 添加账户页面，选择服务器页面， 登录页面
       ```java
       if (account == null | !account.hasValidToken()) { //return !textUtils.isEmpty(token)
           finishAndStartAccountActivity();
