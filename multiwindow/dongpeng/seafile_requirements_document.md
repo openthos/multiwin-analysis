@@ -4,6 +4,7 @@
     - 项目简介
     - openthos云 功能清单
     - 功能需求
+    - 设计
     - 存在问题
     - 项目进展
 
@@ -23,7 +24,7 @@
 |×| 实现seafile住页面左右分栏效果|界面|0%|
 |×| 添加文件上传下载功能|界面|0%|
 
-
+# [设计](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/openthos_cloud_design_document.md)
 
 # 项目进展
   - 2018／12／03-2018／12／07
