@@ -41,6 +41,15 @@
     - 左右分栏 ，左边展示资料库，最近修改
     - 右边展示: 左边条目对应的data
     
+
+   
+   
+### 资料库
+  - 资料库分为 : 桌面版本 和 android手机版本
+  
+###### 桌面版本
+  - 左边listView + 右边fragment
+  
   ```java
   <LinearLayout
       ... 
@@ -48,21 +57,16 @@
       
       <!-- left menu-->
       <LinearLayout>
+      <ListView />
       </LinearLayout>
       
       <!-- right menu -->
       <LinearLayout>
+      <FragMent />
       </LinearLayout>
       
    </LinearLayout>   
-  ```
-   
-   
-### 资料库
-  - 资料库分为 : 桌面版本 和 android手机版本
-  
-###### 桌面版本
-  - viewpager + fragment
+  ```  
   - ReposFragment  资料库对应的fragment
   - ActivitiesFragment 最近修改的fragment
   
