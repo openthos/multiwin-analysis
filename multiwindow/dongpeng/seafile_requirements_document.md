@@ -8,12 +8,8 @@
     - 存在问题
 
 # 项目简介
-  - seafile 是开源企业云盘 ,根据需求需要，定制一款属于自己的seafile.
+  - openthos云 是依赖开源企业云盘seafile ,进行页面调整，以及部分功能的重构，定制的一款桌面和手机两种不同风格的企业云盘.
   
-# openthos云 
-
-
-
 # [功能需求](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/openthos_cloud_desktop_and_mobile_documents.md)
 |完成|描述|模块|完成度|
 |---|---|---|---|
