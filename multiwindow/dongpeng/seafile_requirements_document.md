@@ -14,7 +14,7 @@
 
 
 
-# 功能需求
+# [功能需求](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/openthos_cloud_desktop_and_mobile_documents.md)
 |完成|描述|模块|完成度|
 |---|---|---|---|
 |√| 编译seafile源码生成可用apk |编译|100%|
