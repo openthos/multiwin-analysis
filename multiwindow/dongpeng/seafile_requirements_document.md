@@ -19,10 +19,13 @@
 |完成|描述|模块|完成度|
 |---|---|---|---|
 |√| 编译seafile源码生成可用apk |编译|100%|
-|×| 登录页面 |页面|60%|
+|√| 登录页面 |页面|100%|
 |√| 添加app启动动画|界面|100%|
-|×| 实现seafile住页面左右分栏效果|界面|0%|
-|×| 添加文件上传下载功能|界面|0%|
+|√| 实现seafile住页面左右分栏效果|界面|100%|
+|×| 新ui搭建|界面|50%|
+|×| 右边菜单数据展示ui调整|界面|0%|
+|×| title 按照ui添加对应的功能|页面|
+|×| 添加文件上传下载功能|界面＆功能
 
 # [设计](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/openthos_cloud_design_document.md)
 
