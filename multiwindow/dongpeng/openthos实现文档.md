@@ -6,10 +6,17 @@
   - 登录
     - 首次登录
       - 判断令牌token是否为空 ，为空进入 添加账户页面，选择服务器页面， 登录页面
+      ```java
+      if (account == null | !account.hasValidToken()) { //return !textUtils.isEmpty(token)
+          finishAndStartAccountActivity();
+          return;
+      }
+      ```
         - 添加账户页面
         - 选择服务器页面
         - 登录页面
         
+            
   - 主页面Title
     - 文件列表排序规则
       - 名字
