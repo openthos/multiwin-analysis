@@ -1,4 +1,5 @@
-# openthos 云实现文档
+# openthos 设计现文档
+  - openthos云 设计继续沿用seafile原有逻辑，在不改动大的原有逻辑基础上进行页面定义满足需求
     登录  
     主页面Title
     主页面
