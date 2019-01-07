@@ -36,15 +36,28 @@
 
 # 项目进展
   - 2018／12／03-2018／12／07
-    - 完成seafile 源码编译 ，生成可用apk
+    - 完成openthos云 （seafile） 源码编译 ，生成可用apk
     - 完成app启动动画的实现
     - 完成登录页面的布局的重构
-    - 完成了seafile app 页面启动的顺序，规避了原有逻辑
+    - 完成了openthos云 （seafile） app 页面启动的顺序，规避了原有逻辑
     - [项目效果图](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_%E7%9B%AE%E5%89%8D%E8%BF%9B%E5%B1%95%E6%95%88%E6%9E%9C%E5%9B%BE.md)
     
   - 2018／12／10-2018／12／14
-    - 主要任务 实现seafiel app主页面 左右布局分离
+    - 主要任务 实现openthos云 （seafile） app主页面 左右布局分离
     - 实现上传下载功能
+    
+  - 2018/12/17-2018／12/21
+    - 调研openthos云 （seafile）资料库实现的逻辑，以及函数之间的调用关系
+    - 尝试修改原来主页面布局，进行数据的左右分离
+    - 拆分部分主页面功能，但还存在很多问题
+    
+  - 2018/12/24-2018/12/29
+    - 根据需求改进一版opentho云 手机版本已满足需求
+    - 完成初步openthos桌面版本的左右布局分离需求，功能按键有异常
+    - 完成openthos 云 需求文档
+    
+  -2019/01/03/-2019/01/04
+    - 设计openthos云 布局适配方案
 
 # 存在问题
   -  由于对seafile 是边学习边开发 ，存在未知的风险，对项目预估的进展会有一定的影响。
