@@ -36,17 +36,11 @@
             
 ### 主页面
   - 主页面布局设计:
-    - 线性布局的横向展示
-    - 添加title 快捷操作按钮
+    - title 添加对应的快捷操作按钮
     - 左右分栏 ，左边展示资料库，最近修改
     - 右边展示: 左边条目对应的data
-    
-
-   
-   
 ### 资料库
   - 资料库分为 : 桌面版本 和 android手机版本
-  
 ###### 桌面版本
   - 左边listView + 右边fragment
   
@@ -68,6 +62,8 @@
    </LinearLayout>   
   ```  
   - ReposFragment  资料库对应的fragment
+    - 资料库data的展示用的listview  ，改为GridView替换
+    - 每个条目的功能页面展示，改为右键菜单的展示
   - ActivitiesFragment 最近修改的fragment
   
 ###### android 手机版本
