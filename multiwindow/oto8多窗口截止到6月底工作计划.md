@@ -17,6 +17,8 @@
     - 泰瑞呢、buttons and scissors、剪绳子、开心消消乐、模拟炒股等应用标题栏无手机桌面模式切换按钮
       - 应用本身方向不允许切换，切换会引起界面混乱
     - 狂野飙车8、央视影音、佳能打印打开闪退
+      - 央视影音，java.lang.UnsatisfiedLinkError: dlopen failed: "/data/user/0/cn.cntvhd/files/libexec.so" has unexpected e_machine
+      - 佳能打印：WifiP2pManager系统API更新后，此应用打开闪退，凤凰os7.1同样不可用。
     - bilibili首次打开时选择感兴趣的内容页面超出窗口
     
 ### 2019-05-01～05-31
