@@ -1,11 +1,30 @@
 # 2019/04/01-2019/04/04 
+  -  Add layout to transmission list
+  -  Add delete pause start icon and close button
+  -  Modified view postion in transmission list page
+  -  Optimize code and layout for transmission list
+  -  Optimize text and layout for title bar
+  -  Optimize layout for transmission list
+  -  Add settins page to openthos cloud
 
 
 # 2019/04/08-2019/04/12
+  - Replace right and left menu new layout size and icon to openthos cloud
+  - Add view background to  openthos cloud right menu item
+  - Optimize text and layout for openthos cloud title layout
+  - Optimize the text lenght on the account name
+  - Optimize the layout of items on the right side menu
+
 
 # 2019/04/15-2019/04/19
+  - Loses focus by default to search box
+  - Add memory usage status feature
+  - Optimize right click menu
+  - Add background to openthos cloud right click item view
 
 # 2019/04/22-2019/04/30
+  - Add code to delete personal data
+  - Add back button feature
 
 
 
