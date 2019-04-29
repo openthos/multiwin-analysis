@@ -1,30 +1,29 @@
 # 2019/04/01-2019/04/04 
-  -  Add layout to transmission list
-  -  Add delete pause start icon and close button
-  -  Modified view postion in transmission list page
-  -  Optimize code and layout for transmission list
-  -  Optimize text and layout for title bar
-  -  Optimize layout for transmission list
-  -  Add settins page to openthos cloud
-
+  - 添加布局到传输列表
+  - 添加删除暂停启动图标和关闭按钮
+  - 修改传输列表页中的视图位置
+  - 优化传输列表的代码和布局
+  - 优化标题栏的文本和布局
+  - 优化传输列表布局
+  - 将settins页面添加到openthos cloud
 
 # 2019/04/08-2019/04/12
-  - Replace right and left menu new layout size and icon to openthos cloud
-  - Add view background to  openthos cloud right menu item
-  - Optimize text and layout for openthos cloud title layout
-  - Optimize the text lenght on the account name
-  - Optimize the layout of items on the right side menu
+  - 替换左右菜单新的布局大小和图标到openthos cloud
+  - 将视图背景添加到openthos cloud右菜单项
+  - 优化开放生物云标题布局的文本和布局
+  - 优化帐户名称的文本长度
+  - 优化右侧菜单项的布局
 
 
 # 2019/04/15-2019/04/19
-  - Loses focus by default to search box
-  - Add memory usage status feature
-  - Optimize right click menu
-  - Add background to openthos cloud right click item view
+  - 在搜索框中失去焦点
+  - 添加内存使用状态功能
+  - 优化右键菜单
+  - 添加背景到openthos cloud右键单击item view
 
 # 2019/04/22-2019/04/30
-  - Add code to delete personal data
-  - Add back button feature
+  - 添加删除个人资料的程式码
+  - 添加后退按钮功能
 
 
 
