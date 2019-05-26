@@ -20,6 +20,11 @@
    
 在AOSP中，多窗口情况下和单窗口情况下的窗口结构存在的显著的差异，当应用运行在多窗口模式下时，则会由于对自身所处窗口结构认知不同导致窗口结构达不到应用的预期效果，从而发生显示错位等问题。针对这种情况，改造一套桌面化程度较低而运行稳定性更高的窗口结构
 
+1、兼容性窗口结构实现
+
+设计兼容性PhoneWindow（NewPhoneWindow），在NewPhoneWindow中构造一个兼容性DecorView（NewDecorview），同时构造一个虚拟的DecorView（VirtualDecorView），新的兼容性窗口结构：
+      
+      NewPhoneWindow&NewDecorView-->DecorCaptionView-->VirtualDecorView-->ContentView
 
  
   
