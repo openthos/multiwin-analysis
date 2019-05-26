@@ -22,11 +22,17 @@
 
 1、兼容性窗口结构实现
 
-设计兼容性PhoneWindow（NewPhoneWindow），在NewPhoneWindow中构造一个兼容性DecorView（NewDecorview），同时构造一个虚拟的DecorView（VirtualDecorView），并对getDecorView的结果进行修正，系统调用getDecorview时返回真实的DecorView，第三方应用调用getDecorview时返回虚拟Decorview（VirtualDecorView），新的兼容性窗口结构：
+设计兼容性PhoneWindow（NewPhoneWindow），在NewPhoneWindow中构造一个兼容性DecorView（NewDecorview），同时构造一个虚拟的DecorView（VirtualDecorView），并对getDecorView的结果进行修正，系统调用getDecorview时返回真实的DecorView，第三方应用调用getDecorview时返回虚拟Decorview（VirtualDecorView），保证应用依然可以拿到一个子View仅有ContentView的DecorView作为自己的RootView。当我们启动一个用户希望以兼容模式启动的应用时，便会主动加载这一构造，即便这一构造会一定程度上牺牲目标应用的运行效率但由于分离化的设计，其他以标准模式运行的应用并不会收到兼容行为所带来的额外开销的影响。
+
+新的兼容性窗口结构：
+
 ![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/liuxx/prc/newphonewindow.PNG)
 
 具体的代码实现路径：frameworks/base/core/com/java/android/internal/policy/NewPhoneWindow.java
  
+二、系统API兼容性设计
+
+
   
    
   
