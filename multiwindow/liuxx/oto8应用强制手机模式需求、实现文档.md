@@ -23,7 +23,7 @@
 1、兼容性窗口结构实现
 
 设计兼容性PhoneWindow（NewPhoneWindow），在NewPhoneWindow中构造一个兼容性DecorView（NewDecorview），同时构造一个虚拟的DecorView（VirtualDecorView），新的兼容性窗口结构：
-![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/liuxx/prc/newphonewindow.jpg)
+![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/liuxx/prc/newphonewindow.PNG)
 
  
   
