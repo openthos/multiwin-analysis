@@ -42,6 +42,10 @@
 
       frameworks/base/core/com/java/android/internal/policy/NewPhoneWindow.java
       frameworks/base/core/java/android/view/View.java
+      
+ 2、屏幕尺寸API兼容性
+ 
+ 
 
 
   
