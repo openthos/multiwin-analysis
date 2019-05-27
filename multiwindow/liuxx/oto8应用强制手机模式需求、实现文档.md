@@ -28,7 +28,9 @@
 
 ![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/liuxx/prc/newphonewindow.PNG)
 
-具体的代码实现路径：frameworks/base/core/com/java/android/internal/policy/NewPhoneWindow.java
+具体的代码实现路径：
+    
+      frameworks/base/core/java/com/android/internal/policy/NewPhoneWindow.java
  
 二、系统API兼容性设计
 
@@ -40,12 +42,16 @@
 
 具体的代码实现路径：
 
-      frameworks/base/core/com/java/android/internal/policy/NewPhoneWindow.java
-      frameworks/base/core/java/android/view/View.java
+      frameworks/base/java/core/com/android/internal/policy/NewPhoneWindow.java
       
 2、屏幕尺寸API兼容性
  
-应用在手机设备上运行，屏幕的尺寸与应用窗口的尺寸一致；而在多窗口环境下，屏幕的尺寸与应用窗口化的尺寸不一致，因此当兼容模式运行的应用请求屏幕数据时，系统会截获这一行为并将能够让其正常运行的基于窗口状态构造的虚拟数据代替返回。 
+应用在手机设备上运行，屏幕的尺寸与应用窗口的尺寸一致；而在多窗口环境下，屏幕的尺寸与应用窗口化的尺寸不一致，因此当兼容模式运行的应用请求屏幕数据时，系统需要截获这一行为并将能够让其正常运行的基于窗口状态构造的虚拟数据代替返回。 应用获取屏幕分辨率、密度的方法：
+   - context.getResources().getDisplayMetrics返回DisplayMetrics对象;
+   - WindowManager windowmanager = (WindowManager) (context.getSystemService(Context.WINDOW_SERVICE));<br />
+    windowmanager.getDefaultDisplay().getMetrics(New DisplayMetrics())。
+
+两种方式都需要context作为入口调用其相关API获取DisplayMetrics，而context的方法最终是在ContextImpl实现类中完成，通过设计兼容性ContextImpl（NewContextImpl继承于ContextImpl），并重写相关获取屏幕数据调用的API，伪装应用正常运行基于窗口状态构造的虚拟数据代替返回。
 
 
   
