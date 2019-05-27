@@ -65,7 +65,12 @@
 
 ID|任务名称|状态
 ----|----|----
-1|窗口结构兼容性实现|已完成
+1|窗口结构兼容性设计|已完成提交
+2|坐标API兼容性设计|已完成提交
+3|截获context.getResources().getDisplayMetrics方式获取的屏幕数据，伪装虚拟数据提供返回给应用|已完成，未提交
+4|截获windowmanager.getDefaultDisplay().getMetrics(New DisplayMetrics())方式获取的屏幕数据，伪装虚拟数据提供返回给应用|进度0%
+5|窗口标题栏UI重构，增加窗口兼容性按钮|完成50%
+6|应用在兼容模式下运行，窗口可拖动，不可缩放|进度0%
 
    
 
