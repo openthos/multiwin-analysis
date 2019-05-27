@@ -56,6 +56,7 @@
    - Application
    - Activity
    - Service
+   
 一个应用Context的数量为1个Application + Activity个数 + Service个数总和，而context.getResources获取的Resources实例只有一个，所以只需要截获Resources实例并伪装应用基于窗口状态构造的虚拟数据。ContextImpl创建Activity、Service类型context的方法是createActvityContext、createAppContext，在ActivityThread的performLaunchActivity、handleCreateService方法中构造ContextImpl实例并绑定到Activity、Service中，这样Activity、Service中context的相关接口通过调用ContextImpl方法实现。针对此种方法获取屏幕数据的情况，openthos设计兼容性ContextImpl（NewContextImpl继承于ContextImpl），并重写相关获取屏幕数据调用的API，伪装应用正常运行基于窗口状态构造的虚拟数据代替返回，同时在getResources方法中截获、伪装未处理的屏幕数据。
    
   
