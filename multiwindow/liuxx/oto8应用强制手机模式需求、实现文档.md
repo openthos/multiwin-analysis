@@ -59,6 +59,14 @@
 一个应用Context的数量为1个Application + Activity个数 + Service个数总和，而context.getResources获取的Resources实例只有一个，所以只需要截获Resources实例并伪装应用基于窗口状态构造的虚拟数据。ContextImpl创建Activity、Service类型context的方法是createActvityContext、createAppContext，在ActivityThread的performLaunchActivity、handleCreateService方法中构造ContextImpl实例并绑定到Activity、Service中，这样Activity、Service中context的相关接口通过调用ContextImpl方法实现。针对此种方法获取屏幕数据的情况，openthos设计兼容性ContextImpl（NewContextImpl继承于ContextImpl），并重写相关获取屏幕数据调用的API，伪装应用正常运行基于窗口状态构造的虚拟数据代替返回，同时在getResources方法中截获、伪装未处理的屏幕数据，且在兼容模式下运行的应用，拦截Resources调用updateConfiguration方法更新DisplayMetrics数据。
 
 （2）获取屏幕数据的第二种方法：windowmanager.getDefaultDisplay().getMetrics(New DisplayMetrics())。还没调研分析通用的拦截、伪装API方式。
+
+3、屏幕数据伪装原则
+
+（1）返回虚拟的屏幕分辨率1080x1920， 5英寸的对角线尺寸，也就是应用在虚拟的5寸FHD设备上运行。
+
+（2）返回虚拟的屏幕密度原则：
+      - 按照虚拟像素密度和OTO设备实际像素密度，取整后缩放；
+      - 根据不同的oto设备实际像素密度，固定相对应的虚拟密度，设计几个固定匹配虚拟密度。
    
 ### 工作进展
 以微信为例，目前工作进展：
