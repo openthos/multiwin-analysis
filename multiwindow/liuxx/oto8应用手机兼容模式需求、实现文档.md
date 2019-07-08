@@ -72,10 +72,12 @@ ID|API|
 
 两种方式都需要context作为入口调用其相关API获取DisplayMetrics，而context的方法最终是在ContextImpl实现类中完成，通过设计兼容性ContextImpl（NewContextImpl继承于ContextImpl），并重写相关获取屏幕数据调用的API，伪装应用正常运行基于窗口状态构造的虚拟数据代替返回。
 
-（1）获取屏幕数据的第一种方法：context.getResources().getDisplayMetrics返回DisplayMetrics对象。通过截获getResources返回的Resources资源，并伪装Resources持有的DisplayMetrics屏幕虚拟数据。应用持有的Context类型主要有三种：
-   - Application
-   - Activity
-   - Service
+（1）获取屏幕数据的第一种方法：应用通过context.getResources()获取Resources资源对象，在Resources资源对象中持有DisplayMetrics屏幕相关参数。
+
+   - 手机兼容模式屏幕缩放设计：
+
+      - 首先通过虚拟Resources持有的DisplayMetrics屏幕相关数据，返回给应用在兼容模式下运行需要的屏幕分辨率、密度等虚拟数据；Resources是通过context.getResources()方法获取的，只要截获返回的Resources对象，并虚拟DisplayMetrics屏幕数据，实现兼容模式屏幕缩放。
+      - 其次拦截应用对Resources持有的DisplayMetrics数据的更新。
    
 一个应用Context的数量为1个Application + Activity个数 + Service个数总和，而context.getResources获取的Resources实例只有一个，所以只需要截获Resources实例并伪装应用基于窗口状态构造的虚拟数据。ContextImpl创建Activity、Service类型context的方法是createActvityContext、createAppContext，在ActivityThread的performLaunchActivity、handleCreateService方法中构造ContextImpl实例并绑定到Activity、Service中，这样Activity、Service中context的相关接口通过调用ContextImpl方法实现。针对此种方法获取屏幕数据的情况，openthos设计兼容性ContextImpl（NewContextImpl继承于ContextImpl），并重写相关获取屏幕数据调用的API，伪装应用正常运行基于窗口状态构造的虚拟数据代替返回，同时在getResources方法中截获、伪装未处理的屏幕数据，且在兼容模式下运行的应用，拦截Resources调用updateConfiguration方法更新DisplayMetrics数据。
 
