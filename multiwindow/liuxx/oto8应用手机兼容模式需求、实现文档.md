@@ -29,7 +29,9 @@
 
 2、代码设计实现
 
-Activity.java：在Activity的attach（）方法中加载、构造不同的PhoneWindow，渲染不同的窗口结构；对不同窗口结构的设计，放到相应的PhoneWindow中完成，达到代码的分离化、低耦合设计。
+ID|API|兼容性设计
+---|---|---
+1|Activity.java<br />attach()|根据用户需求，加载、构造不同的PhoneWindow，渲染不同的窗口结构；对于不同窗口结构的代码设计，放到相应的PhoneWindow中完成，降低代码的耦合性。
 
 具体的代码实现路径：
     
@@ -43,6 +45,15 @@ Activity.java：在Activity的attach（）方法中加载、构造不同的Phone
 1、坐标API兼容性
 
 目前的坐标API兼容性设计是对所有的点击事件和对View进行的屏幕位置判断方法都采取参照RootView偏移值的获取方式，而兼容性RootView所返回的这些内容统一规定为看作自己处于（0,0）点的方式，以此来避免应用对自身所处屏幕位置的错误认识带来的不良运行效果。
+
+代码设计实现
+
+坐标API设计
+
+ID|API|兼容性设计
+---|---|---
+1|View.java<br />getLocationOnScreen()|采取参照RootView偏移值方式，应用获取的兼容性VirtualDecorView的屏幕位置，返回的屏幕位置统一规定为处于(0,0(或者DecorCaptionView的Height))点
+2|MotionEvent.java<br />getRawX()、getRawY()|采取View点击事件获取的RawX、RawY偏移值方式，在兼容性NewDecorView的点击事件拦截onInterceptTouchEvent方法中，规定RawX、RawY的偏移值为NewDecorView在屏幕上的位置。
 
 具体的代码实现路径：
 
