@@ -63,9 +63,12 @@ ID|API|兼容性设计
       
 2、屏幕数据API兼容性
  
-应用在手机设备上运行，屏幕的尺寸与应用窗口的尺寸一致；而在多窗口环境下，屏幕的尺寸与应用窗口化的尺寸不一致，因此当兼容模式运行的应用请求屏幕数据时，系统需要截获这一行为并将能够让其正常运行的基于窗口状态构造的虚拟数据代替返回。 应用获取屏幕分辨率、密度的方法：
-   - context.getResources().getDisplayMetrics返回DisplayMetrics对象;
-   - WindowManager windowmanager = (WindowManager) (context.getSystemService(Context.WINDOW_SERVICE));<br />windowmanager.getDefaultDisplay().getMetrics(New DisplayMetrics())。
+应用在手机设备上运行，屏幕的尺寸与应用窗口的尺寸一致；而在多窗口环境下，屏幕的尺寸与应用窗口化的尺寸不一致，因此当兼容模式运行的应用请求屏幕数据时，系统需要截获这一行为并将能够让其正常运行的基于窗口状态构造的虚拟数据代替返回。 屏幕分辨率、密度等相关信息都保存在DisplayMetrics对象中，应用获取DisplayMetrics的方式有两种：
+
+ID|API|
+---|---
+1|context.getResources().getDisplayMetrics()
+2|WindowManager windowmanager = (WindowManager) (context.getSystemService(Context.WINDOW_SERVICE));<br />windowmanager.getDefaultDisplay().getMetrics()
 
 两种方式都需要context作为入口调用其相关API获取DisplayMetrics，而context的方法最终是在ContextImpl实现类中完成，通过设计兼容性ContextImpl（NewContextImpl继承于ContextImpl），并重写相关获取屏幕数据调用的API，伪装应用正常运行基于窗口状态构造的虚拟数据代替返回。
 
