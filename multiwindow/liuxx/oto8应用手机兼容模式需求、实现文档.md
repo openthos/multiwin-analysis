@@ -88,8 +88,19 @@ context.getResources()具体实现是在ContextImpl.java中完成的，ContextIm
 Context类型|构造API|兼容设计
 ---|---|---
 Application|ContextImpl.java<br />public Context createApplicationContext()|Application获取的Resources最终是通过Activity、Service创建的，可以之拦截Activity、Service获取的Resources对象，并虚拟DisplayMetrics数据；
-Activity|ContextImpl.java<br />static ContextImpl createActivityContext()|在createActivityContext方法中拦截创建的Resources，并虚拟DisplayMetrics屏幕数据；
-Service|ContextImpl.java<br />static ContextImpl createAppContext()|在createAppContext方法中拦截创建的Resources，并虚拟DisplayMetrics屏幕数据；
+Activity|ContextImpl.java<br />static ContextImpl createActivityContext()|在NewContextImpl的createActivityContext方法中拦截创建的Resources，并虚拟DisplayMetrics屏幕数据；
+Service|ContextImpl.java<br />static ContextImpl createAppContext()|在NewContextImpl的createAppContext方法中拦截创建的Resources，并虚拟DisplayMetrics屏幕数据；
+
+手机兼容模式下运行，需要提供给应用NewContextImpl创建的Activity，Service，需要在调用createAppContext、createActivityContext的地方，通过NewContextImpl的createAppContext、createActivityContext方法创建Activity、Service，这样应用通过Context.getResources()获取的屏幕数据是虚拟，伪装的。
+
+ID|API|兼容设计
+---|---|---
+1|ActivityThread.java<br />createBaseContextForActivity()|ContextImpl.createActivityContext()根据应用运行模式提供NewContextImpl.createActivityContext()创建Context；
+2|ActivityThread.java<br />handleCreateBackupAgent()|ContextImpl.createAppContext()根据应用运行模式提供NewContextImpl.createAppContext()创建Context；
+3|ActivityThread.java<br />handleCreateService()|ContextImpl.createAppContext()根据应用运行模式提供NewContextImpl.createAppContext()创建Context；
+4|ActivityThread.java<br />handleBindApplication()|ContextImpl.createAppContext()根据应用运行模式提供NewContextImpl.createAppContext()创建Context；
+5|ActivityThread.java<br />attach()|ContextImpl.createAppContext()根据应用运行模式提供NewContextImpl.createAppContext()创建Context；
+6|LoadedApk.java<br />makeApplication()|ontextImpl.createAppContext()根据应用运行模式提供NewContextImpl.createAppContext()创建Context；
 
 （2）获取屏幕数据的第二种方法：windowmanager.getDefaultDisplay().getMetrics(New DisplayMetrics())。还没调研分析通用的拦截、伪装API方式。
 
