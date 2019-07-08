@@ -87,9 +87,9 @@ context.getResources()具体实现是在ContextImpl.java中完成的，ContextIm
 
 Context类型|构造API|兼容设计
 ---|---|---
-Application|ContextImpl.java<br />Public Context createApplicationContext()|
-Activity|ContextImpl.java<br />Static ContextImpl createActivityContext()|
-Service|ContextImpl.java<br />Static ContextImpl createAppContext()|
+Application|ContextImpl.java<br />public Context createApplicationContext()|Application获取的Resources最终是通过Activity、Service创建的，可以之拦截Activity、Service获取的Resources对象，并虚拟DisplayMetrics数据；
+Activity|ContextImpl.java<br />static ContextImpl createActivityContext()|在createActivityContext方法中拦截创建的Resources，并虚拟DisplayMetrics屏幕数据；
+Service|ContextImpl.java<br />static ContextImpl createAppContext()|在createAppContext方法中拦截创建的Resources，并虚拟DisplayMetrics屏幕数据；
 
 （2）获取屏幕数据的第二种方法：windowmanager.getDefaultDisplay().getMetrics(New DisplayMetrics())。还没调研分析通用的拦截、伪装API方式。
 
