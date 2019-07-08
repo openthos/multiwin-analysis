@@ -57,6 +57,8 @@ ID|API|兼容性设计
 
 具体的代码实现路径：
 
+      frameworks/base/java/core/android/view/View.java
+      frameworks/base/java/core/android/view/MotionEvent.java
       frameworks/base/java/core/com/android/internal/policy/NewPhoneWindow.java
       
 2、屏幕数据API兼容性
