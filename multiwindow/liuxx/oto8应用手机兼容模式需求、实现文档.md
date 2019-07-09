@@ -102,6 +102,13 @@ ID|API|兼容设计
 5|ActivityThread.java<br />attach()|ContextImpl.createAppContext()根据应用运行模式提供NewContextImpl.createAppContext()创建Context；
 6|LoadedApk.java<br />makeApplication()|ontextImpl.createAppContext()根据应用运行模式提供NewContextImpl.createAppContext()创建Context；
 
+通过上面NewContextImpl的createActivityContext、createAppContext方法完成对Resources构造时虚拟屏幕数据DisplayMetrics，基本上能适配大多数apps在兼容模式下运行时屏幕缩放渲染，而针对一些特殊应用（例如微信），应用运行的屏幕密度是根据设备分辨率动态计算，然后再缩放渲染，因此仅仅在Resources构建时虚拟屏幕数据DisplayMetrics，无法满足此类应用在兼容模式下运行时缩放渲染，同时需要拦截app动态计算的屏幕密度对app窗口密度的更新，涉及相关API如下：
+
+ID|API|兼容设计
+---|---|---
+1|Resources.java<br />upateConfiguration(Configuration config, DisplayMetrics metrics)|根据应用是否兼容模式运行，拦截应用对DisplayMetrics的更新；
+2|DisplayMetrics.java<br />setTo(DisplayMetrics metrics)|根据应用是否兼容模式运行，拦截应用对DisplayMetrics数据更新。
+
 （2）获取屏幕数据的第二种方法：windowmanager.getDefaultDisplay().getMetrics(New DisplayMetrics())。还没调研分析通用的拦截、伪装API方式。
 
 3、屏幕数据伪装原则
