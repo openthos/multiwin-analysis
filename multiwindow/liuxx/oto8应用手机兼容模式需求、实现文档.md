@@ -117,15 +117,30 @@ ID|API|兼容设计
          frameworks/base/core/java/android/content/res/Resources.java
          frameworks/base/core/java/android/util/DisplayMetrics.java
 
-（2）获取屏幕数据的第二种方法：windowmanager.getDefaultDisplay().getMetrics(New DisplayMetrics())。还没调研分析通用的拦截、伪装API方式。
+（2）获取屏幕数据的第二种方法：windowmanager.getDefaultDisplay().getMetrics(New DisplayMetrics())。
+   
+   - 手机兼容模式缩放设计：
+      - windowmanager.getDefaultDisplay()返回Display对象，其返回的Display对象最终是通过ContextImpl的getDisplay()获取的Display，参考上面第一种对手机兼容模式缩放设计，在NewContextImpl中对getDisplay()拦截，虚拟Display对象持有的DisplayMetrics屏幕数据。目前通过第一种手机兼容模式缩放设计，基本上已经适配大多数应用，目前测试还没有发现需要第二种手机兼容模式设计适配的应用，因此暂时未处理此设计。
 
-3、屏幕数据伪装原则
+3、屏幕数据缩放原则
 
 （1）返回虚拟的屏幕分辨率1080x1920， 5英寸的对角线尺寸，也就是应用在虚拟的5寸FHD设备上运行。
 
 （2）返回虚拟的屏幕密度原则：
    - 按照虚拟像素密度和OTO设备实际像素密度，取整后缩放；
    - 根据不同的oto设备实际像素密度，固定相对应的虚拟密度，设计几个固定匹配虚拟密度。
+
+目前oto8系统屏幕密度是通过设备分辨率定义的：
+
+设备分辨率|屏幕密度
+---|---
+1366x768|160dpi
+1920x1080|240dpi
+2560x1440|320dpi
+3840x2160|480dpi
+
+因此oto8手机兼容模式屏幕缩放原则：根据不同的oto设备分辨率，固定对应的虚拟屏幕密度，根据设备分辨率，设计与之对应虚拟屏幕密度档位。
+   
    
 ### 工作进展
 以微信为例，目前工作进展：
