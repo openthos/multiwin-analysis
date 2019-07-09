@@ -109,6 +109,14 @@ ID|API|兼容设计
 1|Resources.java<br />upateConfiguration(Configuration config, DisplayMetrics metrics)|根据应用是否兼容模式运行，拦截应用对DisplayMetrics的更新；
 2|DisplayMetrics.java<br />setTo(DisplayMetrics metrics)|根据应用是否兼容模式运行，拦截应用对DisplayMetrics数据更新。
 
+具体代码实现路径：
+
+         frameworks/base/core/java/android/app/NewContextImpl.java
+         frameworks/base/core/java/android/app/ActivityThread.java
+         frameworks/base/core/java/android/app/LoadedApk.java
+         frameworks/base/core/java/android/content/res/Resources.java
+         frameworks/base/core/java/android/util/DisplayMetrics.java
+
 （2）获取屏幕数据的第二种方法：windowmanager.getDefaultDisplay().getMetrics(New DisplayMetrics())。还没调研分析通用的拦截、伪装API方式。
 
 3、屏幕数据伪装原则
