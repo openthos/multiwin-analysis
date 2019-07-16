@@ -58,7 +58,7 @@ ID|API|函数意义
 
 ### 获取Resources、Display对象，函数列表
 
-1.Activity、Service、Application
+1.Activity.java、Service.java、Application.java
   - 路径：frameworks/base/core/java/android/app/Activity.java
   - 路径：frameworks/base/core/java/android/app/Service.java
   - 路径：frameworks/base/core/java/android/app/Application.java
@@ -68,14 +68,14 @@ ID|API|函数意义
 1|getResources()|获取应用Resources对象，最终调用的是Context.getResources()函数返回Resources对象。
 2|getDisplay()|获取Display对象，最终调用的是Context.getDisplay()。
 
-2.WindowManager
+2.WindowManager.java
   - 路径：frameworks/base/core/java/android/view/WindowManager.java
 
 ID|API|函数意义
 ---|---|---
 1|getDefaultDisplay()|获取Display对象，最终调用的是Context.getDisplay()。
 
-3.DisplayManager
+3.DisplayManager.java
   - 路径：frameworks/base/core/java/android/hardware/display/DisplayManager.java
 
 ID|API|函数意义
@@ -85,7 +85,7 @@ ID|API|函数意义
 
 ### Context.java只是定义了一系列常量及抽象方法，其本身是abstract类，其抽象方法的具体实现是在ContextImpl中完成
 
-1.context.getResources()、context.getDisplay()方法最终在ContextImpl中实现
+1.ContextImpl.java，context.getResources()、context.getDisplay()方法最终在ContextImpl中实现
   - 路径：frameworks/base/core/java/android/app/ContextImpl.java
 
 ID|API|函数意义
@@ -95,6 +95,27 @@ ID|API|函数意义
 3|setResources(Resources r)|更改Resources对象，根据创建不同的ContextImpl，并设置ContextImpl持有的mResources对象。
 4|createAppContext(ActivityThread mainThread, LoadedApk packageInfo)|创建Service绑定的ContextImpl，并设置相对应的Resources对象。
 5|createActivityContext(ActivityThread mainThread,LoadedApk packageInfo, ActivityInfo activityInfo, IBinder activityToken, int displayId,Configuration overrideConfiguration)|创建Activity绑定的ContextImpl，并设置相对应的Resources对象。
+
+### Activity、Service、Application创建
+
+1.ActivityThread.java
+  - 路径：frameworks/base/core/java/android/app/ActivityThread.java
+  
+ID|API|函数意义
+---|---|--- 
+1|createBaseContextForActivity(ActivityClientRecord r)|创建Activity对象，同时绑定ContextImpl.createActivityContext返回的ContextImpl对象
+2|handleCreateBackupAgent(CreateBackupAgentData data)|函数中调用ContextImpl.createAppContext创建ContextImpl对象
+3|handleCreateService(CreateServiceData data)|创建Service对象，同时绑定ContextImpl.createAppContext返回的ContextImpl对象
+4|handleBindApplication(AppBindData data)|创建、bind应用Application对象，同时绑定ContextImpl.createAppContext返回的ContextImpl对象
+5|attach(boolean system)|函数中调用ContextImpl.createAppContext创建ContextImpl对象
+
+2.LoadedApk.java
+  - 路径：frameworks/base/core/java/android/app/LoadedApk.java
+
+ID|API|函数意义
+---|---|---
+1|makeApplication(boolean forceDefaultAppClass,Instrumentation instrumentation)|创建Application对象，同时绑定ContextImpl.createAppContext返回的ContextImpl对象
+
 
 
 
