@@ -21,10 +21,11 @@ ID|API|函数意义
 
 ID|API|函数意义
 ---|---|---
-1|getDisplayMetrics()|获取DisplayMetrics对象
+1|getDisplayMetrics()|获取DisplayMetrics对象，调用的是ResourcesImpl.getDisplayMetrics()。
 2|updateConfiguration(Configuration config, DisplayMetrics metrics)|更新指定的DisplayMetrics屏幕信息
 3|Resources(AssetManager assets, DisplayMetrics metrics, Configuration config)|创建包含指定DisplayMetrics信息的Resources，过时函数
 4|Resources()|创建系统Resources，并创建默认屏幕信息DisplayMetrics对象。@hide函数，系统调用
+5|setImpl(ResourcesImpl impl)|更改Resources持有的ResourcesImpl实现类，同时更新Resources持有的DisplayMetrics屏幕信息。@hide函数，只可系统访问。
 
 2.Display.java
   - 路径：frameworks/base/core/java/android/view/Display.java
