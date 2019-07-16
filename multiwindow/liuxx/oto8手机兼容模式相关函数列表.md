@@ -1,5 +1,24 @@
 # 兼容模式相关函数列表
 
+### 窗口屏幕位置相关API
+
+1.View.java
+  - 路径：frameworks/base/core/java/android/view/View.java
+  
+ID|API|函数意义
+---|---|---
+1|getLocationOnScreen(@Size(2) int[] outLocation)|获取view在屏幕上位置坐标
+2|getLocationOnScreen()|获取view在屏幕上位置坐标，@hide函数，只可系统访问
+
+2.MotionEvent.java
+  - 路径：frameworks/base/core/java/android/view/MotionEvent.java
+
+ID|API|函数意义
+---|---|---
+1|getRawX()|
+2|getRawY()|
+
+
 ### DisplayMetrics.java记录屏幕相关信息，诸如像素尺寸，密度和字体缩放等信息。
   - 路径：frameworks/base/core/java/android/util/DisplayMetrics.java
 
