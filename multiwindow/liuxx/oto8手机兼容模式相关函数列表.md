@@ -32,3 +32,36 @@ ID|API|函数意义
 ---|---|---
 1|getMetrics(DisplayMetrics outMetrics)|获取DisplayMetrics屏幕信息
 2|getRealMetrics(DisplayMetrics outMetrics)|获取DisplayMetrics屏幕信息
+
+3.DisplayInfo.java，@hide类，只提供系统调用
+  - 路径：frameworks/base/core/java/android/view/DisplayInfo.java
+  
+ID|API|函数意义
+---|---|---
+1|logicalDensityDpi|设备像素密度Dpi
+2|getAppMetrics(DisplayMetrics outMetrics)|获取DisplayMetrics屏幕信息
+3|getAppMetrics(DisplayMetrics outMetrics, DisplayAdjustments displayAdjustments)|获取DisplayMetrics屏幕信息
+4|getAppMetrics(DisplayMetrics outMetrics, CompatibilityInfo ci,Configuration configuration)|获取DisplayMetrics屏幕信息
+5|getLogicalMetrics(DisplayMetrics outMetrics, CompatibilityInfo ci,Configuration configuration)|获取DisplayMetrics屏幕信息
+
+4.DisplayContent.java，
+  - 路径：frameworks/base/services/core/java/com/android/server/wm/DisplayContent.java
+
+ID|API|函数意义
+---|---|---
+1|getDisplay()|获取设备Display
+2|getDisplayInfo()|获取设备相关信息DisplayInfo
+3|getDisplayMetrics()|获取DisplayMetrics屏幕信息
+
+
+
+
+
+
+
+
+
+
+
+
+
