@@ -9,7 +9,7 @@ ID|API|函数意义
 ---|---|---
 1|getLocationOnScreen(@Size(2) int[] outLocation)|获取view在屏幕上位置坐标
 2|getLocationOnScreen()|获取view在屏幕上位置坐标，@hide函数，只可系统访问
-3|getLocationInWindow(@Size(2) int[] outLocation)|获取view在屏幕上位置坐标
+3|getLocationInWindow(@Size(2) int[] outLocation)|获取view在窗口上位置坐标
 
 2.MotionEvent.java
   - 路径：frameworks/base/core/java/android/view/MotionEvent.java
