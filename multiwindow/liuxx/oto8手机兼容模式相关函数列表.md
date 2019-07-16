@@ -1,6 +1,6 @@
 # 兼容模式相关函数列表
 
-一.DisplayMetrics.java记录屏幕相关信息，诸如像素尺寸，密度和字体缩放等信息。
+### DisplayMetrics.java记录屏幕相关信息，诸如像素尺寸，密度和字体缩放等信息。
   - 路径：frameworks/base/core/java/android/util/DisplayMetrics.java
 
 ID|API|函数意义
@@ -13,7 +13,8 @@ ID|API|函数意义
 6|setToDefault()|设置默认屏幕相关信息
 7|setTo(DisplayMetrics o)|设置指定屏幕相关信息
 
-二.获取、修改DisplayMetrics对象，相关函数列表以及调用流程
+
+### 获取、修改DisplayMetrics对象，相关函数列表以及调用流程
 
 1.Resources.java
   - 路径：frameworks/base/core/java/android/content/res/Resources.java
