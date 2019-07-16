@@ -14,7 +14,7 @@ ID|API|函数意义
 7|setTo(DisplayMetrics o)|设置指定屏幕相关信息
 
 
-### 获取、修改DisplayMetrics对象，相关函数列表以及调用流程
+### 获取、修改DisplayMetrics对象，相关函数列表
 
 1.Resources.java
   - 路径：frameworks/base/core/java/android/content/res/Resources.java
@@ -34,7 +34,7 @@ ID|API|函数意义
 1|getMetrics(DisplayMetrics outMetrics)|获取DisplayMetrics屏幕信息
 2|getRealMetrics(DisplayMetrics outMetrics)|获取DisplayMetrics屏幕信息
 
-3.DisplayInfo.java，@hide类，只提供系统调用
+3.DisplayInfo.java，@hide类，只提供系统访问，第三方应用无法访问
   - 路径：frameworks/base/core/java/android/view/DisplayInfo.java
   
 ID|API|函数意义
@@ -45,16 +45,29 @@ ID|API|函数意义
 4|getAppMetrics(DisplayMetrics outMetrics, CompatibilityInfo ci,Configuration configuration)|获取DisplayMetrics屏幕信息
 5|getLogicalMetrics(DisplayMetrics outMetrics, CompatibilityInfo ci,Configuration configuration)|获取DisplayMetrics屏幕信息
 
-4.DisplayContent.java，
+4.DisplayContent.java，只可系统访问，第三方应用无法访问
   - 路径：frameworks/base/services/core/java/com/android/server/wm/DisplayContent.java
 
 ID|API|函数意义
 ---|---|---
-1|getDisplay()|获取设备Display
-2|getDisplayInfo()|获取设备相关信息DisplayInfo
+1|getDisplay()|获取设备Display，通过Display可以获取DisplayMetrics屏幕信息
+2|getDisplayInfo()|获取设备相关信息DisplayInfo，通过DisplayInfo可以获取DisplayMetrics屏幕信息
 3|getDisplayMetrics()|获取DisplayMetrics屏幕信息
 
 
+### 获取Resources、Display对象，函数列表
+
+1.Activity、Service、Application、ContextWrapper、ContextImpl
+  -路径：frameworks/base/core/java/android/app/Activity.java
+  -路径：frameworks/base/core/java/android/app/Service.java
+  -路径：frameworks/base/core/java/android/app/Application.java
+  -路径：frameworks/base/core/java/android/content/ContextWrapper.java
+  -路径：frameworks/base/core/java/android/app/ContextImpl.java
+
+ID|API|函数意义
+---|---|---
+1|getResources()|获取应用Resources对象，Activity、Service、Application最终调用的是父类ContextWrapper.getResources()函数。
+2|ContextWrapper.getResources()|获取应用Resources对象，最终调用的是ContextImpl.getResources()函数。
 
 
 
