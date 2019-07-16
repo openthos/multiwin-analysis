@@ -58,11 +58,11 @@ ID|API|函数意义
 ### 获取Resources、Display对象，函数列表
 
 1.Activity、Service、Application、ContextWrapper、ContextImpl
-  -路径：frameworks/base/core/java/android/app/Activity.java
-  -路径：frameworks/base/core/java/android/app/Service.java
-  -路径：frameworks/base/core/java/android/app/Application.java
-  -路径：frameworks/base/core/java/android/content/ContextWrapper.java
-  -路径：frameworks/base/core/java/android/app/ContextImpl.java
+  - 路径：frameworks/base/core/java/android/app/Activity.java
+  - 路径：frameworks/base/core/java/android/app/Service.java
+  - 路径：frameworks/base/core/java/android/app/Application.java
+  - 路径：frameworks/base/core/java/android/content/ContextWrapper.java
+  - 路径：frameworks/base/core/java/android/app/ContextImpl.java
 
 ID|API|函数意义
 ---|---|---
