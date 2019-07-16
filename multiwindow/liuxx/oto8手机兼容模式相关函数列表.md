@@ -102,6 +102,12 @@ ID|API|函数意义
 ---|---|---
 1|getDisplay(int displayId)|获取Display对象。
 
+4.View.java
+  - 路径：frameworks/base/core/java/android/view/View.java
+
+ID|API|函数意义
+---|---|---
+1|getDisplay()|获取Display对象。
 
 ### Context.java只是定义了一系列常量及抽象方法，其本身是abstract类，其抽象方法的具体实现是在ContextImpl中完成
 
