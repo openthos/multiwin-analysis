@@ -57,18 +57,31 @@ ID|API|函数意义
 
 ### 获取Resources、Display对象，函数列表
 
-1.Activity、Service、Application、ContextWrapper、ContextImpl
+1.Activity、Service、Application
   - 路径：frameworks/base/core/java/android/app/Activity.java
   - 路径：frameworks/base/core/java/android/app/Service.java
   - 路径：frameworks/base/core/java/android/app/Application.java
-  - 路径：frameworks/base/core/java/android/content/ContextWrapper.java
-  - 路径：frameworks/base/core/java/android/app/ContextImpl.java
 
 ID|API|函数意义
 ---|---|---
-1|getResources()|获取应用Resources对象，Activity、Service、Application最终调用的是父类ContextWrapper.getResources()函数。
-2|ContextWrapper.getResources()|获取应用Resources对象，最终调用的是ContextImpl.getResources()函数。
+1|getResources()|获取应用Resources对象，最终调用的是ContextImpl.getResources()函数返回Resources对象。
+2|getDisplay()|获取Display对象，最终调用的是ContextImpl.getDisplay()。
 
+2.WindowManager、WindowMangerImpl
+  - 路径：frameworks/base/core/java/android/view/WindowManager.java
+  - 路径：frameworks/base/core/java/android/view/WindowManagerImpl.java
+
+ID|API|函数意义
+---|---|---
+1|getDefaultDisplay()|获取Display对象，最终调用的是ContextImpl.getDisplay()。
+
+3.View、DisplayManager
+  - 路径：frameworks/base/core/java/android/view/View.java
+  - 路径：frameworks/base/core/java/android/hardware/display/DisplayManager.java
+
+ID|API|函数意义
+---|---|---
+1|getDisplay()|获取Display对象。
 
 
 
