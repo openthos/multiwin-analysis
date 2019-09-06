@@ -375,7 +375,7 @@ HeadsUpEntry是HeadsUpManager的内部类，查看setEntry(entry)方法实现
 724             }
 725         }
 ```
-updateEntry方法中根据isSticky()判断是否执行mHandler.postDelayed(mRemoveHeadsUpRunnable, removeDelay)，而其中的mHeadsUpNotificationDecay是系统设置的消息弹出后存在的时间，保存在frameworks/base/packages/SystemUI/res/values/config.xml中，默认值是5000。
+updateEntry方法中根据isSticky()判断是否执行mHandler.postDelayed(mRemoveHeadsUpRunnable, removeDelay)，而其中的mHeadsUpNotificationDecay是系统设置的消息弹出后存在的时间，保存在frameworks/base/packages/SystemUI/res/values/config.xml中，默认值是5000，当if判断成立时，Handler发送延迟消息处理消息的移除。
 
 
 
