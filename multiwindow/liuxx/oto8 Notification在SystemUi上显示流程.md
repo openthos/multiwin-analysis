@@ -271,6 +271,114 @@ mNotificationData.add(entry);对应了前面分析的boolean isUpdate = mNotific
 ```
 ### Notification弹出后自动消失
 
+从上面的notification在通知栏上显示的流程可以发现，无论是addNotification还是updateNotification在实现过程中都会执行mHeadsUpManager.showNotification(shadeEntry)方法，HeadsUpManager是处理屏幕顶部消息弹出动画样式，显示的时间以及消失动画样式，下面具体分析实现流程。
+
+首先查看addNotification时调用mHeadsUpManager.showNotification(shadeEntry)流程，当addNotification时，调用addEntry(entry)方法，具体实现：
+```
+1820     private void addEntry(Entry shadeEntry) {
+1821         boolean isHeadsUped = shouldPeek(shadeEntry);
+1822         if (isHeadsUped) {
+1823             mHeadsUpManager.showNotification(shadeEntry);//重点
+1824             // Mark as seen immediately
+1825             setNotificationShown(shadeEntry.notification);
+1826         }
+1827         addNotificationViews(shadeEntry);
+1828         // Recalculate the position of the sliding windows and the titles.
+1829         setAreThereNotifications();
+1830     }
+```
+接着查看updateNotification时调用mHeadsUpManager.showNotification(shadeEntry)流程，当执行updateNotification(notification, ranking)时，调用updateHeadsUp(key, entry, shouldPeek, alertAgain)，updateHeadsUp具体实现如下：
+```
+2926     protected void updateHeadsUp(String key, Entry entry, boolean shouldPeek,
+2927                                  boolean alertAgain) {
+2928         final boolean wasHeadsUp = isHeadsUp(key);
+2929         if (wasHeadsUp) {
+2930             if (!shouldPeek) {
+2931                 // We don't want this to be interrupting anymore, lets remove it
+2932                 mHeadsUpManager.removeNotification(key, false /* ignoreEarliestRemovalTime */);
+2933             } else {
+2934                 mHeadsUpManager.updateNotification(entry, alertAgain);
+2935             }
+2936         } else if (shouldPeek && alertAgain) {
+2937             // This notification was updated to be a heads-up, show it!
+2938             mHeadsUpManager.showNotification(entry);//重点
+2939         }
+2940     }
+```
+知道了mHeadsUpManager.showNotification(entry)被调用的流程后，查看shouNotification在HeadsUpManager中的具体实现：
+```
+185     public void showNotification(NotificationData.Entry headsUp) { 
+186         if (DEBUG) Log.v(TAG, "showNotification", new Exception());
+187         addHeadsUpEntry(headsUp); 
+188         updateNotification(headsUp, true);
+189         headsUp.setInterruption();
+190     }
+```
+查看addHeadsUpEntry(headsUp)方法的实现
+```
+212     private void addHeadsUpEntry(NotificationData.Entry entry) {
+213         HeadsUpEntry headsUpEntry = mEntryPool.acquire();
+214 
+215         // This will also add the entry to the sortedList
+216         headsUpEntry.setEntry(entry);
+217         mHeadsUpEntries.put(entry.key, headsUpEntry);
+218         entry.row.setHeadsUp(true);
+219         setEntryPinned(headsUpEntry, shouldHeadsUpBecomePinned(entry));
+220         for (OnHeadsUpChangedListener listener : mListeners) {
+221             listener.onHeadsUpStateChanged(entry, true);
+222         }
+223         entry.row.sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
+224     }
+```
+HeadsUpEntry是HeadsUpManager的内部类，查看setEntry(entry)方法实现
+```
+682         public void setEntry(final NotificationData.Entry entry) {
+683             this.entry = entry;
+684 
+685             // The actual post time will be just after the heads-up really slided in
+686             postTime = mClock.currentTimeMillis() + mTouchAcceptanceDelay;
+687             mRemoveHeadsUpRunnable = new Runnable() {
+688                 @Override
+689                 public void run() {
+690                     if (!mVisualStabilityManager.isReorderingAllowed()) {
+691                         mEntriesToRemoveWhenReorderingAllowed.add(entry);
+692                         mVisualStabilityManager.addReorderingAllowedCallback(HeadsUpManager.this);
+693                     } else if (!mTrackingHeadsUp) {
+694                         removeHeadsUpEntry(entry);
+695                     } else {
+696                         mEntriesToRemoveAfterExpand.add(entry);
+697                     }
+698                 }
+699             };
+700             updateEntry();
+701         }
+```
+在setEntry中先创建了移除消息的Runnable，接着调用updateEntry方法，其实现
+```
+707         public void updateEntry(boolean updatePostTime) {
+708             long currentTime = mClock.currentTimeMillis();
+709             earliestRemovaltime = currentTime + mMinimumDisplayTime;
+710             if (updatePostTime) {
+711                 postTime = Math.max(postTime, currentTime);
+712             }
+713             removeAutoRemovalCallbacks();
+714             if (mEntriesToRemoveAfterExpand.contains(entry)) {
+715                 mEntriesToRemoveAfterExpand.remove(entry);
+716             }
+717             if (mEntriesToRemoveWhenReorderingAllowed.contains(entry)) {
+718                 mEntriesToRemoveWhenReorderingAllowed.remove(entry);
+719             }
+720             if (!isSticky()) {
+721                 long finishTime = postTime + mHeadsUpNotificationDecay;
+722                 long removeDelay = Math.max(finishTime - currentTime, mMinimumDisplayTime);
+723                 mHandler.postDelayed(mRemoveHeadsUpRunnable, removeDelay);
+724             }
+725         }
+```
+updateEntry方法中根据isSticky()判断是否执行mHandler.postDelayed(mRemoveHeadsUpRunnable, removeDelay)，而其中的mHeadsUpNotificationDecay是系统设置的消息弹出后存在的时间，保存在frameworks/base/packages/SystemUI/res/values/config.xml中，默认值是5000。
+
+
+
 
 
 
