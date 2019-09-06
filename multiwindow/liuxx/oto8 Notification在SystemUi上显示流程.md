@@ -209,6 +209,67 @@ mNotificationData.add(entry);对应了前面分析的boolean isUpdate = mNotific
 ```
 重点在updateNotificationShade()方法上，其最终完成只把接收的最新消息的ExpandableNotificationRow添加到通知栏上面。
 
+### Notification的更新
+
+接着回到最开始的isUpdate为true走更新流程，调用updateNotification(StatusBarNotification notification, RankingMap ranking)方法，其具体的方法实现：
+```
+7801     public void updateNotification(StatusBarNotification notification, RankingMap ranking)
+7802             throws InflationException {
+7803         if (DEBUG) Log.d(TAG, "updateNotification(" + notification + ")");
+7804 
+7805         final String key = notification.getKey();
+7806         abortExistingInflation(key);
+7807         Entry entry = mNotificationData.get(key);
+7808         if (entry == null) {
+7809             return;
+7810         }
+7811         mHeadsUpEntriesToRemoveOnSwitch.remove(entry);
+7812         mRemoteInputEntriesToRemoveOnCollapse.remove(entry);
+7813         if (key.equals(mKeyToRemoveOnGutsClosed)) {
+7814             mKeyToRemoveOnGutsClosed = null;
+7815             Log.w(TAG, "Notification that was kept for guts was updated. " + key);
+7816         }
+7817 
+7818         Notification n = notification.getNotification();
+7819         mNotificationData.updateRanking(ranking);
+7820 
+7821         final StatusBarNotification oldNotification = entry.notification;
+7822         entry.notification = notification;
+7818         Notification n = notification.getNotification();
+7819         mNotificationData.updateRanking(ranking);
+7820 
+7821         final StatusBarNotification oldNotification = entry.notification;
+7822         entry.notification = notification;
+7823         mGroupManager.onEntryUpdated(entry, oldNotification);
+7824 
+7825         entry.updateIcons(mContext, notification);
+7826         inflateViews(entry, mStackScroller);
+7827 
+7828         mForegroundServiceController.updateNotification(notification,
+7829                 mNotificationData.getImportance(key));
+7830 
+7831         boolean shouldPeek = shouldPeek(entry, notification);
+7832         boolean alertAgain = alertAgain(entry, n);
+7833 
+7834         updateHeadsUp(key, entry, shouldPeek, alertAgain);
+7835         updateNotifications();
+7836 
+7837         if (!notification.isClearable()) {
+7838             // The user may have performed a dismiss action on the notification, since it's
+7839             // not clearable we should snap it back.
+7840             mStackScroller.snapViewIfNeeded(entry.row);
+7841         }
+7842 
+7843         if (DEBUG) {
+7844             // Is this for you?
+7845             boolean isForCurrentUser = isNotificationForCurrentProfiles(notification);
+7846             Log.d(TAG, "notification is " + (isForCurrentUser ? "" : "not ") + "for you");
+7847         }
+7848 
+7849         setAreThereNotifications();
+7850     }
+```
+### Notification弹出后自动消失
 
 
 
