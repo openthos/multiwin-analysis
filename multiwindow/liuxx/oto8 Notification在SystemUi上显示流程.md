@@ -171,6 +171,44 @@ InflationCallback这个类,它是NotificationInflater的静态内部类,其中�
 1849         entry.row.setLowPriorityStateUpdated(false);
 1850     }
 ```
+addEntry(entry)是重点，通过此方法把消息添加到SystemUi上，查看具体实现：
+```
+1820     private void addEntry(Entry shadeEntry) {
+1821         boolean isHeadsUped = shouldPeek(shadeEntry);
+1822         if (isHeadsUped) {
+1823             mHeadsUpManager.showNotification(shadeEntry);
+1824             // Mark as seen immediately
+1825             setNotificationShown(shadeEntry.notification);
+1826         }
+1827         addNotificationViews(shadeEntry);
+1828         // Recalculate the position of the sliding windows and the titles.
+1829         setAreThereNotifications();
+1830     }
+```
+addNotificationViews(shadeEntry)的方法内容如下
+```
+7650     protected void addNotificationViews(final Entry entry) {
+7651         if (entry == null) {
+7652             return;
+7653         }
+7663         ......
+7664         // Add the expanded view and icon.
+7665         mNotificationData.add(entry);
+7666         updateNotifications();
+7667     }
+```
+mNotificationData.add(entry);对应了前面分析的boolean isUpdate = mNotificationData.get(key) != null;
+
+下面查看updateNotifications()方法的具体实现：
+```
+2349     protected void updateNotifications() {
+2350         mNotificationData.filterAndSort();
+2351 
+2352         updateNotificationShade();
+2353     }
+```
+重点在updateNotificationShade()方法上，其最终完成只把接收的最新消息的ExpandableNotificationRow添加到通知栏上面。
+
 
 
 
