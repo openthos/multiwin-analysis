@@ -16,6 +16,12 @@
   - [相关提交的patches](https://github.com/openthos/multiwin-analysis/tree/master/multiwindow/liuxx/oto8-patches/multi-resize)
     
 2.设计oto8 窗口移动到屏幕左、右、上方Docked，且unDocked后，恢复窗口Docked之前Rect。
+  - frameworks/base代码结构
+  
+  `
+  services/core/java/com/android/server/wm/Task.java
+  services/core/java/com/android/server/wm/TaskPositioner.java
+  `
   - [相关提交的patches](https://github.com/openthos/multiwin-analysis/tree/master/multiwindow/liuxx/oto8-patches/multi-docked)
     
 3.设计oto8 窗口大小resize的最小Rect，关闭窗口resize触发的应用relaunched。
