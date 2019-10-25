@@ -187,13 +187,74 @@
 #### StartupMenu
 
 1. oto5.1 StartupMenu功能移植到oto8，设计oto8 StartupMenu功能需求。
-
+  - frameworks/base代码结构
+  ```
+  packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
+  packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
+  packages/SystemUI/src/com/android/systemui/dialog/StartupMenuDialog.java
+  packages/SystemUI/src/com/android/systemui/sql/SqliteOpenHelper.java
+  packages/SystemUI/src/com/android/systemui/sql/SqliteOperate.java
+  packages/SystemUI/src/com/android/systemui/sql/StartMenuDatabaseField.java
+  packages/SystemUI/src/com/android/systemui/startupmenu/AppEntry.java
+  packages/SystemUI/src/com/android/systemui/startupmenu/DialogType.java
+  packages/SystemUI/src/com/android/systemui/startupmenu/ShowType.java
+  packages/SystemUI/src/com/android/systemui/startupmenu/SortSelectPopupWindow.java
+  packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
+  packages/SystemUI/src/com/android/systemui/startupmenu/U.java
+  packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java
+  packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+  packages/SystemUI/src/com/android/systemui/dialog/TaskbarIcon.java
+  packages/SystemUI/src/com/android/systemui/LockReceiver.java
+  packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarKeyguardViewManager.java
+  packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+  services/core/java/com/android/server/wm/WindowManagerService.java
+  ```
   - [相关oto8 StartupMenu提交的patches：](https://github.com/openthos/multiwin-analysis/tree/master/multiwindow/liuxx/oto8-patches/systemui-startupmenu)
-
 
 #### OpenthosStatusBar
 
 1. 设计oto8独立OpenthosStatusBar UI，完成打开应用列表显示、输入法、电源、WIFI、音量、通知中心、日历、HOME键等功能需求。
-
+  - frameworks/base代码结构
+  ```
+  packages/SystemUI/src/com/android/systemui/startupmenu/bean/AppInfo.java
+  packages/SystemUI/src/com/android/systemui/startupmenu/AppAdapter.java
+  packages/SystemUI/src/com/android/systemui/startupmenu/listener/OnMenuClick.java
+  packages/SystemUI/src/com/android/systemui/startupmenu/utils/AppOperateManager.java
+  packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+  packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java
+  packages/SystemUI/src/com/android/systemui/dialog/CalendarDialog.java
+  packages/SystemUI/src/com/android/systemui/dialog/CalendarDisplayView.java
+  packages/SystemUI/src/com/android/systemui/dialog/CalendarView.java
+  packages/SystemUI/src/com/android/systemui/dialog/InputAppInfo.java
+  packages/SystemUI/src/com/android/systemui/dialog/InputMethodDialog.java
+  packages/SystemUI/src/com/android/systemui/dialog/VerticalSeekBar.java
+  packages/SystemUI/src/com/android/systemui/dialog/VolumeDialog.java
+  packages/SystemUI/src/com/android/systemui/dialog/WifiDialog.java
+  packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+  packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
+  packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+  packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
+  packages/SystemUI/src/com/android/systemui/statusbar/phone/NotificationPanelView.java
+  packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java
+  packages/SystemUI/src/com/android/systemui/statusbar/policy/HeadsUpManager.java
+  core/java/android/app/Activity.java
+  core/java/android/app/ActivityManager.java
+  core/java/android/view/Window.java
+  core/java/android/view/WindowManager.java
+  core/java/com/android/internal/policy/DecorView.java
+  core/java/com/android/internal/statusbar/IStatusBar.aidl
+  core/java/com/android/internal/widget/DecorCaptionView.java
+  packages/SystemUI/src/com/android/systemui/dialog/BarDialog.java
+  packages/SystemUI/src/com/android/systemui/statusbar/CommandQueue.java
+  packages/SystemUI/src/com/android/systemui/statusbar/phone/NavigationBarFragment.java
+  packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+  services/core/java/com/android/server/am/ActivityManagerService.java
+  services/core/java/com/android/server/am/ActivityMetricsLogger.java
+  services/core/java/com/android/server/am/ActivityStack.java
+  services/core/java/com/android/server/statusbar/StatusBarManagerInternal.java
+  services/core/java/com/android/server/statusbar/StatusBarManagerService.java
+  services/core/java/com/android/server/wm/WindowManagerService.java
+  
+  ```
   - [相关oto8 StatusBar提交的patches](https://github.com/openthos/multiwin-analysis/tree/master/multiwindow/liuxx/oto8-patches/systemui-statusbar)
 
