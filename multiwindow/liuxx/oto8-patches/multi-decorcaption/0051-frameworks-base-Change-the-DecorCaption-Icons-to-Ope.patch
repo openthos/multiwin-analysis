@@ -1,0 +1,430 @@
+From a1181ba9fdcc475a989693d1c925beb44f7bfd8c Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <18600956771@163.com>
+Date: Tue, 24 Oct 2017 08:04:19 +0000
+Subject: [PATCH 051/110] frameworks: base: Change the DecorCaption Icons to
+ Openthos Icons
+
+Signed-off-by: Liu Xiaoxu <18600956771@163.com>
+---
+ .../com/android/internal/policy/DecorView.java     |   8 ++---
+ .../drawable-hdpi/mw_btn_add_content_clicked.png   | Bin 0 -> 384 bytes
+ .../drawable-hdpi/mw_btn_add_content_default.png   | Bin 0 -> 331 bytes
+ .../res/res/drawable-hdpi/mw_btn_close_default.png | Bin 0 -> 415 bytes
+ .../res/drawable-hdpi/mw_btn_maximize_clicked.png  | Bin 0 -> 405 bytes
+ .../res/drawable-hdpi/mw_btn_maximize_default.png  | Bin 0 -> 382 bytes
+ .../res/drawable-hdpi/mw_btn_minimize_clicked.png  | Bin 0 -> 235 bytes
+ .../res/drawable-hdpi/mw_btn_minimize_default.png  | Bin 0 -> 190 bytes
+ core/res/res/drawable-hdpi/mw_btn_turn_clicked.png | Bin 0 -> 19746 bytes
+ core/res/res/drawable-hdpi/mw_btn_turn_default.png | Bin 0 -> 15042 bytes
+ core/res/res/drawable/mw_btn_add_content.xml       |   5 +++
+ core/res/res/drawable/mw_btn_close.xml             |   5 +++
+ core/res/res/drawable/mw_btn_maximize.xml          |   5 +++
+ core/res/res/drawable/mw_btn_minimize.xml          |   5 +++
+ core/res/res/drawable/mw_btn_rotate.xml            |   5 +++
+ core/res/res/layout/decor_caption.xml              |  38 ++++++++++++---------
+ 16 files changed, 50 insertions(+), 21 deletions(-)
+ create mode 100644 core/res/res/drawable-hdpi/mw_btn_add_content_clicked.png
+ create mode 100644 core/res/res/drawable-hdpi/mw_btn_add_content_default.png
+ create mode 100644 core/res/res/drawable-hdpi/mw_btn_close_default.png
+ create mode 100644 core/res/res/drawable-hdpi/mw_btn_maximize_clicked.png
+ create mode 100644 core/res/res/drawable-hdpi/mw_btn_maximize_default.png
+ create mode 100644 core/res/res/drawable-hdpi/mw_btn_minimize_clicked.png
+ create mode 100644 core/res/res/drawable-hdpi/mw_btn_minimize_default.png
+ create mode 100644 core/res/res/drawable-hdpi/mw_btn_turn_clicked.png
+ create mode 100644 core/res/res/drawable-hdpi/mw_btn_turn_default.png
+ create mode 100644 core/res/res/drawable/mw_btn_add_content.xml
+ create mode 100644 core/res/res/drawable/mw_btn_close.xml
+ create mode 100644 core/res/res/drawable/mw_btn_maximize.xml
+ create mode 100644 core/res/res/drawable/mw_btn_minimize.xml
+ create mode 100644 core/res/res/drawable/mw_btn_rotate.xml
+
+diff --git a/core/java/com/android/internal/policy/DecorView.java b/core/java/com/android/internal/policy/DecorView.java
+index ffdb7cc..d25216b 100644
+--- a/core/java/com/android/internal/policy/DecorView.java
++++ b/core/java/com/android/internal/policy/DecorView.java
+@@ -2050,10 +2050,10 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+         final int shade = mWindow.getDecorCaptionShade();
+         switch (shade) {
+             case DECOR_CAPTION_SHADE_LIGHT:
+-                setLightDecorCaptionShade(view);
++                //setLightDecorCaptionShade(view);
+                 break;
+             case DECOR_CAPTION_SHADE_DARK:
+-                setDarkDecorCaptionShade(view);
++                //setDarkDecorCaptionShade(view);
+                 break;
+             default: {
+                 TypedValue value = new TypedValue();
+@@ -2062,9 +2062,9 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+                 // theme and vice versa. Thanks to this the buttons should be visible on the
+                 // background.
+                 if (Color.luminance(value.data) < 0.5) {
+-                    setLightDecorCaptionShade(view);
++                    //setLightDecorCaptionShade(view);
+                 } else {
+-                    setDarkDecorCaptionShade(view);
++                    //setDarkDecorCaptionShade(view);
+                 }
+                 break;
+             }
+diff --git a/core/res/res/drawable-hdpi/mw_btn_add_content_clicked.png b/core/res/res/drawable-hdpi/mw_btn_add_content_clicked.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..47ac4a2dc736ce063855955489febf1a5dac88ab
+GIT binary patch
+literal 384
+zcmV-`0e}99P)<h;3K|Lk000e1NJLTq001Na001Ni1^@s6;Q*MJ00001b5ch_0Itp)
+z=>Px$I!Q!9R9FdPynOxce}+K>m<Ewsz)l%;5TO_u4WZExA`}9I<VVvG-9qTp$zu#n
+z^_2|QuU#QzCti6Lys|_}o;-1sVcqH#VAYI_j6~|fu8iU|gzOl<fDi@^O>OKp5h+TM
+zgU}sgZEH`YwYZg$?I2n>2INe#97HR}fE+|}qCRo_2*dg{D?xf0Kxu{=(F8UON|5BB
+zT|2ii?A^5;td$my0U1nElrjECYFtv5yP@HMNs;6rR}XK7z>sjTDVx@>VK{o^Af|~F
+zijd?WkX;s*HVi=_5nyX+;V6<F1agVFr8UhQMV5nT=_s-tL@P&8<REO0x^ev~NSJIu
+zQaOan7Eqc3)$%*GZ)W)a52<Ltr2&sP<7m$nPw0T8C{9BJ%qLlT)Io%TY&3*MLx@la
+e5RxBsX$SyYFJb{rwK`n@0000<MNUMnLSTYs^p`jQ
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_add_content_default.png b/core/res/res/drawable-hdpi/mw_btn_add_content_default.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..dc59b4be36932fb8f3ab1990027d50d978141bd5
+GIT binary patch
+literal 331
+zcmeAS@N?(olHy`uVBq!ia0vp^Dj>|k1|%Oc%$NbB7>k44ofy`glX(ebvwFHXhD30_
+zonpv$$biT7_5t5p_m;ZeVLEt1)PhA=rX?+9-H|gBO5B_t@f>VC+I8iipKj@f>1w@i
+z_x!u1$7LGoAR53L(wM5fVHWrL+}p92O}4FC_1vPbZ+7`v-Xn#v*WV`AYyKDeAX%Eb
+zf^nsN8>gbo+O6BKv~SYaJhw8R>+<)%mR}dXyXhcgAUKazh4nDgq?S&HC5zgw**TtB
+zKRb!>e4w!)lQicEiRSvku<B%vJ!-se&+o{#-RBm{Nqmy?YS+Jt_v~{F%6*x-rZXOJ
+z7V6?r;XMj8B#GJ6F_qERfj1!CZeC%}m2bh~2W)mZU6)NT+xu|l--*HBUsOZguB!2Y
+Zl~=m1>TcjIL15@Gc)I$ztaD0e0stkOgRuYr
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_close_default.png b/core/res/res/drawable-hdpi/mw_btn_close_default.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..e71f471fb2053488be8e833b687dfc5bd01e8129
+GIT binary patch
+literal 415
+zcmV;Q0bu@#P)<h;3K|Lk000e1NJLTq001Na001Ni1^@s6;Q*MJ00001b5ch_0Itp)
+z=>Px$SxH1eR9Fe^l`(3=KoCVGOLvIf8bVy;3=R%XBZ1na${}))Tq2!Ifz%40A&pHA
+zU^`t3cLL>qMGnid8#7DX&4SSG%<RtN?~D{hI#dBwKow90Q~_1sUloX@r{#J6+I8J6
+z_C42iy?5=;vTPj3@f&>aRaL#XVtlrd&+&)-9=-=8Y?#=N8(<nhFX3C*{&Q<FP?98%
+zICO`EGaJf)nK1^jPv-z^zxc{{Kv5JoZQC}OP5`w5T(1NH2@3lzP18kLmRrV4Mi3Aa
+zSWq9d0p=R7U>Kee48+X?)Ed((t}zZ!<}O5;pY2g3uA$RLzHx0|xTd3FJJM#X#nWIQ
+zqkyN#`Z+vPyU?XXK|lt~setFWsyUK7yH5fot|14^Z#P+m-glqx<LQGGD}*aq`C6OB
+z%yu`FTKN+D>|!7s#NS1q*wsx26u&`?)u9Tg0;+&2pbA`4fp74Ql@d>D{S5#B002ov
+JPDHLkV1iR_t|0&b
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_maximize_clicked.png b/core/res/res/drawable-hdpi/mw_btn_maximize_clicked.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..15ac08de4d0422a9492af34a95e2f32bf3c85e03
+GIT binary patch
+literal 405
+zcmV;G0c!q<P)<h;3K|Lk000e1NJLTq001Na001Ni1^@s6;Q*MJ00001b5ch_0Itp)
+z=>Px$Pf0{UR9FdPynOxce}+K>m<Ewsz)l%;5TO_u4WZExA`}9I<VVxcXb2Gs0YdUD
+zgcKml|M~NW;p*j!46k0jL>9)$784U^(AL#wU|}KN8lqJ`e)NE0=Cnx+zkmP6=>TjJ
+ztZZxy>6y6<vT_R8q%p*Z&Si_{&jCAzk&%gkhnJTq3{w01*DnT;USa{!A@u3fN3fZ>
+zg(VEq(y~OE|Mcl&hDm*03^2XKXd*g<V1^Ov7?65W)WXas*+DRkw4z5HL?~oOLx}1j
+z^zQ9jLT19{Nl^>aM07dC$;rv^{rh)@zMeJ)At7Oye!TR%cM!*e^b!k*c2Ia!9K*tS
+zv%n?q%NNgyHJ^criHQNEmsr3^N=Fe?;vPM6km19-cSM;lASA?KZDY^C$Hz~UdXOTL
+z97MFK6et|c_Jjg&G=xS&h)@U+k{?Y&LoS2>e8W^bW%v+W00000NkvXXu0mjfiuSF}
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_maximize_default.png b/core/res/res/drawable-hdpi/mw_btn_maximize_default.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..86239e44d4ed644545ac3284213c7ac8966d1beb
+GIT binary patch
+literal 382
+zcmV-^0fGLBP)<h;3K|Lk000e1NJLTq001Na001Ni1^@s6;Q*MJ00001b5ch_0Itp)
+z=>Px$I7vi7R9Fe^lrd|AP!xsp#11J=Aw#KCyJX2yB-t}7F5;fKKd65~5`y>xG8asS
+zPF>o`Ezm`ZP@_Fh6fz~p(j{;oTm;{D?mM0*cQBA82}lBxfFvLZTz3MhkA25+Zfx5Q
+z%Cej=I@2`Yvn*SsY5K$PnxPGOo;R=SdW#ye&6@+1`c_IUk|cR$bS49721YimnIjH3
+zFgoyK)GgQz>YmZ`F?6RJ;u>ag9PgRtzVAQbdUr6@Xc>*cKrPc;FKb3?PFVWa=wqmd
+z_rIfJ=u&o)(0?XW>t;a^JYH(r?VqrXwtIi>NzWlP`9h6~qIh#%_v2jCZVzl{UTdjE
+z8!`-ISyk1#oxD@3J0MJTJ=vEu&w`o@!_dz2{2AsR7#%*~)3U6WD2g(M7e*401SA1T
+c;2IM61(B3q=o7PA;Q#;t07*qoM6N<$f-(D_OaK4?
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_minimize_clicked.png b/core/res/res/drawable-hdpi/mw_btn_minimize_clicked.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..476963c15a2802930c3c6ee1968b930883affef9
+GIT binary patch
+literal 235
+zcmeAS@N?(olHy`uVBq!ia0vp^Dj>|k1|%Oc%$NbB7>k44ofy`glX(f`EcJA842j@;
+zJKdVA!9c(z{G&$K)Q;nVtlau(%JbZuHwgThquP|De8Od8zzmZ_V@{vAwgXmwH%R=v
+zP+<Qgb+eQ63s;Yh76Ha3#?C4&913$Kl@whVUY-%)RAll<Z>w`Z;oQf+ccu2s<sUWj
+z&(;Ze%@PeuU&EVuwbSr?l*QUx-+7<9YVHjS+isKJ_2|i-l1S?}G5R;(F#T6#@PL`y
+bae-^+7pbKC=H@Lx2QzrO`njxgN@xNAwW?IY
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_minimize_default.png b/core/res/res/drawable-hdpi/mw_btn_minimize_default.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..52556c4401e0f4c50669aa78a7c7d128da6cf6f2
+GIT binary patch
+literal 190
+zcmeAS@N?(olHy`uVBq!ia0vp^Dj>|k1|%Oc%$NbB7>k44ofy`glX(f`RCu~LhD30_
+zy<o`Kpup3bc&oxhoNobN-1(C;udWt-<>up|P-yTmz3I~R1L92Fj4T2U3^3xy)P^tr
+z%#Ky8cy;G?{P)fiQ-f~3j>@**syDAxe%I4EyMMpl^E}Lc|8E8PT{|w=R#eQqX(^-B
+hz`(?z@FB2~>1?xbDziiBb)Xv<JYD@<);T3K0RUq|MG61_
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_turn_clicked.png b/core/res/res/drawable-hdpi/mw_btn_turn_clicked.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..e0f9a2271dd1ee48f0ca97045bdcb9f10ec123f1
+GIT binary patch
+literal 19746
+zcmeI3OKclO7=R~_(ljUt(Mmu8$#OwzRqS0q6R#XsC2mP1+(t=CQ!aF~J5H9`-tF!t
+zcA`j>r|6*)4+)i5B|w~zD()PRkWwKo(DFKQ;0Op>BwDGB+c2}X*S}vGJET$$vx>dH
+z|M_40%|El7!=4>K^7KIe?tX;Oz}RSVf}9_xpT2v@_iyO@d2-rejGnL%x_2l2bfNb@
+zd<dbTz1q~YJ)L?+QuM4}R`nU|FJuj3jZpkR!H|_x*!IleSuHp0z53->UXP{@dyhv_
+zV#*l7bK2;Vi6@tiOessJl$h#0km!#WBoZKtZP`=EW^$HP81_1GB_dO`;Pp5r_Nig-
+zL7LDrof`Ly=qC0={86702n9WZF@GQu3l4>!^aRB~R1m{LAm$5%B=Q#)J>|oj=qFO#
+zRMXN#@^CpF`8DjFvu#5XgnT~l&xicFIZNDQF+mIp!Jv;=_^id8Ef;(_YfmXiB~B7s
+zim4g4rsq5~t~{g9+rwTjP2?Ws>&hB#qMTJ`M<@yf*$@JLQE29*Dz1+)Z)Tj*R7JoU
+zoW(iYB7T9Ue#V?`>(-p!BBeXrGBKHxRLafWwBBsCX==+pv_KG)kv8?TrWOq>Okhi&
+zHx+znfn3U-W>;@(>FVUvM4}@tYsUqxg&Q3yxjC&+nxQzkR%yh<vaOp_x}Hgtx@^3H
+z&@(bZyDH+3c=jIGa;l!U_Qi#Ir|OJX<Kd)i;{@>?^obE)Ff<j2Nr53L5Z*5iNumgX
+zlq~CFq;yqFFE)u05+yMPV*tzg7-R*hvMsk21=@l*sv@OzGb`H(Ei2Dr!N|?Vg{l%*
+zx_u>$=o#H4W#L39E;LgEFQ?a}v7BYgIR%d;6GY+HG*wa~A#o^}j`^a4@{BJX4J$r5
+z9T0s(!LS^T&4iV(8g(G1Qqa92bW&I5>3S)LRyzz0+#5n4H8rx=$r)fntM4>LlQ0db
+zMm39c=pyJ`(!b7bHi=KyYAXX7&DoU<*|acSbHm=sqI0(~cbB3*&f1k^h3;nwg)RxK
+z#)TSfwJg`O?51sW0!#6Md+QweIh<Q>L6t%|R;`0rdfLv*CO$YzdZNA6UW!}mSf3y+
+z&^tgztDTCHwswXpJ=-{=ak{Zdq#H<OvNH>TxX_@hW-i%J(^<{TJNAP?ksLyRewSV0
+zaJ}n^^<Cj`y=&F;SWdGO!E&}bHSnUlZ)szgBo7KW5sgGbk+@K=uJ;(%3OF;J)W{09
+zXkUiNns<Ea2bwybXyph7%8sR}0=IN$CQDlKz(Af=1ovU3c9Pwtu*pL8iZ(eg49Al|
+z8cdnvVj_YD92ca)lsPUYB51&IK^jb%<6<I$1{@cp!IU{JCL(CSaX}hPnd4$2f(9HH
+zq`{OqE+!&qz;QtuOqt_iB7z1S7o@?IIW8t5Xuxqn8cdnvVj_YD92ca)lsPUYB51&I
+zK^jb%<6<I$1{@cp!IU{JCL(CSaX}hPnd4$2f(9HHq`{OqE+!&qz;QtuOqt_iB7z1S
+z7o@?IIW8t5Xuxqn8cdnvVj_YD92ca)lsPUYB51&IK^jb%<6<I$1{@cp!Iam<)n9%6
+z59i1`e|hq9-~BTeekLyldX&+L6hcc+Aav#xgl?{p^X~}FiwOO35+RAaZ1|x5_VX);
+z5!yxG(K$F(=tAnQ5B}`>;g?^D?bbQEw@xXgN_au68R3LDAr=AF_?GLTURK4e#;;ud
+z4t@5?g@)mUr5Dl8ox2+J?J7Fnsc+xDjlQ_}Ir{dS6*O^d8tvV;A8p^>hpztp7tvip
+zmsY+;voGk#yNAA(-uclnp&K`DIK?cVc?}H=+~;O|c=sdd=)^I!`_aeHd+)x5me0IS
+z#s}Q-c7=`!wG;T$k3T{`UiluKJ@-yK<~25L6S{u=U-ZwlYiMn44Rv*OIcFM)$`6p9
+z>Feur0|!G9ryy6+fzURgyp>%yY=s8xv84qAZQHgDt*)+iOli}XeNRshntb*-rx@DY
+zogQsZStW3VMCErga?!yUqMwZ%n@(sWML?g92|;Hl(|%blm{3(C*ORRo1V1*7P_eiQ
+z!fssLG(tOe^fz5m&3bITayO08dPzDN;{~y3b=*Uhp6KoEMa5##jn7(Tt|3F%(3BZg
+z0Tq^Cazl4_ccWXkZo0q!kI*q8n(WPUZy;Jk<+yX_4l1q|QTFsgMdhC9&9{@skhX8G
+zZic%oR4?-`Cu%o5FNj5o6XJwe1X$x+u7|o1`G@B6%Bwv;6%v<e^<#&QBriU7^5y>k
+DLAxwa
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_turn_default.png b/core/res/res/drawable-hdpi/mw_btn_turn_default.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..cb698838740222dc7ca0d286c02cf68f98dc557a
+GIT binary patch
+literal 15042
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable/mw_btn_add_content.xml b/core/res/res/drawable/mw_btn_add_content.xml
+new file mode 100644
+index 0000000..be07460
+--- /dev/null
++++ b/core/res/res/drawable/mw_btn_add_content.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_pressed="true" android:drawable="@drawable/mw_btn_add_content_clicked" />
++    <item android:drawable="@drawable/mw_btn_add_content_default" />
++</selector>
+diff --git a/core/res/res/drawable/mw_btn_close.xml b/core/res/res/drawable/mw_btn_close.xml
+new file mode 100644
+index 0000000..f6514bf
+--- /dev/null
++++ b/core/res/res/drawable/mw_btn_close.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_pressed="true" android:drawable="@drawable/mw_btn_close_default" />
++    <item android:drawable="@drawable/mw_btn_close_default" />
++</selector>
+diff --git a/core/res/res/drawable/mw_btn_maximize.xml b/core/res/res/drawable/mw_btn_maximize.xml
+new file mode 100644
+index 0000000..2524487
+--- /dev/null
++++ b/core/res/res/drawable/mw_btn_maximize.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_pressed="true" android:drawable="@drawable/mw_btn_maximize_clicked" />
++    <item android:drawable="@drawable/mw_btn_maximize_default" />
++</selector>
+diff --git a/core/res/res/drawable/mw_btn_minimize.xml b/core/res/res/drawable/mw_btn_minimize.xml
+new file mode 100644
+index 0000000..7764280
+--- /dev/null
++++ b/core/res/res/drawable/mw_btn_minimize.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_pressed="true" android:drawable="@drawable/mw_btn_minimize_clicked" />
++    <item android:drawable="@drawable/mw_btn_minimize_default" />
++</selector>
+diff --git a/core/res/res/drawable/mw_btn_rotate.xml b/core/res/res/drawable/mw_btn_rotate.xml
+new file mode 100644
+index 0000000..d047d27
+--- /dev/null
++++ b/core/res/res/drawable/mw_btn_rotate.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_pressed="true" android:drawable="@drawable/mw_btn_turn_clicked" />
++    <item android:drawable="@drawable/mw_btn_turn_default" />
++</selector>
+diff --git a/core/res/res/layout/decor_caption.xml b/core/res/res/layout/decor_caption.xml
+index cbaec50..5aa139e 100644
+--- a/core/res/res/layout/decor_caption.xml
++++ b/core/res/res/layout/decor_caption.xml
+@@ -27,25 +27,25 @@
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:gravity="end"
+-            android:background="@drawable/decor_caption_title"
++            android:background="#d1d1f1"
+             android:focusable="false"
+             android:descendantFocusability="blocksDescendants" >
+-        <Button
++        <ImageButton
+                 android:id="@+id/back_window"
+-                android:layout_width="32dp"
+-                android:layout_height="32dp"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
+                 android:layout_margin="5dp"
+                 android:padding="4dp"
+                 android:layout_gravity="center_vertical"
++                android:background="@null"
+                 android:contentDescription="@string/back_button_text"
+-                android:background="@drawable/decor_back_button_dark" />
++                android:src="@drawable/mw_btn_add_content" />
+         <ImageView
+                 android:id="@+id/icon_window"
+                 android:layout_width="32dp"
+                 android:layout_height="32dp"
+                 android:layout_marginTop="5dp"
+                 android:layout_marginBottom="5dp"
+-                android:padding="4dp"
+                 android:layout_gravity="center_vertical"
+                 android:background="@drawable/decor_back_button_dark" />
+         <TextView
+@@ -56,51 +56,55 @@
+                 android:layout_marginBottom="5dp"
+                 android:padding="4dp"
+                 android:layout_gravity="center_vertical"
+-                android:textColor="@color/white"
+-                android:background="@drawable/decor_caption_title" />
++                android:textColor="@color/black" />
+         <View
+                 android:id="@+id/blank_window"
+ 	            android:layout_width="0dp"
+                 android:layout_height="0dp"
+                 android:layout_weight="1" />
+-        <Button
++        <ImageButton
+                 android:id="@+id/rotate_window"
+                 android:layout_width="32dp"
+                 android:layout_height="32dp"
+                 android:layout_marginTop="5dp"
+                 android:layout_marginBottom="5dp"
+                 android:padding="4dp"
++                android:background="@null"
+                 android:layout_gravity="center_vertical|end"
+                 android:contentDescription="@string/rotate_button_text"
+-                android:background="@drawable/decor_rotate_button_dark" />
+-        <Button
++                android:src="@drawable/mw_btn_rotate" />
++        <ImageButton
+                 android:id="@+id/minimize_window"
+                 android:layout_width="32dp"
+                 android:layout_height="32dp"
+                 android:layout_marginTop="5dp"
+                 android:layout_marginBottom="5dp"
+                 android:padding="4dp"
++                android:background="@null"
+                 android:layout_gravity="center_vertical|end"
+                 android:contentDescription="@string/minimize_button_text"
+-                android:background="@drawable/decor_minimize_button_dark" />
+-        <Button
++                android:src="@drawable/mw_btn_minimize" />
++        <ImageButton
+                 android:id="@+id/maximize_window"
+                 android:layout_width="32dp"
+                 android:layout_height="32dp"
+                 android:layout_marginTop="5dp"
+                 android:layout_marginBottom="5dp"
+                 android:padding="4dp"
++                android:background="@null"
+                 android:layout_gravity="center_vertical|end"
+                 android:contentDescription="@string/maximize_button_text"
+-                android:background="@drawable/decor_maximize_button_dark" />
+-        <Button
++                android:src="@drawable/mw_btn_maximize" />
++        <ImageButton
+                 android:id="@+id/close_window"
+                 android:layout_width="32dp"
+                 android:layout_height="32dp"
+-                android:layout_margin="5dp"
++                android:layout_marginTop="5dp"
++                android:layout_marginBottom="5dp"
+                 android:padding="4dp"
++                android:background="@null"
+                 android:layout_gravity="center_vertical|end"
+                 android:contentDescription="@string/close_button_text"
+-                android:background="@drawable/decor_close_button_dark" />
++                android:src="@drawable/mw_btn_close" />
+     </LinearLayout>
+ </com.android.internal.widget.DecorCaptionView>
+-- 
+2.7.4
+

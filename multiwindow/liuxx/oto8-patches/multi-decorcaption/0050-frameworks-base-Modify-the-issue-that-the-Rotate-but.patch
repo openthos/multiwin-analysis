@@ -1,0 +1,116 @@
+From 30cad3acb2a9abd70275e268c7696e083a440e08 Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <18600956771@163.com>
+Date: Tue, 24 Oct 2017 02:41:07 +0000
+Subject: [PATCH 050/110] frameworks: base: Modify the issue that the Rotate
+ button of DecorCaptionView show or hide.
+
+Signed-off-by: Liu Xiaoxu <18600956771@163.com>
+---
+ .../com/android/internal/policy/DecorView.java     |  8 +++---
+ .../android/internal/widget/DecorCaptionView.java  | 29 +++++++++++++++++++---
+ 2 files changed, 31 insertions(+), 6 deletions(-)
+
+diff --git a/core/java/com/android/internal/policy/DecorView.java b/core/java/com/android/internal/policy/DecorView.java
+index 7a6ab59..ffdb7cc 100644
+--- a/core/java/com/android/internal/policy/DecorView.java
++++ b/core/java/com/android/internal/policy/DecorView.java
+@@ -1918,7 +1918,6 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+             } else if (mDecorCaptionView != null) {
+                 // We might have to change the kind of surface before we do anything else.
+                 mDecorCaptionView.onConfigurationChanged(StackId.hasWindowDecor(mStackId));
+-                //mDecorCaptionView.onConfigurationChanged(!isFullscreen());
+                 enableCaption(StackId.hasWindowDecor(workspaceId));
+             }
+         }
+@@ -2027,7 +2026,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+             if (decorCaptionView == null) {
+                 decorCaptionView = inflateDecorCaptionView(inflater);
+             }
+-            decorCaptionView.setPhoneWindow(mWindow, true /*showDecor*/, mStackId);
++            decorCaptionView.setPhoneWindow(mWindow, true /*showDecor*/);
+         } else {
+             decorCaptionView = null;
+         }
+@@ -2360,7 +2359,10 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+         WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
+         Point point = new Point();
+         wm.getDefaultDisplay().getSize(point);
+-        Rect winframe = getViewRootImpl().getWinFrame();
++        Rect winframe = new Rect();
++        if (getViewRootImpl() != null) {
++            winframe = getViewRootImpl().getWinFrame();
++        }
+         Rect fullscreen = new Rect(0, 0, point.x, point.y);
+         return winframe.equals(fullscreen) || getStackId() == 1;
+     }
+diff --git a/core/java/com/android/internal/widget/DecorCaptionView.java b/core/java/com/android/internal/widget/DecorCaptionView.java
+index 4a75cff..62cc3f4 100644
+--- a/core/java/com/android/internal/widget/DecorCaptionView.java
++++ b/core/java/com/android/internal/widget/DecorCaptionView.java
+@@ -33,6 +33,8 @@ import android.view.Window;
+ import android.content.pm.PackageManager;
+ import android.widget.ImageView;
+ import android.widget.TextView;
++import static android.app.ActivityManager.StackId.INVALID_STACK_ID;
++import static android.app.ActivityManager.StackId.FULLSCREEN_WORKSPACE_STACK_ID;
+ 
+ import com.android.internal.R;
+ import com.android.internal.policy.PhoneWindow;
+@@ -145,7 +147,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         mCaption = getChildAt(0);
+     }
+ 
+-    public void setPhoneWindow(PhoneWindow owner, boolean show, int stackId) {
++    public void setPhoneWindow(PhoneWindow owner, boolean show) {
+         mOwner = owner;
+         mShow = show;
+         mOverlayWithAppContent = owner.isOverlayWithDecorCaptionEnabled();
+@@ -169,8 +171,6 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         PackageManager pm = getContext().getPackageManager();
+         appName.setText(pm.getApplicationLabel(getContext().getApplicationInfo()));
+         appIcon.setImageDrawable(pm.getApplicationIcon(getContext().getApplicationInfo()));
+-
+-        mRotate.setVisibility(stackId > 1 ? VISIBLE : GONE);
+     }
+ 
+     @Override
+@@ -291,6 +291,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+      */
+     public void onConfigurationChanged(boolean show) {
+         mShow = show;
++        mRotate.setVisibility(getStackId() > 1 ? VISIBLE : GONE);
+         updateCaptionVisibility();
+     }
+ 
+@@ -434,6 +435,28 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         }
+     }
+ 
++    /**
++    * Returns the Id of the stack which contains this window.
++    * Note that if no stack can be determined - which usually means that it was not
++    * created for an activity - the fullscreen stack ID will be returned.
++    * @return Returns the stack id which contains this window.
++    **/
++    private int getStackId() {
++        int workspaceId = INVALID_STACK_ID;
++        final Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
++        if (callback != null) {
++            try {
++                workspaceId = callback.getWindowStackId();
++            } catch (RemoteException ex) {
++                Log.e(TAG, "Failed to get the workspace ID of a PhoneWindow.");
++            }
++        }
++        if (workspaceId == INVALID_STACK_ID) {
++            return FULLSCREEN_WORKSPACE_STACK_ID;
++        }
++        return workspaceId;
++    }
++
+     public boolean isCaptionShowing() {
+         return mShow;
+     }
+-- 
+2.7.4
+

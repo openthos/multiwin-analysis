@@ -1,0 +1,43 @@
+From 1b3697104894fb56f77dd1a97b462c84295dcc0f Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Thu, 14 Feb 2019 02:21:56 +0000
+Subject: [PATCH 059/110] frameworks: base: Decreased side margin for showing
+ docked stack dim layer.
+
+Decreased side margin for showing DecorCaption by mouse hover.
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ core/java/com/android/internal/policy/DecorView.java         | 2 +-
+ services/core/java/com/android/server/wm/TaskPositioner.java | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/core/java/com/android/internal/policy/DecorView.java b/core/java/com/android/internal/policy/DecorView.java
+index d25216b..e29063b 100644
+--- a/core/java/com/android/internal/policy/DecorView.java
++++ b/core/java/com/android/internal/policy/DecorView.java
+@@ -1930,7 +1930,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+             return false;
+         }
+         int y = (int) event.getRawY();
+-        if (y < 20 && !isShowingCaption()) {
++        if (y < 2 && !isShowingCaption()) {
+             setCaptionVisiblity(true);
+             return true;
+         } else if (isShowingCaption() && (y > getCaptionHeight())) {
+diff --git a/services/core/java/com/android/server/wm/TaskPositioner.java b/services/core/java/com/android/server/wm/TaskPositioner.java
+index a6290ae..bed00ff 100644
+--- a/services/core/java/com/android/server/wm/TaskPositioner.java
++++ b/services/core/java/com/android/server/wm/TaskPositioner.java
+@@ -67,7 +67,7 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+ 
+     // The margin the pointer position has to be within the side of the screen to be
+     // considered at the side of the screen.
+-    static final int SIDE_MARGIN_DIP = 100;
++    static final int SIDE_MARGIN_DIP = 10;
+ 
+     @IntDef(flag = true,
+             value = {
+-- 
+2.7.4
+

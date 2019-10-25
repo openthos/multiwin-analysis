@@ -1,0 +1,125 @@
+From 0926c2a6ce0e24f56701c276787ad62e859f6caa Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <18600956771@163.com>
+Date: Thu, 26 Oct 2017 06:44:21 +0000
+Subject: [PATCH 052/110] frameworks: base: Whether task is docked to show or
+ hide Rotate button in DecorCaption
+
+Signed-off-by: Liu Xiaoxu <18600956771@163.com>
+---
+ core/java/android/view/IWindowSession.aidl                |  2 ++
+ core/java/android/view/View.java                          | 15 +++++++++++++++
+ .../com/android/internal/widget/DecorCaptionView.java     | 10 ++++++++++
+ services/core/java/com/android/server/wm/Session.java     | 10 ++++++++++
+ .../java/com/android/server/wm/WindowManagerService.java  |  9 +++++++++
+ 5 files changed, 46 insertions(+)
+
+diff --git a/core/java/android/view/IWindowSession.aidl b/core/java/android/view/IWindowSession.aidl
+index 51d6514..7ee2f73 100644
+--- a/core/java/android/view/IWindowSession.aidl
++++ b/core/java/android/view/IWindowSession.aidl
+@@ -232,5 +232,7 @@ interface IWindowSession {
+      */
+     boolean startMovingTask(IWindow window, float startX, float startY);
+ 
++    boolean isTaskDocked(IWindow window);
++
+     void updatePointerIcon(IWindow window);
+ }
+diff --git a/core/java/android/view/View.java b/core/java/android/view/View.java
+index 166d6b7..e62ae12 100644
+--- a/core/java/android/view/View.java
++++ b/core/java/android/view/View.java
+@@ -23054,6 +23054,21 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
+     }
+ 
+     /**
++     * When the window finish positioning, judge whether is docked.
++     * @return whether the window is docked.
++     * @hide
++     */
++    public final boolean isTaskDocked() {
++        if (ViewDebug.DEBUG_POSITIONING) Log.d(VIEW_LOG_TAG, "isTaskDocked");
++        try {
++            return mAttachInfo.mSession.isTaskDocked(mAttachInfo.mWindow);
++        } catch (RemoteException e) {
++            Log.e(VIEW_LOG_TAG, "Unable to ensure Task isDocked", e);
++        }
++        return false;
++    }
++
++    /**
+      * Handles drag events sent by the system following a call to
+      * {@link android.view.View#startDragAndDrop(ClipData,DragShadowBuilder,Object,int)
+      * startDragAndDrop()}.
+diff --git a/core/java/com/android/internal/widget/DecorCaptionView.java b/core/java/com/android/internal/widget/DecorCaptionView.java
+index 62cc3f4..4f1f84f6 100644
+--- a/core/java/com/android/internal/widget/DecorCaptionView.java
++++ b/core/java/com/android/internal/widget/DecorCaptionView.java
+@@ -30,6 +30,7 @@ import android.view.ViewConfiguration;
+ import android.view.ViewGroup;
+ import android.view.ViewOutlineProvider;
+ import android.view.Window;
++import android.view.ViewTreeObserver;
+ import android.content.pm.PackageManager;
+ import android.widget.ImageView;
+ import android.widget.TextView;
+@@ -171,6 +172,15 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         PackageManager pm = getContext().getPackageManager();
+         appName.setText(pm.getApplicationLabel(getContext().getApplicationInfo()));
+         appIcon.setImageDrawable(pm.getApplicationIcon(getContext().getApplicationInfo()));
++
++        mRotate.getViewTreeObserver().addOnGlobalLayoutListener(
++                         new ViewTreeObserver.OnGlobalLayoutListener() {
++            @Override
++            public void onGlobalLayout() {
++                mRotate.setVisibility(isTaskDocked() ? GONE : VISIBLE);
++                mRotate.getViewTreeObserver().removeGlobalOnLayoutListener(this);
++            }
++        });
+     }
+ 
+     @Override
+diff --git a/services/core/java/com/android/server/wm/Session.java b/services/core/java/com/android/server/wm/Session.java
+index 4dd147e..0f74120 100644
+--- a/services/core/java/com/android/server/wm/Session.java
++++ b/services/core/java/com/android/server/wm/Session.java
+@@ -409,6 +409,16 @@ public class Session extends IWindowSession.Stub
+         }
+     }
+ 
++    public boolean isTaskDocked(IWindow window) {
++        if (DEBUG_TASK_POSITIONING) Slog.d(TAG_WM, "isTaskDocked");
++        long ident = Binder.clearCallingIdentity();
++        try {
++            return mService.isTaskDocked(window);
++        } finally {
++            Binder.restoreCallingIdentity(ident);
++        }
++    }
++
+     @Override
+     public void reportDropResult(IWindow window, boolean consumed) {
+         IBinder token = window.asBinder();
+diff --git a/services/core/java/com/android/server/wm/WindowManagerService.java b/services/core/java/com/android/server/wm/WindowManagerService.java
+index f5cc43b..90171ee 100644
+--- a/services/core/java/com/android/server/wm/WindowManagerService.java
++++ b/services/core/java/com/android/server/wm/WindowManagerService.java
+@@ -4543,6 +4543,15 @@ public class WindowManagerService extends IWindowManager.Stub
+         return true;
+     }
+ 
++    boolean isTaskDocked(IWindow window) {
++        WindowState win = null;
++        synchronized (mWindowMap) {
++            win = windowForClientLocked(null, window, false);
++            if (win == null) return false;
++        }
++        return win.getTask().mIsDocked;
++    }
++
+     private void handleTapOutsideTask(DisplayContent displayContent, int x, int y) {
+         int taskId = -1;
+         synchronized (mWindowMap) {
+-- 
+2.7.4
+

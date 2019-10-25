@@ -1,0 +1,935 @@
+From 0b4b5dc2b13d5c2147bb5483afd104c11cccf563 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Fri, 13 Oct 2017 06:03:01 +0000
+Subject: [PATCH 021/110] initial commit of DecorCaption.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ core/java/android/app/Activity.java                | 30 ++++++++
+ core/java/android/app/IActivityManager.aidl        |  2 +
+ core/java/android/view/Window.java                 |  9 +++
+ .../com/android/internal/policy/DecorView.java     | 46 +++++++++++-
+ .../android/internal/widget/DecorCaptionView.java  | 87 ++++++++++++++++++++--
+ core/res/res/drawable/decor_back_button_dark.xml   | 31 ++++++++
+ core/res/res/drawable/decor_back_button_light.xml  | 31 ++++++++
+ .../res/drawable/decor_minimize_button_dark.xml    | 32 ++++++++
+ .../res/drawable/decor_minimize_button_light.xml   | 32 ++++++++
+ core/res/res/drawable/decor_rotate_button_dark.xml | 31 ++++++++
+ .../res/res/drawable/decor_rotate_button_light.xml | 31 ++++++++
+ core/res/res/layout/decor_caption.xml              | 56 +++++++++++++-
+ core/res/res/values/strings.xml                    |  6 ++
+ core/res/res/values/symbols.xml                    | 11 +++
+ .../android/server/am/ActivityManagerService.java  | 58 +++++++++++++++
+ .../android/server/am/LaunchingTaskPositioner.java |  6 +-
+ .../java/com/android/server/am/TaskRecord.java     | 40 ++++++++++
+ .../java/com/android/server/wm/TaskPositioner.java |  2 +-
+ 18 files changed, 530 insertions(+), 11 deletions(-)
+ create mode 100644 core/res/res/drawable/decor_back_button_dark.xml
+ create mode 100644 core/res/res/drawable/decor_back_button_light.xml
+ create mode 100644 core/res/res/drawable/decor_minimize_button_dark.xml
+ create mode 100644 core/res/res/drawable/decor_minimize_button_light.xml
+ create mode 100644 core/res/res/drawable/decor_rotate_button_dark.xml
+ create mode 100644 core/res/res/drawable/decor_rotate_button_light.xml
+
+diff --git a/core/java/android/app/Activity.java b/core/java/android/app/Activity.java
+index 2436fe8..4ea8714 100644
+--- a/core/java/android/app/Activity.java
++++ b/core/java/android/app/Activity.java
+@@ -3233,6 +3233,18 @@ public class Activity extends ContextThemeWrapper
+         ActivityManager.getService().exitFreeformMode(mToken);
+     }
+ 
++    /**
++     * Switch the activity from
++     * {@link android.app.ActivityManager.StackId#FREEFORM_WORKSPACE_STACK_ID} to
++     * {@link android.app.ActivityManager.StackId#FULLSCREEN_WORKSPACE_STACK_ID} stack.
++     *
++     * @hide
++     */
++    @Override
++    public void switchWindowFreeformAndFullscreen() throws RemoteException {
++        ActivityManager.getService().switchTaskFreeformAndFullscreen(mToken);
++    }
++
+     /** Returns the current stack Id for the window.
+      * @hide
+      */
+@@ -3254,6 +3266,24 @@ public class Activity extends ContextThemeWrapper
+     }
+ 
+     /**
++     *Press the back button of window header
++     *@hide
++     */
++    @Override
++    public void pressKeyBack() {
++        onBackPressed();
++    }
++
++    /**
++     *Change the window orientation between landscape and portrait.
++     *@hide
++     */
++    @Override
++    public void changeWindowOrientation() throws RemoteException {
++        ActivityManager.getService().changeTaskOrientation(mToken);
++    }
++
++    /**
+      * Called to process key events.  You can override this to intercept all
+      * key events before they are dispatched to the window.  Be sure to call
+      * this implementation for key events that should be handled normally.
+diff --git a/core/java/android/app/IActivityManager.aidl b/core/java/android/app/IActivityManager.aidl
+index 3a04a46..215bb07 100644
+--- a/core/java/android/app/IActivityManager.aidl
++++ b/core/java/android/app/IActivityManager.aidl
+@@ -489,6 +489,8 @@ interface IActivityManager {
+     void positionTaskInStack(int taskId, int stackId, int position);
+     int getActivityStackId(in IBinder token);
+     void exitFreeformMode(in IBinder token);
++    void switchTaskFreeformAndFullscreen(in IBinder token);
++    void changeTaskOrientation(in IBinder token);
+     void reportSizeConfigurations(in IBinder token, in int[] horizontalSizeConfiguration,
+             in int[] verticalSizeConfigurations, in int[] smallestWidthConfigurations);
+     boolean moveTaskToDockedStack(int taskId, int createMode, boolean toTop, boolean animate,
+diff --git a/core/java/android/view/Window.java b/core/java/android/view/Window.java
+index 3d6af41..045a6f4 100644
+--- a/core/java/android/view/Window.java
++++ b/core/java/android/view/Window.java
+@@ -625,6 +625,15 @@ public abstract class Window {
+         /** Returns the current stack Id for the window. */
+         int getWindowStackId() throws RemoteException;
+ 
++        /** Press the back button of window header */
++        void pressKeyBack();
++
++        /** Change the window orientation between landscape and portrait */
++        void changeWindowOrientation() throws RemoteException;
++
++        /** Switch the activity between FULLSCREEN and FREEFORM*/
++        void switchWindowFreeformAndFullscreen() throws RemoteException;
++
+         /** Returns whether the window belongs to the task root. */
+         boolean isTaskRoot();
+     }
+diff --git a/core/java/com/android/internal/policy/DecorView.java b/core/java/com/android/internal/policy/DecorView.java
+index 4e06577..0687194 100644
+--- a/core/java/com/android/internal/policy/DecorView.java
++++ b/core/java/com/android/internal/policy/DecorView.java
+@@ -419,6 +419,9 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+ 
+     @Override
+     public boolean dispatchGenericMotionEvent(MotionEvent ev) {
++        if (ev.getAction() == MotionEvent.ACTION_HOVER_MOVE && processCaptionEvent(ev)) {
++            return true;
++        }
+         final Window.Callback cb = mWindow.getCallback();
+         return cb != null && !mWindow.isDestroyed() && mFeatureId < 0
+                 ? cb.dispatchGenericMotionEvent(ev) : super.dispatchGenericMotionEvent(ev);
+@@ -1918,6 +1921,28 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+         initializeElevation();
+     }
+ 
++    boolean processCaptionEvent(MotionEvent event) {
++        if (getStackId() != 1) {
++            return false;
++        }
++        int y = (int) event.getRawY();
++        if (y < 20 && !isShowingCaption()) {
++            setCaptionVisiblity(true);
++            return true;
++        } else if (isShowingCaption() && (y > getCaptionHeight())) {
++            setCaptionVisiblity(false);
++        }
++        return false;
++    }
++
++    void setCaptionVisiblity(boolean visible) {
++        mDecorCaptionView.onConfigurationChanged(visible);
++        enableCaption(visible);
++
++        updateAvailableWidth();
++        initializeElevation();
++    }
++
+     void onResourcesLoaded(LayoutInflater inflater, int layoutResource) {
+         mStackId = getStackId();
+ 
+@@ -1938,6 +1963,9 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+             }
+             mDecorCaptionView.addView(root,
+                     new ViewGroup.MarginLayoutParams(MATCH_PARENT, MATCH_PARENT));
++            if (!StackId.hasWindowDecor(mStackId)) {
++                setCaptionVisiblity(false);
++            }
+         } else {
+ 
+             // Put it below the color views.
+@@ -1970,6 +1998,8 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+ 
+     // Free floating overlapping windows require a caption.
+     private DecorCaptionView createDecorCaptionView(LayoutInflater inflater) {
++        mStackId = getStackId();
++
+         DecorCaptionView decorCaptionView = null;
+         for (int i = getChildCount() - 1; i >= 0 && decorCaptionView == null; i--) {
+             View view = getChildAt(i);
+@@ -1983,13 +2013,13 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+         final boolean isApplication = attrs.type == TYPE_BASE_APPLICATION ||
+                 attrs.type == TYPE_APPLICATION || attrs.type == TYPE_DRAWN_APPLICATION;
+         // Only a non floating application window on one of the allowed workspaces can get a caption
+-        if (!mWindow.isFloating() && isApplication && StackId.hasWindowDecor(mStackId)) {
++        if (!mWindow.isFloating() && isApplication && mStackId > 0) {
+             // Dependent on the brightness of the used title we either use the
+             // dark or the light button frame.
+             if (decorCaptionView == null) {
+                 decorCaptionView = inflateDecorCaptionView(inflater);
+             }
+-            decorCaptionView.setPhoneWindow(mWindow, true /*showDecor*/);
++            decorCaptionView.setPhoneWindow(mWindow, true /*showDecor*/, mStackId);
+         } else {
+             decorCaptionView = null;
+         }
+@@ -2041,6 +2071,12 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+     }
+ 
+     private void setLightDecorCaptionShade(DecorCaptionView view) {
++        view.findViewById(R.id.back_window).setBackgroundResource(
++                R.drawable.decor_back_button_light);
++        view.findViewById(R.id.rotate_window).setBackgroundResource(
++                R.drawable.decor_rotate_button_light);
++        view.findViewById(R.id.minimize_window).setBackgroundResource(
++                R.drawable.decor_minimize_button_light);
+         view.findViewById(R.id.maximize_window).setBackgroundResource(
+                 R.drawable.decor_maximize_button_light);
+         view.findViewById(R.id.close_window).setBackgroundResource(
+@@ -2048,6 +2084,12 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+     }
+ 
+     private void setDarkDecorCaptionShade(DecorCaptionView view) {
++        view.findViewById(R.id.back_window).setBackgroundResource(
++                R.drawable.decor_back_button_dark);
++        view.findViewById(R.id.rotate_window).setBackgroundResource(
++                R.drawable.decor_rotate_button_dark);
++        view.findViewById(R.id.minimize_window).setBackgroundResource(
++                R.drawable.decor_minimize_button_dark);
+         view.findViewById(R.id.maximize_window).setBackgroundResource(
+                 R.drawable.decor_maximize_button_dark);
+         view.findViewById(R.id.close_window).setBackgroundResource(
+diff --git a/core/java/com/android/internal/widget/DecorCaptionView.java b/core/java/com/android/internal/widget/DecorCaptionView.java
+index b419113..1dbbbed 100644
+--- a/core/java/com/android/internal/widget/DecorCaptionView.java
++++ b/core/java/com/android/internal/widget/DecorCaptionView.java
+@@ -20,6 +20,7 @@ import android.content.Context;
+ import android.graphics.Color;
+ import android.graphics.Rect;
+ import android.os.RemoteException;
++import android.os.SystemClock;
+ import android.util.AttributeSet;
+ import android.util.Log;
+ import android.view.GestureDetector;
+@@ -29,6 +30,9 @@ import android.view.ViewConfiguration;
+ import android.view.ViewGroup;
+ import android.view.ViewOutlineProvider;
+ import android.view.Window;
++import android.content.pm.PackageManager;
++import android.widget.ImageView;
++import android.widget.TextView;
+ 
+ import com.android.internal.R;
+ import com.android.internal.policy.PhoneWindow;
+@@ -83,9 +87,17 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     private boolean mDragging = false;
+ 
+     private boolean mOverlayWithAppContent = false;
++    private long[] mHits = new long[2];
++    /**
++     * 两次点击时间间隔，单位毫秒
++     */
++    private final int interval = 500;
+ 
+     private View mCaption;
+     private View mContent;
++    private View mBack;
++    private View mRotate;
++    private View mMinimize;
+     private View mMaximize;
+     private View mClose;
+ 
+@@ -100,8 +112,11 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     // We use the gesture detector to detect clicks on close/maximize buttons and to be consistent
+     // with existing click detection.
+     private GestureDetector mGestureDetector;
+-    private final Rect mCloseRect = new Rect();
++    private final Rect mBackRect = new Rect();
++    private final Rect mRotateRect = new Rect();
++    private final Rect mMinimizeRect = new Rect();
+     private final Rect mMaximizeRect = new Rect();
++    private final Rect mCloseRect = new Rect();
+     private View mClickTarget;
+ 
+     public DecorCaptionView(Context context) {
+@@ -130,7 +145,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         mCaption = getChildAt(0);
+     }
+ 
+-    public void setPhoneWindow(PhoneWindow owner, boolean show) {
++    public void setPhoneWindow(PhoneWindow owner, boolean show, int stackId) {
+         mOwner = owner;
+         mShow = show;
+         mOverlayWithAppContent = owner.isOverlayWithDecorCaptionEnabled();
+@@ -143,8 +158,19 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         // By changing the outline provider to BOUNDS, the window can remove its
+         // background without removing the shadow.
+         mOwner.getDecorView().setOutlineProvider(ViewOutlineProvider.BOUNDS);
++        mBack = findViewById(R.id.back_window);
++        mRotate = findViewById(R.id.rotate_window);
++        mMinimize = findViewById(R.id.minimize_window);
+         mMaximize = findViewById(R.id.maximize_window);
+         mClose = findViewById(R.id.close_window);
++        TextView appName = (TextView) findViewById(R.id.title_window);
++        ImageView appIcon = (ImageView) findViewById(R.id.icon_window);
++
++        PackageManager pm = getContext().getPackageManager();
++        appName.setText(pm.getApplicationLabel(getContext().getApplicationInfo()));
++        appIcon.setImageDrawable(pm.getApplicationIcon(getContext().getApplicationInfo()));
++
++        mRotate.setVisibility(stackId > 1 ? VISIBLE : GONE);
+     }
+ 
+     @Override
+@@ -154,6 +180,15 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         if (ev.getAction() == MotionEvent.ACTION_DOWN) {
+             final int x = (int) ev.getX();
+             final int y = (int) ev.getY();
++            if (mBackRect.contains(x, y)) {
++                mClickTarget = mBack;
++            }
++            if (mRotateRect.contains(x, y)) {
++                mClickTarget = mRotate;
++            }
++            if (mMinimizeRect.contains(x, y)) {
++                mClickTarget = mMinimize;
++            }
+             if (mMaximizeRect.contains(x, y)) {
+                 mClickTarget = mMaximize;
+             }
+@@ -192,6 +227,11 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+                     // When there is no caption we should not react to anything.
+                     return false;
+                 }
++                System.arraycopy(mHits, 1, mHits, 0, mHits.length - 1);
++                mHits[mHits.length - 1] = SystemClock.uptimeMillis();
++                if (mHits[mHits.length - 1] - mHits[0] < interval) {
++                    maximizeWindow();
++                }
+                 // Checking for a drag action is started if we aren't dragging already and the
+                 // starting event is either a left mouse button or any other input device.
+                 if (!fromMouse || primaryButton) {
+@@ -298,10 +338,16 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         if (mCaption.getVisibility() != View.GONE) {
+             mCaption.layout(0, 0, mCaption.getMeasuredWidth(), mCaption.getMeasuredHeight());
+             captionHeight = mCaption.getBottom() - mCaption.getTop();
++            mBack.getHitRect(mBackRect);
++            mRotate.getHitRect(mRotateRect);
++            mMinimize.getHitRect(mMinimizeRect);
+             mMaximize.getHitRect(mMaximizeRect);
+             mClose.getHitRect(mCloseRect);
+         } else {
+             captionHeight = 0;
++            mBackRect.setEmpty();
++            mRotateRect.setEmpty();
++            mMinimizeRect.setEmpty();
+             mMaximizeRect.setEmpty();
+             mCloseRect.setEmpty();
+         }
+@@ -334,19 +380,44 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+      **/
+     private void updateCaptionVisibility() {
+         // Don't show the caption if the window has e.g. entered full screen.
+-        boolean invisible = isFillingScreen() || !mShow;
++        //boolean invisible = isFillingScreen() || !mShow;
++        boolean invisible = !mShow;
+         mCaption.setVisibility(invisible ? GONE : VISIBLE);
+         mCaption.setOnTouchListener(this);
+     }
+ 
+     /**
++     *Press the back button of window header to call Activity'onBackPressed().
++     */
++    private void keyBackWindow() {
++        Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
++        if (callback != null) {
++            callback.pressKeyBack();
++        }
++    }
++
++    /**
++     *Change the window orientation between landscape and portrait
++     */
++    private void rotateWindow() {
++        Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
++        if (callback != null) {
++            try {
++                callback.changeWindowOrientation();
++            } catch (RemoteException ex) {
++                Log.e(TAG, "Cannot change window orientation.");
++            }
++        }
++    }
++
++    /**
+      * Maximize the window by moving it to the maximized workspace stack.
+      **/
+     private void maximizeWindow() {
+         Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
+         if (callback != null) {
+             try {
+-                callback.exitFreeformMode();
++                callback.switchWindowFreeformAndFullscreen();
+             } catch (RemoteException ex) {
+                 Log.e(TAG, "Cannot change task workspace.");
+             }
+@@ -405,7 +476,13 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+ 
+     @Override
+     public boolean onSingleTapUp(MotionEvent e) {
+-        if (mClickTarget == mMaximize) {
++        if (mClickTarget == mBack) {
++            keyBackWindow();
++        } else if (mClickTarget == mRotate) {
++            rotateWindow();
++        } else if (mClickTarget == mMinimize) {
++            //minimizeWindow();
++        } else if (mClickTarget == mMaximize) {
+             maximizeWindow();
+         } else if (mClickTarget == mClose) {
+             mOwner.dispatchOnWindowDismissed(
+diff --git a/core/res/res/drawable/decor_back_button_dark.xml b/core/res/res/drawable/decor_back_button_dark.xml
+new file mode 100644
+index 0000000..efa8ce9
+--- /dev/null
++++ b/core/res/res/drawable/decor_back_button_dark.xml
+@@ -0,0 +1,31 @@
++<!--
++Copyright (C) 2015 The Android Open Source Project
++
++   Licensed under the Apache License, Version 2.0 (the "License");
++    you may not use this file except in compliance with the License.
++    You may obtain a copy of the License at
++
++         http://www.apache.org/licenses/LICENSE-2.0
++
++    Unless required by applicable law or agreed to in writing, software
++    distributed under the License is distributed on an "AS IS" BASIS,
++    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++    See the License for the specific language governing permissions and
++    limitations under the License.
++-->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++        android:width="32.0dp"
++        android:height="32.0dp"
++        android:viewportWidth="32.0"
++        android:viewportHeight="32.0"
++        android:tint="@color/decor_button_dark_color"
++        >
++    <group android:scaleX="0.5"
++            android:scaleY="0.5"
++            android:translateX="8.0"
++            android:translateY="8.0" >
++        <path
++            android:fillColor="@color/white"
++            android:pathData="M20,11H7.83l5.59,-5.59L12,4l-8,8 8,8 1.41,-1.41L7.83,13H20v-2z"/>
++    </group>
++</vector>
+diff --git a/core/res/res/drawable/decor_back_button_light.xml b/core/res/res/drawable/decor_back_button_light.xml
+new file mode 100644
+index 0000000..76858f7
+--- /dev/null
++++ b/core/res/res/drawable/decor_back_button_light.xml
+@@ -0,0 +1,31 @@
++<!--
++Copyright (C) 2015 The Android Open Source Project
++
++   Licensed under the Apache License, Version 2.0 (the "License");
++    you may not use this file except in compliance with the License.
++    You may obtain a copy of the License at
++
++         http://www.apache.org/licenses/LICENSE-2.0
++
++    Unless required by applicable law or agreed to in writing, software
++    distributed under the License is distributed on an "AS IS" BASIS,
++    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++    See the License for the specific language governing permissions and
++    limitations under the License.
++-->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++        android:width="32.0dp"
++        android:height="32.0dp"
++        android:viewportWidth="32.0"
++        android:viewportHeight="32.0"
++        android:tint="@color/decor_button_light_color"
++        >
++    <group android:scaleX="0.5"
++            android:scaleY="0.5"
++            android:translateX="8.0"
++            android:translateY="8.0" >
++        <path
++                android:fillColor="@color/white"
++                android:pathData="M20,11H7.83l5.59,-5.59L12,4l-8,8 8,8 1.41,-1.41L7.83,13H20v-2z"/>
++    </group>
++</vector>
+diff --git a/core/res/res/drawable/decor_minimize_button_dark.xml b/core/res/res/drawable/decor_minimize_button_dark.xml
+new file mode 100644
+index 0000000..ee23c9d
+--- /dev/null
++++ b/core/res/res/drawable/decor_minimize_button_dark.xml
+@@ -0,0 +1,32 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2015 The Android Open Source Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++        android:width="32.0dp"
++        android:height="32.0dp"
++        android:viewportWidth="32.0"
++        android:viewportHeight="32.0"
++        android:tint="@color/decor_button_dark_color"
++        >
++    <group android:scaleX="0.5"
++            android:scaleY="0.5"
++            android:translateX="8.0"
++            android:translateY="8.0" >
++        <path
++            android:fillColor="@color/white"
++            android:pathData="M19,13H5v-2h14v2z"/>
++    </group>
++</vector>
+diff --git a/core/res/res/drawable/decor_minimize_button_light.xml b/core/res/res/drawable/decor_minimize_button_light.xml
+new file mode 100644
+index 0000000..bfc02c7
+--- /dev/null
++++ b/core/res/res/drawable/decor_minimize_button_light.xml
+@@ -0,0 +1,32 @@
++<!--
++Copyright (C) 2015 The Android Open Source Project
++
++   Licensed under the Apache License, Version 2.0 (the "License");
++    you may not use this file except in compliance with the License.
++    You may obtain a copy of the License at
++
++         http://www.apache.org/licenses/LICENSE-2.0
++
++    Unless required by applicable law or agreed to in writing, software
++    distributed under the License is distributed on an "AS IS" BASIS,
++    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++    See the License for the specific language governing permissions and
++    limitations under the License.
++-->
++
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++        android:width="32.0dp"
++        android:height="32.0dp"
++        android:viewportWidth="32.0"
++        android:viewportHeight="32.0"
++        android:tint="@color/decor_button_light_color"
++        >
++    <group android:scaleX="0.5"
++            android:scaleY="0.5"
++            android:translateX="8.0"
++            android:translateY="8.0" >
++        <path
++            android:fillColor="@color/white"
++            android:pathData="M19,13H5v-2h14v2z"/>
++    </group>
++</vector>
+diff --git a/core/res/res/drawable/decor_rotate_button_dark.xml b/core/res/res/drawable/decor_rotate_button_dark.xml
+new file mode 100644
+index 0000000..6480e633
+--- /dev/null
++++ b/core/res/res/drawable/decor_rotate_button_dark.xml
+@@ -0,0 +1,31 @@
++<!--
++Copyright (C) 2015 The Android Open Source Project
++
++   Licensed under the Apache License, Version 2.0 (the "License");
++    you may not use this file except in compliance with the License.
++    You may obtain a copy of the License at
++
++         http://www.apache.org/licenses/LICENSE-2.0
++
++    Unless required by applicable law or agreed to in writing, software
++    distributed under the License is distributed on an "AS IS" BASIS,
++    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++    See the License for the specific language governing permissions and
++    limitations under the License.
++-->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++        android:width="32.0dp"
++        android:height="32.0dp"
++        android:viewportWidth="32.0"
++        android:viewportHeight="32.0"
++        android:tint="@color/decor_button_dark_color"
++        >
++    <group android:scaleX="0.5"
++            android:scaleY="0.5"
++            android:translateX="8.0"
++            android:translateY="8.0" >
++        <path
++            android:fillColor="@color/white"
++            android:pathData="M12,6v3l4,-4 -4,-4v3c-4.42,0 -8,3.58 -8,8 0,1.57 0.46,3.03 1.24,4.26L6.7,14.8c-0.45,-0.83 -0.7,-1.79 -0.7,-2.8 0,-3.31 2.69,-6 6,-6zM18.76,7.74L17.3,9.2c0.44,0.84 0.7,1.79 0.7,2.8 0,3.31 -2.69,6 -6,6v-3l-4,4 4,4v-3c4.42,0 8,-3.58 8,-8 0,-1.57 -0.46,-3.03 -1.24,-4.26z"/>
++    </group>
++</vector>
+diff --git a/core/res/res/drawable/decor_rotate_button_light.xml b/core/res/res/drawable/decor_rotate_button_light.xml
+new file mode 100644
+index 0000000..e8f7246
+--- /dev/null
++++ b/core/res/res/drawable/decor_rotate_button_light.xml
+@@ -0,0 +1,31 @@
++<!--
++Copyright (C) 2015 The Android Open Source Project
++
++   Licensed under the Apache License, Version 2.0 (the "License");
++    you may not use this file except in compliance with the License.
++    You may obtain a copy of the License at
++
++         http://www.apache.org/licenses/LICENSE-2.0
++
++    Unless required by applicable law or agreed to in writing, software
++    distributed under the License is distributed on an "AS IS" BASIS,
++    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++    See the License for the specific language governing permissions and
++    limitations under the License.
++-->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++        android:width="32.0dp"
++        android:height="32.0dp"
++        android:viewportWidth="32.0"
++        android:viewportHeight="32.0"
++        android:tint="@color/decor_button_light_color"
++        >
++    <group android:scaleX="0.5"
++            android:scaleY="0.5"
++            android:translateX="8.0"
++            android:translateY="8.0" >
++        <path
++                android:fillColor="@color/white"
++                android:pathData="M12,6v3l4,-4 -4,-4v3c-4.42,0 -8,3.58 -8,8 0,1.57 0.46,3.03 1.24,4.26L6.7,14.8c-0.45,-0.83 -0.7,-1.79 -0.7,-2.8 0,-3.31 2.69,-6 6,-6zM18.76,7.74L17.3,9.2c0.44,0.84 0.7,1.79 0.7,2.8 0,3.31 -2.69,6 -6,6v-3l-4,4 4,4v-3c4.42,0 8,-3.58 8,-8 0,-1.57 -0.46,-3.03 -1.24,-4.26z"/>
++    </group>
++</vector>
+diff --git a/core/res/res/layout/decor_caption.xml b/core/res/res/layout/decor_caption.xml
+index 0246736..cbaec50 100644
+--- a/core/res/res/layout/decor_caption.xml
++++ b/core/res/res/layout/decor_caption.xml
+@@ -31,11 +31,65 @@
+             android:focusable="false"
+             android:descendantFocusability="blocksDescendants" >
+         <Button
+-                android:id="@+id/maximize_window"
++                android:id="@+id/back_window"
+                 android:layout_width="32dp"
+                 android:layout_height="32dp"
+                 android:layout_margin="5dp"
+                 android:padding="4dp"
++                android:layout_gravity="center_vertical"
++                android:contentDescription="@string/back_button_text"
++                android:background="@drawable/decor_back_button_dark" />
++        <ImageView
++                android:id="@+id/icon_window"
++                android:layout_width="32dp"
++                android:layout_height="32dp"
++                android:layout_marginTop="5dp"
++                android:layout_marginBottom="5dp"
++                android:padding="4dp"
++                android:layout_gravity="center_vertical"
++                android:background="@drawable/decor_back_button_dark" />
++        <TextView
++                android:id="@+id/title_window"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_marginTop="5dp"
++                android:layout_marginBottom="5dp"
++                android:padding="4dp"
++                android:layout_gravity="center_vertical"
++                android:textColor="@color/white"
++                android:background="@drawable/decor_caption_title" />
++        <View
++                android:id="@+id/blank_window"
++	            android:layout_width="0dp"
++                android:layout_height="0dp"
++                android:layout_weight="1" />
++        <Button
++                android:id="@+id/rotate_window"
++                android:layout_width="32dp"
++                android:layout_height="32dp"
++                android:layout_marginTop="5dp"
++                android:layout_marginBottom="5dp"
++                android:padding="4dp"
++                android:layout_gravity="center_vertical|end"
++                android:contentDescription="@string/rotate_button_text"
++                android:background="@drawable/decor_rotate_button_dark" />
++        <Button
++                android:id="@+id/minimize_window"
++                android:layout_width="32dp"
++                android:layout_height="32dp"
++                android:layout_marginTop="5dp"
++                android:layout_marginBottom="5dp"
++                android:padding="4dp"
++                android:layout_gravity="center_vertical|end"
++                android:contentDescription="@string/minimize_button_text"
++                android:background="@drawable/decor_minimize_button_dark" />
++        <Button
++                android:id="@+id/maximize_window"
++                android:layout_width="32dp"
++                android:layout_height="32dp"
++                android:layout_marginTop="5dp"
++                android:layout_marginBottom="5dp"
++                android:padding="4dp"
+                 android:layout_gravity="center_vertical|end"
+                 android:contentDescription="@string/maximize_button_text"
+                 android:background="@drawable/decor_maximize_button_dark" />
+diff --git a/core/res/res/values/strings.xml b/core/res/res/values/strings.xml
+index a59b432..be7f520 100644
+--- a/core/res/res/values/strings.xml
++++ b/core/res/res/values/strings.xml
+@@ -4452,6 +4452,12 @@
+     <string name="floating_toolbar_close_overflow_description">Close overflow</string>
+ 
+     <!-- Free style window strings -->
++    <!-- Accessibility text for the back window button -->
++    <string name="back_button_text">Back</string>
++    <!-- Accessibility text for the rotate window button -->
++    <string name="rotate_button_text">Rotate</string>
++    <!-- Accessibility text for the minimize window button -->
++    <string name="minimize_button_text">Minimize</string>
+     <!-- Accessibility text for the maximize window button -->
+     <string name="maximize_button_text">Maximize</string>
+     <!-- Accessibility text for the close window button -->
+diff --git a/core/res/res/values/symbols.xml b/core/res/res/values/symbols.xml
+index 58bb175..0dcda94 100644
+--- a/core/res/res/values/symbols.xml
++++ b/core/res/res/values/symbols.xml
+@@ -2105,12 +2105,23 @@
+ 
+   <!-- From Phone -->
+   <java-symbol type="bool" name="config_built_in_sip_phone" />
++  <java-symbol type="id" name="icon_window" />
++  <java-symbol type="id" name="title_window" />
++  <java-symbol type="id" name="rotate_window" />
++  <java-symbol type="id" name="minimize_window" />
+   <java-symbol type="id" name="maximize_window" />
++  <java-symbol type="id" name="back_window" />
+   <java-symbol type="id" name="close_window" />
+   <java-symbol type="layout" name="decor_caption" />
+   <java-symbol type="drawable" name="decor_caption_title_focused" />
++  <java-symbol type="drawable" name="decor_back_button_dark" />
++  <java-symbol type="drawable" name="decor_back_button_light" />
++  <java-symbol type="drawable" name="decor_rotate_button_dark" />
++  <java-symbol type="drawable" name="decor_rotate_button_light" />
+   <java-symbol type="drawable" name="decor_close_button_dark" />
+   <java-symbol type="drawable" name="decor_close_button_light" />
++  <java-symbol type="drawable" name="decor_minimize_button_dark" />
++  <java-symbol type="drawable" name="decor_minimize_button_light" />
+   <java-symbol type="drawable" name="decor_maximize_button_dark" />
+   <java-symbol type="drawable" name="decor_maximize_button_light" />
+   <java-symbol type="color" name="decor_button_dark_color" />
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index 335e5cd..56217f1 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -32,6 +32,7 @@ import static android.app.ActivityManager.StackId.FIRST_DYNAMIC_STACK_ID;
+ import static android.app.ActivityManager.StackId.FULLSCREEN_WORKSPACE_STACK_ID;
+ import static android.app.ActivityManager.StackId.INVALID_STACK_ID;
+ import static android.app.ActivityManager.StackId.PINNED_STACK_ID;
++import static android.app.ActivityManager.RESIZE_MODE_FORCED;
+ import static android.content.pm.PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS;
+ import static android.content.pm.PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT;
+ import static android.content.pm.PackageManager.FEATURE_LEANBACK_ONLY;
+@@ -170,6 +171,7 @@ import static com.android.server.am.ActivityStackSupervisor.DEFER_RESUME;
+ import static com.android.server.am.ActivityStackSupervisor.MATCH_TASK_IN_STACKS_ONLY;
+ import static com.android.server.am.ActivityStackSupervisor.MATCH_TASK_IN_STACKS_OR_RECENT_TASKS;
+ import static com.android.server.am.ActivityStackSupervisor.ON_TOP;
++import static com.android.server.am.ActivityStackSupervisor.FORCE_FOCUS;
+ import static com.android.server.am.ActivityStackSupervisor.PRESERVE_WINDOWS;
+ import static com.android.server.am.ActivityStackSupervisor.REMOVE_FROM_RECENTS;
+ import static com.android.server.am.TaskRecord.INVALID_TASK_ID;
+@@ -10590,6 +10592,25 @@ public class ActivityManagerService extends IActivityManager.Stub
+     }
+ 
+     @Override
++    public void changeTaskOrientation(IBinder token) throws RemoteException {
++        synchronized (this) {
++            long ident = Binder.clearCallingIdentity();
++            try {
++                final ActivityRecord r = ActivityRecord.forTokenLocked(token);
++                if (r == null) {
++                    throw new IllegalArgumentException(
++                            "changeWindowOrientation: No activity record matching token=" + token);
++                }
++                Rect taskBounds = getTaskBounds(r.getTask().taskId);
++                r.getTask().changeTaskOrientation(r.getTask().taskId, taskBounds);
++            } finally {
++                Binder.restoreCallingIdentity(ident);
++            }
++        }
++
++    }
++
++    @Override
+     public void exitFreeformMode(IBinder token) throws RemoteException {
+         synchronized (this) {
+             long ident = Binder.clearCallingIdentity();
+@@ -10622,6 +10643,43 @@ public class ActivityManagerService extends IActivityManager.Stub
+     }
+ 
+     @Override
++    public void switchTaskFreeformAndFullscreen(IBinder token) throws RemoteException {
++        synchronized (this) {
++            long ident = Binder.clearCallingIdentity();
++            try {
++                final ActivityRecord r = ActivityRecord.forTokenLocked(token);
++                if (r == null) {
++                    throw new IllegalArgumentException(
++                            "switchTaskFreeformAndFullscreen: No activity record matching token=" + token);
++                }
++                final ActivityStack stack = r.getStackLocked(token);
++                if (stack == null) {
++                    throw new IllegalStateException(
++                            "switchTaskFreeformAndFullscreen: You can only go fullscreen from freeform.");
++                }
++                StatusBarManagerInternal statusBarManager =
++                                       LocalServices.getService(StatusBarManagerInternal.class);
++                if (DEBUG_STACK) Slog.d(TAG_STACK, "switchTaskFreeformAndFullscreen: " + r);
++                if (stack.mStackId == FREEFORM_WORKSPACE_STACK_ID) {
++                    if (statusBarManager != null) {
++                        statusBarManager.setStatusBarVisibility(View.GONE);
++                    }
++                    r.getTask().reparent(FULLSCREEN_WORKSPACE_STACK_ID, ON_TOP,
++                            REPARENT_KEEP_STACK_AT_FRONT, ANIMATE, !DEFER_RESUME, "exitFreeformMode");
++                } else if (stack.mStackId == FULLSCREEN_WORKSPACE_STACK_ID) {
++                    if (statusBarManager != null) {
++                        statusBarManager.setStatusBarVisibility(View.VISIBLE);
++                    }
++                    r.getTask().reparent(FREEFORM_WORKSPACE_STACK_ID, ON_TOP,
++                            REPARENT_KEEP_STACK_AT_FRONT, ANIMATE, !DEFER_RESUME, "exitFreeformMode");
++                }
++            } finally {
++                Binder.restoreCallingIdentity(ident);
++            }
++        }
++    }
++
++    @Override
+     public void moveTaskToStack(int taskId, int stackId, boolean toTop) {
+         enforceCallingPermission(MANAGE_ACTIVITY_STACKS, "moveTaskToStack()");
+         if (StackId.isHomeOrRecentsStack(stackId)) {
+diff --git a/services/core/java/com/android/server/am/LaunchingTaskPositioner.java b/services/core/java/com/android/server/am/LaunchingTaskPositioner.java
+index d652341..51258d7 100644
+--- a/services/core/java/com/android/server/am/LaunchingTaskPositioner.java
++++ b/services/core/java/com/android/server/am/LaunchingTaskPositioner.java
+@@ -95,8 +95,10 @@ class LaunchingTaskPositioner {
+         int height = mAvailableRect.height();
+         mDefaultFreeformStartX = mAvailableRect.left + width / MARGIN_SIZE_DENOMINATOR;
+         mDefaultFreeformStartY = mAvailableRect.top + height / MARGIN_SIZE_DENOMINATOR;
+-        mDefaultFreeformWidth = width / WINDOW_SIZE_DENOMINATOR;
+-        mDefaultFreeformHeight = height / WINDOW_SIZE_DENOMINATOR;
++        //mDefaultFreeformWidth = width / WINDOW_SIZE_DENOMINATOR;
++        mDefaultFreeformWidth = 360;
++        //mDefaultFreeformHeight = height / WINDOW_SIZE_DENOMINATOR;
++        mDefaultFreeformHeight = 480;
+         mDefaultFreeformStepHorizontal = Math.max(width / STEP_DENOMINATOR, MINIMAL_STEP);
+         mDefaultFreeformStepVertical = Math.max(height / STEP_DENOMINATOR, MINIMAL_STEP);
+         mDefaultStartBoundsConfigurationSet = true;
+diff --git a/services/core/java/com/android/server/am/TaskRecord.java b/services/core/java/com/android/server/am/TaskRecord.java
+index eadc8a6..93bbcc5 100644
+--- a/services/core/java/com/android/server/am/TaskRecord.java
++++ b/services/core/java/com/android/server/am/TaskRecord.java
+@@ -79,6 +79,8 @@ import static android.app.ActivityManager.StackId.FULLSCREEN_WORKSPACE_STACK_ID;
+ import static android.app.ActivityManager.StackId.HOME_STACK_ID;
+ import static android.app.ActivityManager.StackId.INVALID_STACK_ID;
+ import static android.app.ActivityManager.StackId.PINNED_STACK_ID;
++import static android.app.ActivityManager.RESIZE_MODE_FORCED;
++import static android.app.ActivityManager.RESIZE_MODE_USER;
+ import static android.app.ActivityManager.StackId.RECENTS_STACK_ID;
+ import static android.content.Intent.FLAG_ACTIVITY_NEW_DOCUMENT;
+ import static android.content.Intent.FLAG_ACTIVITY_RETAIN_IN_RECENTS;
+@@ -313,6 +315,9 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     // The information is persisted and used to determine the appropriate stack to launch the
+     // task into on restore.
+     Rect mLastNonFullscreenBounds = null;
++
++    Rect mLastPcRect = new Rect();
++    Rect mLastPhoneRect = new Rect();
+     // Minimal width and height of this task when it's resizeable. -1 means it should use the
+     // default minimal width/height.
+     int mMinWidth;
+@@ -2250,6 +2255,41 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+         return mLastNonFullscreenBounds;
+     }
+ 
++    void changeTaskOrientation(int taskId, Rect taskBounds) {
++        if (taskBounds.width() > taskBounds.height()) {
++            mLastPcRect.set(taskBounds);
++            prepareLastPhoneRect(taskBounds);
++            mService.resizeTask(taskId, mLastPhoneRect, RESIZE_MODE_USER);
++            mService.resizeTask(taskId, mLastPhoneRect, RESIZE_MODE_FORCED);
++        } else {
++            mLastPhoneRect.set(taskBounds);
++            prepareLastPcRect(taskBounds);
++            mService.resizeTask(taskId, mLastPcRect, RESIZE_MODE_USER);
++            mService.resizeTask(taskId, mLastPcRect, RESIZE_MODE_FORCED);
++        }
++    }
++
++    void prepareLastPhoneRect(Rect frame) {
++        Rect rect = frame;
++        Rect defaultPhoneFrame = new Rect(0, 0, 420, 640);
++        rect.left = rect.left <= 0 ? 0 : rect.left;
++        rect.right = rect.left + (mLastPhoneRect.width() == 0 ?
++                               defaultPhoneFrame.width() : mLastPhoneRect.width());
++        rect.bottom = rect.top + (mLastPhoneRect.width() == 0 ?
++                               defaultPhoneFrame.height() : mLastPhoneRect.height());
++        mLastPhoneRect.set(rect);
++    }
++
++    void prepareLastPcRect(Rect frame) {
++        Rect rect = frame;
++        Rect defaultPcFrame = new Rect(0, 0, 960, 540);
++        rect.right = rect.left + (mLastPcRect.width() == 0 ?
++                               defaultPcFrame.width() : mLastPcRect.width());
++        rect.bottom = rect.top + (mLastPcRect.width() == 0 ?
++                               defaultPcFrame.height() : mLastPcRect.height());
++        mLastPcRect.set(rect);
++    }
++
+     void addStartingWindowsForVisibleActivities(boolean taskSwitch) {
+         for (int activityNdx = mActivities.size() - 1; activityNdx >= 0; --activityNdx) {
+             final ActivityRecord r = mActivities.get(activityNdx);
+diff --git a/services/core/java/com/android/server/wm/TaskPositioner.java b/services/core/java/com/android/server/wm/TaskPositioner.java
+index 4ae7e1b..a6290ae 100644
+--- a/services/core/java/com/android/server/wm/TaskPositioner.java
++++ b/services/core/java/com/android/server/wm/TaskPositioner.java
+@@ -198,7 +198,7 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+                         if (DEBUG_TASK_POSITIONING) {
+                             Slog.w(TAG, "ACTION_UP @ {" + newX + ", " + newY + "}");
+                         }
+-                        if (mResizing && mWindowDragBounds.width() != 0 && mWindowDragBounds.height() != 0) {
++                        if (mResizing && mWindowDragBounds.isEmpty()) {
+                             mDimLayerForResize.hide();
+                         }
+                         mDragEnded = true;
+-- 
+2.7.4
+

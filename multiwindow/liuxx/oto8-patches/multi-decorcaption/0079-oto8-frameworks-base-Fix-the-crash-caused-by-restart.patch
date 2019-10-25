@@ -1,0 +1,41 @@
+From b58a0f18a66768885aec7dfebf66ce05c16fbf27 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Mon, 18 Mar 2019 07:12:53 +0000
+Subject: [PATCH 079/110] oto8: frameworks: base: Fix the crash caused by
+ restart minimized app.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ services/core/java/com/android/server/am/ActivityStarter.java | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/services/core/java/com/android/server/am/ActivityStarter.java b/services/core/java/com/android/server/am/ActivityStarter.java
+index a979c6b..c642e7f 100644
+--- a/services/core/java/com/android/server/am/ActivityStarter.java
++++ b/services/core/java/com/android/server/am/ActivityStarter.java
+@@ -30,6 +30,7 @@ import static android.app.ActivityManager.StackId;
+ import static android.app.ActivityManager.StackId.ASSISTANT_STACK_ID;
+ import static android.app.ActivityManager.StackId.DOCKED_STACK_ID;
+ import static android.app.ActivityManager.StackId.FREEFORM_WORKSPACE_STACK_ID;
++import static android.app.ActivityManager.StackId.BACKGROUND_STACK_ID;
+ import static android.app.ActivityManager.StackId.FULLSCREEN_WORKSPACE_STACK_ID;
+ import static android.app.ActivityManager.StackId.HOME_STACK_ID;
+ import static android.app.ActivityManager.StackId.INVALID_STACK_ID;
+@@ -1657,6 +1658,12 @@ class ActivityStarter {
+         if (!mMovedToFront && mDoResume) {
+             if (DEBUG_TASKS) Slog.d(TAG_TASKS, "Bring to front target: " + mTargetStack
+                     + " from " + intentActivity);
++            if (mTargetStack.mStackId == BACKGROUND_STACK_ID) {
++                int targetId = intentActivity.getTask().mBounds == null
++                        ? FULLSCREEN_WORKSPACE_STACK_ID : FREEFORM_WORKSPACE_STACK_ID;
++                intentActivity.getTask().reparent(targetId, ON_TOP, REPARENT_MOVE_STACK_TO_FRONT,
++                        ANIMATE, DEFER_RESUME, "reuseBackgroundTask");
++            }
+             mTargetStack.moveToFront("intentActivityFound");
+         }
+ 
+-- 
+2.7.4
+

@@ -1,0 +1,28 @@
+From a97d491894aa406a2de4a122c0a74f1881364bf5 Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <18600956771@163.com>
+Date: Wed, 18 Oct 2017 02:20:48 +0000
+Subject: [PATCH 048/110] frameworks: base: Auto show or hide the DecorCaption
+ by mouse multitouch
+
+Signed-off-by: Liu Xiaoxu <18600956771@163.com>
+---
+ core/java/com/android/internal/policy/DecorView.java | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/core/java/com/android/internal/policy/DecorView.java b/core/java/com/android/internal/policy/DecorView.java
+index df793ba..72e1694 100644
+--- a/core/java/com/android/internal/policy/DecorView.java
++++ b/core/java/com/android/internal/policy/DecorView.java
+@@ -405,6 +405,9 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+ 
+     @Override
+     public boolean dispatchTouchEvent(MotionEvent ev) {
++        if (ev.getAction() == MotionEvent.ACTION_POINTER_UP && processCaptionEvent(ev)) {
++            return true;
++        }
+         final Window.Callback cb = mWindow.getCallback();
+         return cb != null && !mWindow.isDestroyed() && mFeatureId < 0
+                 ? cb.dispatchTouchEvent(ev) : super.dispatchTouchEvent(ev);
+-- 
+2.7.4
+

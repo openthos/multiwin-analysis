@@ -1,0 +1,342 @@
+From d4edfc4c8f74b379d90add2c133f9f72c6baba65 Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Mon, 11 Mar 2019 00:58:52 +0000
+Subject: [PATCH 075/110] oto8: frameworks: base: Add fullscreen button in
+ decor caption,
+
+switch window between fullscreen and freeform.
+
+Replace task affinity with packageName to store bounds.
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Reviewed-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ .../android/internal/widget/DecorCaptionView.java  | 23 ++++++
+ core/res/res/layout/decor_caption.xml              | 11 +++
+ core/res/res/values/strings.xml                    |  2 +
+ core/res/res/values/symbols.xml                    |  1 +
+ .../android/server/am/ActivityManagerService.java  |  5 +-
+ .../java/com/android/server/am/ActivityRecord.java |  3 +-
+ .../java/com/android/server/am/TaskRecord.java     | 87 +++++++++++-----------
+ 7 files changed, 85 insertions(+), 47 deletions(-)
+
+diff --git a/core/java/com/android/internal/widget/DecorCaptionView.java b/core/java/com/android/internal/widget/DecorCaptionView.java
+index b750823..fc5a227 100644
+--- a/core/java/com/android/internal/widget/DecorCaptionView.java
++++ b/core/java/com/android/internal/widget/DecorCaptionView.java
+@@ -104,6 +104,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     private View mCaption;
+     private View mContent;
+     private View mBack;
++    private View mFullscreen;
+     private View mRotate;
+     private View mMinimize;
+     private View mMaximize;
+@@ -121,6 +122,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     // with existing click detection.
+     private GestureDetector mGestureDetector;
+     private final Rect mBackRect = new Rect();
++    private final Rect mFullscreenRect = new Rect();
+     private final Rect mRotateRect = new Rect();
+     private final Rect mMinimizeRect = new Rect();
+     private final Rect mMaximizeRect = new Rect();
+@@ -167,6 +169,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         // background without removing the shadow.
+         mOwner.getDecorView().setOutlineProvider(ViewOutlineProvider.BOUNDS);
+         mBack = findViewById(R.id.back_window);
++        mFullscreen = findViewById(R.id.fullscreen_window);
+         mRotate = findViewById(R.id.rotate_window);
+         mMinimize = findViewById(R.id.minimize_window);
+         mMaximize = findViewById(R.id.maximize_window);
+@@ -197,6 +200,9 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+             if (mBackRect.contains(x, y)) {
+                 mClickTarget = mBack;
+             }
++            if (mFullscreenRect.contains(x, y)) {
++                mClickTarget = mFullscreen;
++            }
+             if (mRotateRect.contains(x, y)) {
+                 mClickTarget = mRotate;
+             }
+@@ -354,6 +360,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+             mCaption.layout(0, 0, mCaption.getMeasuredWidth(), mCaption.getMeasuredHeight());
+             captionHeight = mCaption.getBottom() - mCaption.getTop();
+             mBack.getHitRect(mBackRect);
++            mFullscreen.getHitRect(mFullscreenRect);
+             mRotate.getHitRect(mRotateRect);
+             mMinimize.getHitRect(mMinimizeRect);
+             mMaximize.getHitRect(mMaximizeRect);
+@@ -412,6 +419,20 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     }
+ 
+     /**
++     *  Move window to the fullscreen workspace stack.
++     */
++    private void fullscreenWindow() {
++        Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
++        if (callback != null) {
++            try {
++                callback.switchWindowFreeformAndFullscreen();
++            } catch (RemoteException ex) {
++                Log.e(TAG, "Cannot change window workspace.");
++            }
++        }
++    }
++
++    /**
+      *Change the window orientation between landscape and portrait
+      */
+     private void rotateWindow() {
+@@ -552,6 +573,8 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     public boolean onSingleTapUp(MotionEvent e) {
+         if (mClickTarget == mBack) {
+             keyBackWindow();
++        } else if (mClickTarget == mFullscreen) {
++            fullscreenWindow();
+         } else if (mClickTarget == mRotate) {
+             rotateWindow();
+         } else if (mClickTarget == mMinimize) {
+diff --git a/core/res/res/layout/decor_caption.xml b/core/res/res/layout/decor_caption.xml
+index 5aa139e..7e33501 100644
+--- a/core/res/res/layout/decor_caption.xml
++++ b/core/res/res/layout/decor_caption.xml
+@@ -63,6 +63,17 @@
+                 android:layout_height="0dp"
+                 android:layout_weight="1" />
+         <ImageButton
++                android:id="@+id/fullscreen_window"
++                android:layout_width="32dp"
++                android:layout_height="32dp"
++                android:layout_marginTop="5dp"
++                android:layout_marginBottom="5dp"
++                android:padding="4dp"
++                android:background="@null"
++                android:layout_gravity="center_vertical|end"
++                android:contentDescription="@string/fullscreen_button_text"
++                android:src="@drawable/mw_btn_maximize" />
++        <ImageButton
+                 android:id="@+id/rotate_window"
+                 android:layout_width="32dp"
+                 android:layout_height="32dp"
+diff --git a/core/res/res/values/strings.xml b/core/res/res/values/strings.xml
+index be7f520..80b5c47 100644
+--- a/core/res/res/values/strings.xml
++++ b/core/res/res/values/strings.xml
+@@ -4454,6 +4454,8 @@
+     <!-- Free style window strings -->
+     <!-- Accessibility text for the back window button -->
+     <string name="back_button_text">Back</string>
++    <!-- Accessibility text for the fullscreen window button -->
++    <string name="fullscreen_button_text">Fullscreen</string>
+     <!-- Accessibility text for the rotate window button -->
+     <string name="rotate_button_text">Rotate</string>
+     <!-- Accessibility text for the minimize window button -->
+diff --git a/core/res/res/values/symbols.xml b/core/res/res/values/symbols.xml
+index 0dcda94..64de0e0 100644
+--- a/core/res/res/values/symbols.xml
++++ b/core/res/res/values/symbols.xml
+@@ -2107,6 +2107,7 @@
+   <java-symbol type="bool" name="config_built_in_sip_phone" />
+   <java-symbol type="id" name="icon_window" />
+   <java-symbol type="id" name="title_window" />
++  <java-symbol type="id" name="fullscreen_window" />
+   <java-symbol type="id" name="rotate_window" />
+   <java-symbol type="id" name="minimize_window" />
+   <java-symbol type="id" name="maximize_window" />
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index 4a40113..85209f2 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -10670,8 +10670,7 @@ public class ActivityManagerService extends IActivityManager.Stub
+                     throw new IllegalArgumentException(
+                             "changeWindowOrientation: No activity record matching token=" + token);
+                 }
+-                Rect taskBounds = getTaskBounds(r.getTask().taskId);
+-                r.getTask().changeTaskOrientation(r.getTask().taskId, taskBounds);
++                r.getTask().changeTaskOrientation();
+             } finally {
+                 Binder.restoreCallingIdentity(ident);
+             }
+@@ -10729,11 +10728,11 @@ public class ActivityManagerService extends IActivityManager.Stub
+                 StatusBarManagerInternal statusBarManager =
+                                        LocalServices.getService(StatusBarManagerInternal.class);
+                 if (DEBUG_STACK) Slog.d(TAG_STACK, "switchTaskFreeformAndFullscreen: " + r);
+-                r.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                 if (stack.mStackId == FREEFORM_WORKSPACE_STACK_ID) {
+                     if (statusBarManager != null) {
+                         statusBarManager.setStatusBarVisibility(View.GONE);
+                     }
++                    r.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                     r.getTask().reparent(FULLSCREEN_WORKSPACE_STACK_ID, ON_TOP,
+                             REPARENT_KEEP_STACK_AT_FRONT, ANIMATE, !DEFER_RESUME, "exitFreeformMode");
+                 } else if (stack.mStackId == FULLSCREEN_WORKSPACE_STACK_ID) {
+diff --git a/services/core/java/com/android/server/am/ActivityRecord.java b/services/core/java/com/android/server/am/ActivityRecord.java
+index a1474f1..ebf632f 100644
+--- a/services/core/java/com/android/server/am/ActivityRecord.java
++++ b/services/core/java/com/android/server/am/ActivityRecord.java
+@@ -2206,8 +2206,7 @@ final class ActivityRecord extends ConfigurationContainer implements AppWindowCo
+     void setRequestedOrientation(int requestedOrientation) {
+         if (task.getStackId() == FREEFORM_WORKSPACE_STACK_ID
+                 && orientationNeedChange(requestedOrientation)) {
+-            Rect taskBounds = service.getTaskBounds(task.taskId);
+-            task.changeTaskOrientation(task.taskId, taskBounds);
++            task.changeTaskOrientation();
+             return;
+         }
+         final int displayId = getDisplayId();
+diff --git a/services/core/java/com/android/server/am/TaskRecord.java b/services/core/java/com/android/server/am/TaskRecord.java
+index 2d82862..491f5f2 100644
+--- a/services/core/java/com/android/server/am/TaskRecord.java
++++ b/services/core/java/com/android/server/am/TaskRecord.java
+@@ -314,16 +314,16 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     private final Rect mTmpNonDecorBounds = new Rect();
+     private final Rect mTmpRect = new Rect();
+     private final Rect mTmpNonMaximizeBounds = new Rect();
++    private final Rect mTmpLastPcRect = new Rect();
++    private final Rect mTmpLastPhoneRect = new Rect();
+ 
+     // Last non-fullscreen bounds the task was launched in or resized to.
+     // The information is persisted and used to determine the appropriate stack to launch the
+     // task into on restore.
+     Rect mLastNonFullscreenBounds = null;
+ 
+-    Rect mLastPcRect = new Rect();
+-    Rect mLastPhoneRect = new Rect();
+     Rect mMaximizeBounds = new Rect();
+-    Rect mDefaultBounds = new Rect();
++    Rect mDefaultPcBounds = new Rect();
+     // Minimal width and height of this task when it's resizeable. -1 means it should use the
+     // default minimal width/height.
+     int mMinWidth;
+@@ -469,7 +469,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+ 
+     Rect getTaskMemoryBounds() {
+         Rect bounds = null;
+-        if (mService.mRecentTasks != null && mService.mRecentTasks.size() > 0) {
++        if (affinity != null && mService.mRecentTasks != null && mService.mRecentTasks.size() > 0) {
+             for (int taskNdx = mService.mRecentTasks.size() - 1; taskNdx >= 0; --taskNdx) {
+                 final TaskRecord tk = mService.mRecentTasks.get(taskNdx);
+                 if (affinity.equals(tk.affinity)) {
+@@ -482,7 +482,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+ 
+         if (bounds == null) {
+             Rect rect = Settings.Global.getRect(
+-                            mService.mContext.getContentResolver(), affinity, null);
++                    mService.mContext.getContentResolver(), realActivity.getPackageName(), null);
+             bounds = formatTaskBounds(rect, false);
+         }
+         return bounds;
+@@ -1774,7 +1774,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     void storeTaskBounds() {
+         if (!isHomeTask() && mBounds != null && StackId.persistTaskBounds(mStack.mStackId)) {
+             Settings.Global.putRect(mService.mContext.getContentResolver(),
+-                    affinity, formatTaskBounds(mBounds, true));
++                    realActivity.getPackageName(), formatTaskBounds(mBounds, true));
+         }
+     }
+ 
+@@ -2329,18 +2329,18 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     }
+ 
+     void toggleTaskMaximize() {
+-        getMaximizeTaskBounds();
++        getUniqueTaskBounds();
+         if (Objects.equals(mMaximizeBounds, mBounds)) {
+             mTmpNonMaximizeBounds.set(mTmpNonMaximizeBounds.isEmpty()
+-                    ? mDefaultBounds : mTmpNonMaximizeBounds);
++                    ? mDefaultPcBounds : mTmpNonMaximizeBounds);
+             resize(mTmpNonMaximizeBounds, RESIZE_MODE_FORCED, true, true);
+         } else {
+-            mTmpNonMaximizeBounds.set(mBounds);
++            mTmpNonMaximizeBounds.set(mBounds == null ? mDefaultPcBounds : mBounds);
+             resize(mMaximizeBounds, RESIZE_MODE_FORCED, true, true);
+         }
+     }
+ 
+-    void getMaximizeTaskBounds() {
++    void getUniqueTaskBounds() {
+         if (mMaximizeBounds.isEmpty()) {
+             // Maximize tasks
+             final Point displaySize = new Point();
+@@ -2352,42 +2352,45 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+             int defWidth = displayWidth / 2;
+             int defHeight = defWidth / 16 * 9;
+             mMaximizeBounds.set(new Rect(0, 0, displayWidth, displayHeight));
+-            mDefaultBounds.set(new Rect(defStartX, defStartY,
++            mDefaultPcBounds.set(new Rect(defStartX, defStartY,
+                     defStartX + defWidth, defStartY + defHeight));
+         }
+     }
+ 
+-    void changeTaskOrientation(int taskId, Rect taskBounds) {
+-        if (taskBounds.width() > taskBounds.height()) {
+-            mLastPcRect.set(taskBounds);
+-            prepareLastPhoneRect(taskBounds);
+-            mService.resizeTask(taskId, mLastPhoneRect, RESIZE_MODE_USER_FORCED);
+-        } else {
+-            mLastPhoneRect.set(taskBounds);
+-            prepareLastPcRect(taskBounds);
+-            mService.resizeTask(taskId, mLastPcRect, RESIZE_MODE_USER_FORCED);
+-        }
+-    }
+-
+-    void prepareLastPhoneRect(Rect frame) {
+-        Rect rect = frame;
+-        Rect defaultPhoneFrame = new Rect(0, 0, 420, 640);
+-        rect.left = rect.left <= 0 ? 0 : rect.left;
+-        rect.right = rect.left + (mLastPhoneRect.width() == 0 ?
+-                               defaultPhoneFrame.width() : mLastPhoneRect.width());
+-        rect.bottom = rect.top + (mLastPhoneRect.width() == 0 ?
+-                               defaultPhoneFrame.height() : mLastPhoneRect.height());
+-        mLastPhoneRect.set(rect);
+-    }
+-
+-    void prepareLastPcRect(Rect frame) {
+-        Rect rect = frame;
+-        Rect defaultPcFrame = new Rect(0, 0, 960, 540);
+-        rect.right = rect.left + (mLastPcRect.width() == 0 ?
+-                               defaultPcFrame.width() : mLastPcRect.width());
+-        rect.bottom = rect.top + (mLastPcRect.width() == 0 ?
+-                               defaultPcFrame.height() : mLastPcRect.height());
+-        mLastPcRect.set(rect);
++    void changeTaskOrientation() {
++        if (mBounds != null) {
++            getUniqueTaskBounds();
++            if (mBounds.width() > mBounds.height()) {
++                mTmpLastPcRect.set(mBounds);
++                prepareLastPhoneRect(mBounds);
++                resize(mTmpLastPhoneRect, RESIZE_MODE_FORCED, true, true);
++            } else {
++                mTmpLastPhoneRect.set(mBounds);
++                prepareLastPcRect(mBounds);
++                resize(mTmpLastPcRect, RESIZE_MODE_FORCED, true, true);
++            }
++        }
++    }
++
++    void prepareLastPhoneRect(Rect bounds) {
++        int defPhoneHeight = mMaximizeBounds.height() / 3 * 2;
++        int defPhoneWidth = defPhoneHeight / 16 * 9;
++        bounds.left = bounds.left <= 0 ? 0 : bounds.left;
++        bounds.right = bounds.left + (mTmpLastPhoneRect.width() == 0
++                ? defPhoneWidth : mTmpLastPhoneRect.width());
++        bounds.bottom = bounds.top + (mTmpLastPhoneRect.width() == 0
++                ? defPhoneHeight : mTmpLastPhoneRect.height());
++        mTmpLastPhoneRect.set(bounds);
++    }
++
++    void prepareLastPcRect(Rect bounds) {
++        int defPcWidth = mMaximizeBounds.width() / 2;
++        int defPcHeight = defPcWidth / 16 * 9;
++        bounds.right = bounds.left + (mTmpLastPcRect.width() == 0
++                ? defPcWidth : mTmpLastPcRect.width());
++        bounds.bottom = bounds.top + (mTmpLastPcRect.width() == 0
++                ? defPcHeight : mTmpLastPcRect.height());
++        mTmpLastPcRect.set(bounds);
+     }
+ 
+     void addStartingWindowsForVisibleActivities(boolean taskSwitch) {
+-- 
+2.7.4
+
