@@ -4,11 +4,7 @@
 
 1.设计oto8 窗口resize方式
   - 相关提交的patches
-    - 0013-using-another-file-to-change-the-way-of-resize.patch
-    - 0014-using-new-way-to-resize-window-more-flexible.patch
-    - 0015-Auto-change-to-landscape-when-change-to-FullScreen.patch
-    - 0019-Using-stack-resize-min-bounds-to-limit-window-size.patch
-    - 0104-oto8-frameworks-base-Avoid-the-resize-when-moving-wi.patch
+    - ![相关提交的patches](https://github.com/openthos/multiwin-analysis/tree/master/multiwindow/liuxx/oto8-patches/multi-resize)
     
 2.设计oto8 窗口移动到屏幕左、右、上方Docked，且unDocked后，恢复窗口Docked之前Rect。
   - 相关提交的patches
