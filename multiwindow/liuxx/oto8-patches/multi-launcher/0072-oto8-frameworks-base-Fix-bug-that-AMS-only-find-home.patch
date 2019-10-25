@@ -1,0 +1,66 @@
+From ef2a77ba494b27ab2ebd75922c54ed3ffecae2d2 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Fri, 8 Mar 2019 06:48:01 +0000
+Subject: [PATCH 072/110] oto8: frameworks: base: Fix bug that AMS only find
+ home activity from home stack but we put home to Freeform now.
+
+Also keep home under other application by control it's window
+container.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ services/core/java/com/android/server/am/ActivityStack.java         | 6 ++----
+ .../core/java/com/android/server/am/ActivityStackSupervisor.java    | 4 +---
+ services/core/java/com/android/server/wm/StackWindowController.java | 2 ++
+ 3 files changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/services/core/java/com/android/server/am/ActivityStack.java b/services/core/java/com/android/server/am/ActivityStack.java
+index ba5c087..9053c02 100644
+--- a/services/core/java/com/android/server/am/ActivityStack.java
++++ b/services/core/java/com/android/server/am/ActivityStack.java
+@@ -2820,10 +2820,8 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
+         final int position = getAdjustedPositionForTask(task, mTaskHistory.size(), starting);
+         mTaskHistory.add(position, task);
+         updateTaskMovement(task, true);
+-        if (!task.isHomeTask()) {
+-            mWindowContainerController.positionChildAtTop(task.getWindowContainerController(),
+-                    true /* includingParents */);
+-        }
++        mWindowContainerController.positionChildAtTop(task.getWindowContainerController(),
++                true /* includingParents */);
+     }
+ 
+     /**
+diff --git a/services/core/java/com/android/server/am/ActivityStackSupervisor.java b/services/core/java/com/android/server/am/ActivityStackSupervisor.java
+index 6d854b7..8dbe231 100644
+--- a/services/core/java/com/android/server/am/ActivityStackSupervisor.java
++++ b/services/core/java/com/android/server/am/ActivityStackSupervisor.java
+@@ -3117,9 +3117,7 @@ public class ActivityStackSupervisor extends ConfigurationContainer implements D
+      * type.
+      */
+     private boolean checkActivityBelongsInStack(ActivityRecord r, ActivityStack stack) {
+-        if (r.isHomeActivity()) {
+-            return stack.isHomeStack();
+-        } else if (r.isRecentsActivity()) {
++        if (r.isRecentsActivity()) {
+             return stack.isRecentsStack();
+         } else if (r.isAssistantActivity()) {
+             return stack.isAssistantStack();
+diff --git a/services/core/java/com/android/server/wm/StackWindowController.java b/services/core/java/com/android/server/wm/StackWindowController.java
+index 9c44c14..713c440 100644
+--- a/services/core/java/com/android/server/wm/StackWindowController.java
++++ b/services/core/java/com/android/server/wm/StackWindowController.java
+@@ -147,6 +147,8 @@ public class StackWindowController
+ 
+         synchronized(mWindowMap) {
+             final Task childTask = child.mContainer;
++            if (childTask.isHomeTask())
++                return;
+             if (childTask == null) {
+                 Slog.e(TAG_WM, "positionChildAtTop: task=" + child + " not found");
+                 return;
+-- 
+2.7.4
+

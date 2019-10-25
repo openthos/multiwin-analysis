@@ -1,0 +1,85 @@
+From 1736bea65f732d54ace4a7d51d64222e4238855e Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Tue, 9 Apr 2019 01:11:29 +0000
+Subject: [PATCH 085/110] oto8: frameworks: base: For openthos,
+ moveActivityTaskToBack
+
+should be same as moveTaskBackwards to ensure app will be minized after call it.
+
+For app window who want move to bottom, we should keep home always under other windows.
+
+Also fix a bug about wechat's window width.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ core/java/com/android/internal/policy/NewPhoneWindow.java         | 1 -
+ .../core/java/com/android/server/am/ActivityManagerService.java   | 4 +++-
+ .../core/java/com/android/server/wm/StackWindowController.java    | 8 +++++++-
+ 3 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/core/java/com/android/internal/policy/NewPhoneWindow.java b/core/java/com/android/internal/policy/NewPhoneWindow.java
+index f31e8b9..942d6ff 100644
+--- a/core/java/com/android/internal/policy/NewPhoneWindow.java
++++ b/core/java/com/android/internal/policy/NewPhoneWindow.java
+@@ -111,7 +111,6 @@ public class NewPhoneWindow extends PhoneWindow {
+                         if (v1 != null && v1.getLayoutParams() != null &&
+                                 v1.getLayoutParams().height > v.getMeasuredHeight()) {
+                             v1.getLayoutParams().height = v.getMeasuredHeight();
+-                            v1.getLayoutParams().width = v.getMeasuredWidth();
+                             v1.requestLayout();
+                         }
+                     }
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index f39bfbd..bcdc6a6 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -10596,7 +10596,9 @@ public class ActivityManagerService extends IActivityManager.Stub
+                 int taskId = ActivityRecord.getTaskForActivityLocked(token, !nonRoot);
+                 final TaskRecord task = mStackSupervisor.anyTaskForIdLocked(taskId);
+                 if (task != null) {
+-                    return ActivityRecord.getStackLocked(token).moveTaskToBackLocked(taskId);
++                    moveTaskBackwardsLocked(taskId);
++                    return true;
++                    //return ActivityRecord.getStackLocked(token).moveTaskToBackLocked(taskId);
+                 }
+             } finally {
+                 Binder.restoreCallingIdentity(origId);
+diff --git a/services/core/java/com/android/server/wm/StackWindowController.java b/services/core/java/com/android/server/wm/StackWindowController.java
+index 713c440..b325703 100644
+--- a/services/core/java/com/android/server/wm/StackWindowController.java
++++ b/services/core/java/com/android/server/wm/StackWindowController.java
+@@ -60,6 +60,8 @@ public class StackWindowController
+     private final Rect mTmpNonDecorInsets = new Rect();
+     private final Rect mTmpDisplayBounds = new Rect();
+ 
++    private Task mHomeTask;
++
+     public StackWindowController(int stackId, StackWindowListener listener,
+             int displayId, boolean onTop, Rect outBounds) {
+         this(stackId, listener, displayId, onTop, outBounds, WindowManagerService.getInstance());
+@@ -147,8 +149,10 @@ public class StackWindowController
+ 
+         synchronized(mWindowMap) {
+             final Task childTask = child.mContainer;
+-            if (childTask.isHomeTask())
++            if (childTask.isHomeTask()) {
++                mHomeTask = childTask;
+                 return;
++            }
+             if (childTask == null) {
+                 Slog.e(TAG_WM, "positionChildAtTop: task=" + child + " not found");
+                 return;
+@@ -175,6 +179,8 @@ public class StackWindowController
+                 return;
+             }
+             mContainer.positionChildAt(POSITION_BOTTOM, childTask, false /* includingParents */);
++            if (mHomeTask != null)
++                mContainer.positionChildAt(POSITION_BOTTOM, mHomeTask, false);
+ 
+             if (mService.mAppTransition.isTransitionSet()) {
+                 childTask.setSendingToBottom(true);
+-- 
+2.7.4
+

@@ -1,0 +1,61 @@
+From f1861b96618201ce16cabcd5cc30056bd9bb070d Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Mon, 29 Apr 2019 01:13:23 +0000
+Subject: [PATCH 089/110] oto8: frameworks: base: Fix the issue that the
+ launcher can resize bounds.
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: ladehunter <ladehunter@gmail.com>
+---
+ services/core/java/com/android/server/policy/PhoneWindowManager.java | 5 +----
+ .../android/server/policy/SystemGesturesPointerEventListener.java    | 3 +--
+ 2 files changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+index 2248f01..816204b 100644
+--- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
++++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+@@ -448,7 +448,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+ 
+     boolean mSafeMode;
+     WindowState mStatusBar = null;
+-    int mStatusBarHeight;
++    int mStatusBarHeight = 0;
+     WindowState mNavigationBar = null;
+     boolean mHasNavigationBar = false;
+     boolean mNavigationBarCanMove = false; // can the navigation bar ever move to the side?
+@@ -2688,9 +2688,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+         Context uiContext = ActivityThread.currentActivityThread().getSystemUiContext();
+         final Resources res = uiContext.getResources();
+ 
+-        mStatusBarHeight =
+-                res.getDimensionPixelSize(com.android.internal.R.dimen.status_bar_height);
+-
+         // Height of the navigation bar when presented horizontally at bottom
+         mNavigationBarHeightForRotationDefault[mPortraitRotation] =
+         mNavigationBarHeightForRotationDefault[mUpsideDownRotation] =
+diff --git a/services/core/java/com/android/server/policy/SystemGesturesPointerEventListener.java b/services/core/java/com/android/server/policy/SystemGesturesPointerEventListener.java
+index 598c58e..3aa2b09 100644
+--- a/services/core/java/com/android/server/policy/SystemGesturesPointerEventListener.java
++++ b/services/core/java/com/android/server/policy/SystemGesturesPointerEventListener.java
+@@ -47,7 +47,7 @@ public class SystemGesturesPointerEventListener implements PointerEventListener
+ 
+     private final Context mContext;
+     private final int mSwipeStartThreshold;
+-    private final int mSwipeDistanceThreshold;
++    private final int mSwipeDistanceThreshold = 0;
+     private final Callbacks mCallbacks;
+     private final int[] mDownPointerId = new int[MAX_TRACKED_POINTERS];
+     private final float[] mDownX = new float[MAX_TRACKED_POINTERS];
+@@ -70,7 +70,6 @@ public class SystemGesturesPointerEventListener implements PointerEventListener
+         mCallbacks = checkNull("callbacks", callbacks);
+         mSwipeStartThreshold = checkNull("context", context).getResources()
+                 .getDimensionPixelSize(com.android.internal.R.dimen.status_bar_height);
+-        mSwipeDistanceThreshold = mSwipeStartThreshold;
+         if (DEBUG) Slog.d(TAG,  "mSwipeStartThreshold=" + mSwipeStartThreshold
+                 + " mSwipeDistanceThreshold=" + mSwipeDistanceThreshold);
+     }
+-- 
+2.7.4
+

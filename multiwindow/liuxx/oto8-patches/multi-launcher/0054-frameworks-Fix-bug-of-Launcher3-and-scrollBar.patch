@@ -1,0 +1,165 @@
+From 1523f7e0ee23282810faf3fbb9288ae2dcbaec99 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Fri, 11 May 2018 01:54:55 +0000
+Subject: [PATCH 054/110] frameworks: Fix bug of Launcher3 and scrollBar.
+
+Add some feature:
+
+Never preserve Window's orientation during resize.
+
+Resizing will never call relauch.
+
+No focused App will never pause.
+
+set task's mBounds coreect.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ core/java/android/view/ViewGroup.java                    | 12 ++++++------
+ core/res/res/values/colors.xml                           |  2 +-
+ .../core/java/com/android/server/am/ActivityRecord.java  |  7 ++++++-
+ .../core/java/com/android/server/am/ActivityStack.java   |  4 +++-
+ .../core/java/com/android/server/am/ActivityStarter.java |  2 +-
+ services/core/java/com/android/server/am/TaskRecord.java | 16 +++++++++++-----
+ services/core/java/com/android/server/wm/Task.java       |  7 ++++---
+ 7 files changed, 32 insertions(+), 18 deletions(-)
+
+diff --git a/core/java/android/view/ViewGroup.java b/core/java/android/view/ViewGroup.java
+index bf32407..165ddd7 100644
+--- a/core/java/android/view/ViewGroup.java
++++ b/core/java/android/view/ViewGroup.java
+@@ -3128,12 +3128,12 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager
+      * messages will be delivered here.
+      */
+     public boolean onInterceptTouchEvent(MotionEvent ev) {
+-        if (ev.isFromSource(InputDevice.SOURCE_MOUSE)
+-                && ev.getAction() == MotionEvent.ACTION_DOWN
+-                && ev.isButtonPressed(MotionEvent.BUTTON_PRIMARY)
+-                && isOnScrollbarThumb(ev.getX(), ev.getY())) {
+-            return true;
+-        }
++        //if (ev.isFromSource(InputDevice.SOURCE_MOUSE)
++        //        && ev.getAction() == MotionEvent.ACTION_DOWN
++        //        && ev.isButtonPressed(MotionEvent.BUTTON_PRIMARY)
++        //        && isOnScrollbarThumb(ev.getX(), ev.getY())) {
++        //    return true;
++        //}
+         return false;
+     }
+ 
+diff --git a/core/res/res/values/colors.xml b/core/res/res/values/colors.xml
+index 78aed83..fd78500 100644
+--- a/core/res/res/values/colors.xml
++++ b/core/res/res/values/colors.xml
+@@ -133,7 +133,7 @@
+     <color name="notification_secondary_text_color_light">@color/secondary_text_material_light</color>
+     <color name="notification_secondary_text_color_dark">@color/secondary_text_material_dark</color>
+ 
+-    <color name="notification_material_background_color">#cc402080</color>
++    <color name="notification_material_background_color">#ffffffff</color>
+ 
+     <color name="notification_default_color">#757575</color> <!-- Gray 600 -->
+     <color name="notification_icon_default_color">@color/notification_default_color</color>
+diff --git a/services/core/java/com/android/server/am/ActivityRecord.java b/services/core/java/com/android/server/am/ActivityRecord.java
+index be281df..9d6f0bd 100644
+--- a/services/core/java/com/android/server/am/ActivityRecord.java
++++ b/services/core/java/com/android/server/am/ActivityRecord.java
+@@ -2191,6 +2191,11 @@ final class ActivityRecord extends ConfigurationContainer implements AppWindowCo
+     }
+ 
+     void setRequestedOrientation(int requestedOrientation) {
++        if (task.getStackId() == FREEFORM_WORKSPACE_STACK_ID) {
++            Rect taskBounds = service.getTaskBounds(task.taskId);
++            task.changeTaskOrientation(task.taskId, taskBounds);
++            return;
++        }
+         final int displayId = getDisplayId();
+         final Configuration displayConfig =
+                 mStackSupervisor.getDisplayOverrideConfiguration(displayId);
+@@ -2524,7 +2529,7 @@ final class ActivityRecord extends ConfigurationContainer implements AppWindowCo
+             configChanged |= CONFIG_UI_MODE;
+         }
+ 
+-        return (changes&(~configChanged)) != 0;
++        return (changes&(~configChanged)) != 0 && !isResizeOnlyChange(changes);
+     }
+ 
+     /**
+diff --git a/services/core/java/com/android/server/am/ActivityStack.java b/services/core/java/com/android/server/am/ActivityStack.java
+index aae3bd5..ed8d118 100644
+--- a/services/core/java/com/android/server/am/ActivityStack.java
++++ b/services/core/java/com/android/server/am/ActivityStack.java
+@@ -2416,8 +2416,10 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
+                     "resumeTopActivityLocked: Pausing " + mResumedActivity);
+             if (mStackSupervisor.getFocusedStack().mStackId == FREEFORM_WORKSPACE_STACK_ID) {
+                 pausing = false;
++                mResumedActivity.state = ActivityState.PAUSED;
++            } else {
++                pausing |= startPausingLocked(userLeaving, false, next, false);
+             }
+-            pausing |= startPausingLocked(userLeaving, false, next, false);
+         }
+         if (pausing && !resumeWhilePausing) {
+             if (DEBUG_SWITCH || DEBUG_STATES) Slog.v(TAG_STATES,
+diff --git a/services/core/java/com/android/server/am/ActivityStarter.java b/services/core/java/com/android/server/am/ActivityStarter.java
+index 7575f71..31cebd8 100644
+--- a/services/core/java/com/android/server/am/ActivityStarter.java
++++ b/services/core/java/com/android/server/am/ActivityStarter.java
+@@ -1797,7 +1797,7 @@ class ActivityStarter {
+                 if (StackId.resizeStackWithLaunchBounds(stackId)) {
+                     mService.resizeStack(
+                             stackId, mLaunchBounds, true, !PRESERVE_WINDOWS, ANIMATE, -1);
+-                } else {
++                } else if (stackId != FREEFORM_WORKSPACE_STACK_ID) {
+                     mStartActivity.getTask().updateOverrideConfiguration(mLaunchBounds);
+                 }
+             }
+diff --git a/services/core/java/com/android/server/am/TaskRecord.java b/services/core/java/com/android/server/am/TaskRecord.java
+index accdfc6..f1f720a 100644
+--- a/services/core/java/com/android/server/am/TaskRecord.java
++++ b/services/core/java/com/android/server/am/TaskRecord.java
+@@ -1604,12 +1604,18 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+             // Note: If not on the freeform workspace, we ignore the bounds.
+             return true;
+         }
+-        final boolean landscape = bounds.width() > bounds.height();
+-        if (mResizeMode == RESIZE_MODE_FORCE_RESIZABLE_PRESERVE_ORIENTATION) {
+-            return mBounds == null || landscape == (mBounds.width() > mBounds.height());
++
++        if (bounds != null) {
++            return true;
+         }
+-        return (mResizeMode != RESIZE_MODE_FORCE_RESIZABLE_PORTRAIT_ONLY || !landscape)
+-                && (mResizeMode != RESIZE_MODE_FORCE_RESIZABLE_LANDSCAPE_ONLY || landscape);
++
++        return false;
++        //final boolean landscape = bounds.width() > bounds.height();
++        //if (mResizeMode == RESIZE_MODE_FORCE_RESIZABLE_PRESERVE_ORIENTATION) {
++        //    return mBounds == null || landscape == (mBounds.width() > mBounds.height());
++        //}
++        //return (mResizeMode != RESIZE_MODE_FORCE_RESIZABLE_PORTRAIT_ONLY || !landscape)
++        //        && (mResizeMode != RESIZE_MODE_FORCE_RESIZABLE_LANDSCAPE_ONLY || landscape);
+     }
+ 
+     /**
+diff --git a/services/core/java/com/android/server/wm/Task.java b/services/core/java/com/android/server/wm/Task.java
+index 0427c09..cbc4b6e 100644
+--- a/services/core/java/com/android/server/wm/Task.java
++++ b/services/core/java/com/android/server/wm/Task.java
+@@ -359,9 +359,10 @@ class Task extends WindowContainer<AppWindowToken> implements DimLayer.DimLayerU
+      * @return true if orientation should not get changed upon resizing operation.
+      */
+     boolean preserveOrientationOnResize() {
+-        return mResizeMode == RESIZE_MODE_FORCE_RESIZABLE_PORTRAIT_ONLY
+-                || mResizeMode == RESIZE_MODE_FORCE_RESIZABLE_LANDSCAPE_ONLY
+-                || mResizeMode == RESIZE_MODE_FORCE_RESIZABLE_PRESERVE_ORIENTATION;
++        return false;
++        //return mResizeMode == RESIZE_MODE_FORCE_RESIZABLE_PORTRAIT_ONLY
++        //        || mResizeMode == RESIZE_MODE_FORCE_RESIZABLE_LANDSCAPE_ONLY
++        //        || mResizeMode == RESIZE_MODE_FORCE_RESIZABLE_PRESERVE_ORIENTATION;
+     }
+ 
+     boolean cropWindowsToStackBounds() {
+-- 
+2.7.4
+
