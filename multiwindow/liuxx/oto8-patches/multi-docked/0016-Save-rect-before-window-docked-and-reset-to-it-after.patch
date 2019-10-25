@@ -1,0 +1,114 @@
+From 3bc096969857bc7f8d4af3849aad7dc0f3667c67 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Tue, 19 Sep 2017 09:52:31 +0000
+Subject: [PATCH 016/110] Save rect before window docked and reset to it after
+ undock.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ services/core/java/com/android/server/wm/Task.java |  2 ++
+ .../java/com/android/server/wm/TaskPositioner.java | 25 +++++++++++++++++-----
+ 2 files changed, 22 insertions(+), 5 deletions(-)
+
+diff --git a/services/core/java/com/android/server/wm/Task.java b/services/core/java/com/android/server/wm/Task.java
+index e5055e9..f02942e 100644
+--- a/services/core/java/com/android/server/wm/Task.java
++++ b/services/core/java/com/android/server/wm/Task.java
+@@ -60,6 +60,8 @@ class Task extends WindowContainer<AppWindowToken> implements DimLayer.DimLayerU
+     final int mTaskId;
+     final int mUserId;
+     private boolean mDeferRemoval = false;
++    boolean mIsDocked = false;
++    final Rect mDockedTmpRect = new Rect();
+     final WindowManagerService mService;
+ 
+     // Content limits relative to the DisplayContent this sits in.
+diff --git a/services/core/java/com/android/server/wm/TaskPositioner.java b/services/core/java/com/android/server/wm/TaskPositioner.java
+index c288fee..2a5e77e 100644
+--- a/services/core/java/com/android/server/wm/TaskPositioner.java
++++ b/services/core/java/com/android/server/wm/TaskPositioner.java
+@@ -119,11 +119,13 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+     private final Rect mWindowOriginalBounds = new Rect();
+     private final Rect mWindowDragBounds = new Rect();
+     private final Point mMaxVisibleSize = new Point();
++    private final Rect mDockTmpRect = new Rect();
+     private float mStartDragX;
+     private float mStartDragY;
+     @CtrlType
+     private int mCtrlType = CTRL_NONE;
+     private boolean mDragEnded = false;
++    private boolean mDocked = false;
+ 
+     InputChannel mServerChannel;
+     InputChannel mClientChannel;
+@@ -229,9 +231,11 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+                             //        ? DOCKED_STACK_CREATE_MODE_TOP_OR_LEFT
+                             //        : DOCKED_STACK_CREATE_MODE_BOTTOM_OR_RIGHT;
+                             mTask.mStack.getDimBounds(mTmpRect);
++                            mTask.getDimBounds(mTask.mDockedTmpRect);
++                            mTask.mIsDocked = true;
+                             if (mCurrentDimSide == CTRL_LEFT) {
+                                 mTmpRect.right = mTmpRect.centerX();
+-                            } else {
++                            } else if (mCurrentDimSide == CTRL_RIGHT) {
+                                 mTmpRect.left = mTmpRect.centerX();
+                             }
+                             mService.mActivityManager.resizeTask(
+@@ -494,7 +498,7 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+         }
+ 
+         updateWindowDragBounds(nX, nY, mTmpRect);
+-        updateDimLayerVisibility(nX);
++        updateDimLayerVisibility(nX, nY);
+         return false;
+     }
+ 
+@@ -661,6 +665,14 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+     }
+ 
+     private void updateWindowDragBounds(int x, int y, Rect stackBounds) {
++        if (mTask.mIsDocked) {
++            int width = mTask.mDockedTmpRect.width();
++            int height = mTask.mDockedTmpRect.height();
++            mWindowOriginalBounds.bottom = mWindowOriginalBounds.top + height;
++            mWindowOriginalBounds.left = x - width/2;
++            mWindowOriginalBounds.right = x + width/2;
++            mTask.mIsDocked = false;
++        }
+         final int offsetX = Math.round(x - mStartDragX);
+         final int offsetY = Math.round(y - mStartDragY);
+         mWindowDragBounds.set(mWindowOriginalBounds);
+@@ -681,9 +693,9 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+                 "updateWindowDragBounds: " + mWindowDragBounds);
+     }
+ 
+-    private void updateDimLayerVisibility(int x) {
++    private void updateDimLayerVisibility(int x, int y) {
+         @CtrlType
+-        int dimSide = getDimSide(x);
++        int dimSide = getDimSide(x, y);
+         if (dimSide == mCurrentDimSide) {
+             return;
+         }
+@@ -707,7 +719,7 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+      * screen, {@link #CTRL_RIGHT} if on the right side, or {@link #CTRL_NONE} if the dim layer
+      * shouldn't be shown.
+      */
+-    private int getDimSide(int x) {
++    private int getDimSide(int x, int y) {
+         if (mTask.mStack.mStackId != FREEFORM_WORKSPACE_STACK_ID
+                 || !mTask.mStack.fillsParent()
+                 || mTask.mStack.getConfiguration().orientation != ORIENTATION_LANDSCAPE) {
+@@ -721,6 +733,9 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+         if (x + mSideMargin >= mTmpRect.right) {
+             return CTRL_RIGHT;
+         }
++        if (y - mSideMargin <= mTmpRect.top) {
++            return CTRL_TOP;
++        }
+ 
+         return CTRL_NONE;
+     }
+-- 
+2.7.4
+
