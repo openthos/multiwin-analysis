@@ -1,0 +1,170 @@
+From e2c862c591e83cb87b2715cd0af57f857c3eb0e9 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Mon, 26 Aug 2019 08:11:38 +0000
+Subject: [PATCH 098/110] oto8: frameworks: base: Change method of drawColor
+
+to ensure surfaceInsets could
+
+be drawn correctly.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ core/java/android/view/RecordingCanvas.java    | 11 ++++++++++-
+ core/jni/android_graphics_Canvas.cpp           |  7 +++++++
+ graphics/java/android/graphics/BaseCanvas.java |  3 +++
+ libs/hwui/RecordingCanvas.cpp                  | 10 ++++++++++
+ libs/hwui/RecordingCanvas.h                    |  2 ++
+ libs/hwui/SkiaCanvas.cpp                       |  5 +++++
+ libs/hwui/SkiaCanvas.h                         |  2 ++
+ libs/hwui/hwui/Canvas.h                        |  2 ++
+ 8 files changed, 41 insertions(+), 1 deletion(-)
+
+diff --git a/core/java/android/view/RecordingCanvas.java b/core/java/android/view/RecordingCanvas.java
+index e4b91b7..0e04d37 100644
+--- a/core/java/android/view/RecordingCanvas.java
++++ b/core/java/android/view/RecordingCanvas.java
+@@ -209,7 +209,12 @@ public class RecordingCanvas extends Canvas {
+ 
+     @Override
+     public final void drawColor(@ColorInt int color) {
+-        nDrawColor(mNativeCanvasWrapper, color, PorterDuff.Mode.SRC_OVER.nativeInt);
++        //nDrawColor(mNativeCanvasWrapper, color, PorterDuff.Mode.SRC_OVER.nativeInt);
++        if (getWidth() > 0 && getHeight() > 0)
++            nDrawColorRect(mNativeCanvasWrapper, color, PorterDuff.Mode.SRC_OVER.nativeInt,
++                                0, 0, getWidth(), getHeight());
++        else
++            nDrawColor(mNativeCanvasWrapper, color, PorterDuff.Mode.SRC_OVER.nativeInt);
+     }
+ 
+     @Override
+@@ -550,6 +555,10 @@ public class RecordingCanvas extends Canvas {
+     private static native void nDrawColor(long nativeCanvas, int color, int mode);
+ 
+     @FastNative
++    private static native void nDrawColorRect(long nativeCanvas, int color, int mode,
++                                                    int left, int top, int right, int bottom);
++
++    @FastNative
+     private static native void nDrawPaint(long nativeCanvas, long nativePaint);
+ 
+     @FastNative
+diff --git a/core/jni/android_graphics_Canvas.cpp b/core/jni/android_graphics_Canvas.cpp
+index 80f6abe..9a23847 100644
+--- a/core/jni/android_graphics_Canvas.cpp
++++ b/core/jni/android_graphics_Canvas.cpp
+@@ -216,6 +216,12 @@ static void drawColor(JNIEnv* env, jobject, jlong canvasHandle, jint color, jint
+     get_canvas(canvasHandle)->drawColor(color, mode);
+ }
+ 
++static void drawColorRect(JNIEnv* env, jobject, jlong canvasHandle, jint color, jint modeHandle,
++                                jint left, jint top, jint right, jint bottom) {
++    SkBlendMode mode = static_cast<SkBlendMode>(modeHandle);
++    get_canvas(canvasHandle)->drawColorRect(color, mode, left, top, right ,bottom);
++}
++
+ static void drawPaint(JNIEnv* env, jobject, jlong canvasHandle, jlong paintHandle) {
+     Paint* paint = reinterpret_cast<Paint*>(paintHandle);
+     get_canvas(canvasHandle)->drawPaint(*paint);
+@@ -615,6 +621,7 @@ static const JNINativeMethod gMethods[] = {
+ // If called from DisplayListCanvas they are @FastNative
+ static const JNINativeMethod gDrawMethods[] = {
+     {"nDrawColor","(JII)V", (void*) CanvasJNI::drawColor},
++    {"nDrawColorRect","(JIIIIII)V", (void*) CanvasJNI::drawColorRect},
+     {"nDrawPaint","(JJ)V", (void*) CanvasJNI::drawPaint},
+     {"nDrawPoint", "(JFFJ)V", (void*) CanvasJNI::drawPoint},
+     {"nDrawPoints", "(J[FIIJ)V", (void*) CanvasJNI::drawPoints},
+diff --git a/graphics/java/android/graphics/BaseCanvas.java b/graphics/java/android/graphics/BaseCanvas.java
+index 1f339f7..ec00199 100644
+--- a/graphics/java/android/graphics/BaseCanvas.java
++++ b/graphics/java/android/graphics/BaseCanvas.java
+@@ -566,6 +566,9 @@ public abstract class BaseCanvas {
+ 
+     private static native void nDrawColor(long nativeCanvas, int color, int mode);
+ 
++    private static native void nDrawColorRect(long nativeCanvas, int color, int mode,
++                                                int left, int top, int right, int bottom);
++
+     private static native void nDrawPaint(long nativeCanvas, long nativePaint);
+ 
+     private static native void nDrawPoint(long canvasHandle, float x, float y, long paintHandle);
+diff --git a/libs/hwui/RecordingCanvas.cpp b/libs/hwui/RecordingCanvas.cpp
+index d966372..9fbfc87 100644
+--- a/libs/hwui/RecordingCanvas.cpp
++++ b/libs/hwui/RecordingCanvas.cpp
+@@ -251,6 +251,16 @@ void RecordingCanvas::drawColor(int color, SkBlendMode mode) {
+             mode));
+ }
+ 
++void RecordingCanvas::drawColorRect(int color, SkBlendMode mode,
++                                        int left, int top, int right, int bottom) {
++    ClipBase* cb = new ClipBase(getRecordedClip()->rect);
++    cb->rect.set(left, top, right ,bottom);
++    addOp(alloc().create_trivial<ColorOp>(
++            cb,
++            color,
++            mode));
++}
++
+ void RecordingCanvas::drawPaint(const SkPaint& paint) {
+     SkRect bounds;
+     if (getClipBounds(&bounds)) {
+diff --git a/libs/hwui/RecordingCanvas.h b/libs/hwui/RecordingCanvas.h
+index ccdb4b0..6118239 100644
+--- a/libs/hwui/RecordingCanvas.h
++++ b/libs/hwui/RecordingCanvas.h
+@@ -145,6 +145,8 @@ public:
+ // android/graphics/Canvas draw operations
+ // ----------------------------------------------------------------------------
+     virtual void drawColor(int color, SkBlendMode mode) override;
++    virtual void drawColorRect(int color, SkBlendMode mode,
++                                    int left, int top, int right, int bottom) override;
+     virtual void drawPaint(const SkPaint& paint) override;
+ 
+     // Geometry
+diff --git a/libs/hwui/SkiaCanvas.cpp b/libs/hwui/SkiaCanvas.cpp
+index 0a642b6..d3f5aa2 100644
+--- a/libs/hwui/SkiaCanvas.cpp
++++ b/libs/hwui/SkiaCanvas.cpp
+@@ -435,6 +435,11 @@ SkCanvasState* SkiaCanvas::captureCanvasState() const {
+ // Canvas draw operations
+ // ----------------------------------------------------------------------------
+ 
++void SkiaCanvas::drawColorRect(int color, SkBlendMode mode,
++                                    int left, int top, int right, int bottom) {
++    mCanvas->drawColor(color, mode);
++}
++
+ void SkiaCanvas::drawColor(int color, SkBlendMode mode) {
+     mCanvas->drawColor(color, mode);
+ }
+diff --git a/libs/hwui/SkiaCanvas.h b/libs/hwui/SkiaCanvas.h
+index af2c23e..65940e1 100644
+--- a/libs/hwui/SkiaCanvas.h
++++ b/libs/hwui/SkiaCanvas.h
+@@ -105,6 +105,8 @@ public:
+     virtual SkCanvasState* captureCanvasState() const override;
+ 
+     virtual void drawColor(int color, SkBlendMode mode) override;
++    virtual void drawColorRect(int color, SkBlendMode mode,
++                                    int left, int top, int right, int bottom) override;
+     virtual void drawPaint(const SkPaint& paint) override;
+ 
+     virtual void drawPoint(float x, float y, const SkPaint& paint) override;
+diff --git a/libs/hwui/hwui/Canvas.h b/libs/hwui/hwui/Canvas.h
+index ac8a081..93fffcf 100644
+--- a/libs/hwui/hwui/Canvas.h
++++ b/libs/hwui/hwui/Canvas.h
+@@ -212,6 +212,8 @@ public:
+ // Canvas draw operations
+ // ----------------------------------------------------------------------------
+     virtual void drawColor(int color, SkBlendMode mode) = 0;
++    virtual void drawColorRect(int color, SkBlendMode mode,
++                                    int left, int top, int right, int bottom) = 0;
+     virtual void drawPaint(const SkPaint& paint) = 0;
+ 
+     // Geometry
+-- 
+2.7.4
+

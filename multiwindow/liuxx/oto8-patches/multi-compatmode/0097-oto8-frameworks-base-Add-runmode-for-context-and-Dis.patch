@@ -1,0 +1,205 @@
+From 23fbb697fec972c37b5a813ac6be58e3d2592990 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Mon, 26 Aug 2019 07:04:40 +0000
+Subject: [PATCH 097/110] oto8: frameworks: base: Add runmode for context and
+ Display
+
+to control the size of display creating by CompatContext due to orientation.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ core/java/android/app/Activity.java                |  1 +
+ core/java/android/app/CompatContextImpl.java       | 26 ++++++++++++++++++++++
+ core/java/android/app/ContextImpl.java             |  4 ++++
+ core/java/android/content/Context.java             |  2 ++
+ core/java/android/content/ContextWrapper.java      |  5 +++++
+ core/java/android/view/Display.java                | 10 +++++++--
+ test-runner/src/android/test/mock/MockContext.java |  4 ++++
+ 7 files changed, 50 insertions(+), 2 deletions(-)
+
+diff --git a/core/java/android/app/Activity.java b/core/java/android/app/Activity.java
+index 450fdd1..4203ed3 100644
+--- a/core/java/android/app/Activity.java
++++ b/core/java/android/app/Activity.java
+@@ -5828,6 +5828,7 @@ public class Activity extends ContextThemeWrapper
+      * {@link ActivityInfo#screenOrientation ActivityInfo.screenOrientation}.
+      */
+     public void setRequestedOrientation(@ActivityInfo.ScreenOrientation int requestedOrientation) {
++        updateRunMode(requestedOrientation);
+         if (mParent == null) {
+             try {
+                 ActivityManager.getService().setRequestedOrientation(
+diff --git a/core/java/android/app/CompatContextImpl.java b/core/java/android/app/CompatContextImpl.java
+index ff6f179..5dc9d29 100644
+--- a/core/java/android/app/CompatContextImpl.java
++++ b/core/java/android/app/CompatContextImpl.java
+@@ -62,6 +62,8 @@ class CompatContextImpl extends ContextImpl {
+     private static final String XATTR_INODE_CACHE = "user.inode_cache";
+     private static final String XATTR_INODE_CODE_CACHE = "user.inode_code_cache";
+ 
++    private int mRunMode = Display.STANDARD_MODE;
++
+     final @NonNull LoadedApk mPackageInfo;
+     /**
+      * Map from package name, to preference name, to cached preferences.
+@@ -177,6 +179,15 @@ class CompatContextImpl extends ContextImpl {
+                 classLoader);
+     }
+ 
++    private void setRunMode(String packageName) {
++        try {
++            mRunMode = ActivityManager.getService().
++                            getTaskRunModeForPackageName(packageName);
++        } catch (Exception e) {
++            Log.e(TAG, "Error during getServiceRunMode", e);
++        }
++    }
++
+     static ContextImpl createSystemContext(ActivityThread mainThread) {
+         LoadedApk packageInfo = new LoadedApk(mainThread);
+         ContextImpl context = new CompatContextImpl(null, mainThread, packageInfo, null, null, null, 0,
+@@ -284,6 +295,7 @@ class CompatContextImpl extends ContextImpl {
+             @Nullable IBinder activityToken, @Nullable UserHandle user, int flags,
+             @Nullable ClassLoader classLoader) {
+         super(container, mainThread, packageInfo, splitName, activityToken, user, flags, classLoader);
++        setRunMode(packageInfo.mPackageName);
+         mPackageInfo = packageInfo;
+     }
+ 
+@@ -432,9 +444,11 @@ class CompatContextImpl extends ContextImpl {
+             Display display = mResourcesManager.
+                     getAdjustedDisplay(Display.DEFAULT_DISPLAY, mResources);
+             display.setCompatDisplayInfo(true);
++            display.setRunMode(mRunMode);
+             return display;
+         }
+         mDisplay.setCompatDisplayInfo(true);
++        mDisplay.setRunMode(mRunMode);
+         return mDisplay;
+     }
+ 
+@@ -443,6 +457,18 @@ class CompatContextImpl extends ContextImpl {
+         return true;
+     }
+ 
++    @Override
++    public void updateRunMode(int orientation) {
++        if (ActivityInfo.isFixedOrientationLandscape(orientation)) {
++            mRunMode = Display.DESKTOP_MODE;
++        } else if (ActivityInfo.isFixedOrientationPortrait(orientation)) {
++            mRunMode = Display.PHONE_MODE;
++        }
++        if (mDisplay != null) {
++            mDisplay.setRunMode(mRunMode);
++        }
++    }
++
+     static void setCompatDisplayMetrics(Resources res) {
+         DisplayMetrics dm = res.getDisplayMetrics();
+         dm.setCompatMetrics();
+diff --git a/core/java/android/app/ContextImpl.java b/core/java/android/app/ContextImpl.java
+index 48d8496..5cd0336 100644
+--- a/core/java/android/app/ContextImpl.java
++++ b/core/java/android/app/ContextImpl.java
+@@ -2223,6 +2223,10 @@ class ContextImpl extends Context {
+     }
+ 
+     @Override
++    public void updateRunMode(int orientation) {
++    }
++
++    @Override
+     public boolean isCompatContext() {
+         return false;
+     }
+diff --git a/core/java/android/content/Context.java b/core/java/android/content/Context.java
+index 2c19508..c4eabdf 100644
+--- a/core/java/android/content/Context.java
++++ b/core/java/android/content/Context.java
+@@ -805,6 +805,8 @@ public abstract class Context {
+ 
+     public abstract boolean isCompatContext();
+ 
++    public abstract void updateRunMode(int orientation);
++
+     /**
+      * Delete an existing shared preferences file.
+      *
+diff --git a/core/java/android/content/ContextWrapper.java b/core/java/android/content/ContextWrapper.java
+index ce5d297..f8edfe3 100644
+--- a/core/java/android/content/ContextWrapper.java
++++ b/core/java/android/content/ContextWrapper.java
+@@ -85,6 +85,11 @@ public class ContextWrapper extends Context {
+     }
+ 
+     @Override
++    public void updateRunMode(int orientation) {
++        mBase.updateRunMode(orientation);
++    }
++
++    @Override
+     public AssetManager getAssets() {
+         return mBase.getAssets();
+     }
+diff --git a/core/java/android/view/Display.java b/core/java/android/view/Display.java
+index 4e7c4d4..f282c02 100644
+--- a/core/java/android/view/Display.java
++++ b/core/java/android/view/Display.java
+@@ -372,6 +372,8 @@ public final class Display {
+ 
+     private boolean mIsCompatDisplayInfo = false;
+ 
++    private int mRunMode = STANDARD_MODE;
++
+     /**
+      * Internal method to create a display.
+      * The display created with this method will have a static {@link DisplayAdjustments} applied.
+@@ -626,6 +628,10 @@ public final class Display {
+         mIsCompatDisplayInfo = isCompatDisplayInfo;
+     }
+ 
++    public void setRunMode(int runMode) {
++        mRunMode = runMode;
++    }
++
+     /**
+      * Gets the size of the display as a rectangle, in pixels.
+      *
+@@ -737,7 +743,7 @@ public final class Display {
+         synchronized (this) {
+             updateCachedAppSizeIfNeededLocked();
+             if (mIsCompatDisplayInfo) {
+-                return mCachedAppWidthCompat < mCachedAppHeightCompat ? 440 : 960;
++                return mRunMode == PHONE_MODE ? 440 : 960;
+             }
+             return mCachedAppWidthCompat;
+         }
+@@ -751,7 +757,7 @@ public final class Display {
+         synchronized (this) {
+             updateCachedAppSizeIfNeededLocked();
+             if (mIsCompatDisplayInfo) {
+-                return mCachedAppWidthCompat < mCachedAppHeightCompat ? 740 : 540;
++                return mRunMode == PHONE_MODE ? 740 : 540;
+             }
+             return mCachedAppHeightCompat;
+         }
+diff --git a/test-runner/src/android/test/mock/MockContext.java b/test-runner/src/android/test/mock/MockContext.java
+index 050d24b..b51d270 100644
+--- a/test-runner/src/android/test/mock/MockContext.java
++++ b/test-runner/src/android/test/mock/MockContext.java
+@@ -87,6 +87,10 @@ public class MockContext extends Context {
+     }
+ 
+     @Override
++    public void updateRunMode(int orientation) {
++    }
++
++    @Override
+     public Looper getMainLooper() {
+         throw new UnsupportedOperationException();
+     }
+-- 
+2.7.4
+
