@@ -3,6 +3,16 @@
 ## 多窗口
 
 1.设计oto8 窗口resize方式
+  - frameworks/base代码结构
+  
+  `
+  core/java/android/app/IActivityManager.aidl
+  services/core/java/com/android/server/am/ActivityManagerService.java
+  services/core/java/com/android/server/wm/ResizingFrame.java
+  services/core/java/com/android/server/wm/TaskPositioner.java
+  services/core/java/com/android/server/wm/WindowManagerDebugConfig.java
+  services/core/java/com/android/server/wm/WindowState.java
+  `
   - [相关提交的patches](https://github.com/openthos/multiwin-analysis/tree/master/multiwindow/liuxx/oto8-patches/multi-resize)
     
 2.设计oto8 窗口移动到屏幕左、右、上方Docked，且unDocked后，恢复窗口Docked之前Rect。
