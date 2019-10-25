@@ -1,0 +1,2126 @@
+From f94ce6bea4fb56a30672338529b48130913fb14d Mon Sep 17 00:00:00 2001
+From: Luo Junhuan <forward_m@126.com>
+Date: Tue, 17 Oct 2017 02:15:04 +0000
+Subject: [PATCH 005/110] frameworks: base: SystemUI: java: Add dialog of
+ inputmethod, battery, wifi, volume and calendar
+
+Signed-off-by: Luo Junhuan <forward_m@126.com>
+---
+ .../com/android/systemui/dialog/BatteryDialog.java | 134 +++++
+ .../android/systemui/dialog/CalendarDialog.java    | 246 +++++++++
+ .../systemui/dialog/CalendarDisplayView.java       | 277 ++++++++++
+ .../com/android/systemui/dialog/CalendarView.java  | 592 +++++++++++++++++++++
+ .../com/android/systemui/dialog/InputAppInfo.java  |  39 ++
+ .../android/systemui/dialog/InputMethodDialog.java | 177 ++++++
+ .../android/systemui/dialog/VerticalSeekBar.java   | 165 ++++++
+ .../com/android/systemui/dialog/VolumeDialog.java  |  99 ++++
+ .../com/android/systemui/dialog/WifiDialog.java    | 312 +++++++++++
+ 9 files changed, 2041 insertions(+)
+ create mode 100644 packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java
+ create mode 100644 packages/SystemUI/src/com/android/systemui/dialog/CalendarDialog.java
+ create mode 100644 packages/SystemUI/src/com/android/systemui/dialog/CalendarDisplayView.java
+ create mode 100644 packages/SystemUI/src/com/android/systemui/dialog/CalendarView.java
+ create mode 100644 packages/SystemUI/src/com/android/systemui/dialog/InputAppInfo.java
+ create mode 100644 packages/SystemUI/src/com/android/systemui/dialog/InputMethodDialog.java
+ create mode 100644 packages/SystemUI/src/com/android/systemui/dialog/VerticalSeekBar.java
+ create mode 100644 packages/SystemUI/src/com/android/systemui/dialog/VolumeDialog.java
+ create mode 100644 packages/SystemUI/src/com/android/systemui/dialog/WifiDialog.java
+
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java
+new file mode 100644
+index 0000000..4c1a02c
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java
+@@ -0,0 +1,134 @@
++package com.android.systemui.dialog;
++
++import android.content.ComponentName;
++import android.content.Context;
++import android.os.BatteryStats;
++import android.os.Bundle;
++import android.os.SystemClock;
++import android.os.UserHandle;
++import android.os.UserManager;
++import android.text.format.Formatter;
++import android.view.LayoutInflater;
++import android.view.View;
++import android.widget.TextView;
++
++import com.android.internal.os.BatteryStatsHelper;
++import com.android.systemui.R;
++import com.android.systemui.startupmenu.U;
++import com.android.systemui.statusbar.policy.BatteryController;
++import com.android.systemui.statusbar.policy.BatteryControllerImpl;
++
++import java.util.List;
++
++public class BatteryDialog extends BaseDialog implements BatteryController.BatteryStateChangeCallback {
++    private static final String BATTERY_HISTORY_FILE = "tmp_bat_history.bin";
++    private static final int REMAIN_HOUR_DEFAULT = 3;
++    private static final int REMAIN_MINUTE_DEFAULT = 30;
++    private TextView mBatteryPercentage;
++    private TextView mBatteryRemaining;
++    private TextView mBatterySavingMode;
++    private BatteryStatsHelper mBatteryStatsHelper;
++    private UserManager mUserManager;
++    private BatteryStats mBatteryStats;
++    private BatteryControllerImpl mBatteryController;
++
++    public BatteryDialog(Context context) {
++        super(context);
++        mContentView = LayoutInflater.from(getContext()).inflate(R.layout.status_bar_battery, null);
++        setContentView(mContentView);
++    }
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++    }
++
++    @Override
++    public void show(View v) {
++        super.show(v);
++    }
++
++    @Override
++    public void initView() {
++        mBatteryPercentage = (TextView) mContentView.findViewById(R.id.battery_time_percentage);
++        mBatteryRemaining = (TextView) mContentView.findViewById(R.id.battery_time_remaining);
++        mBatterySavingMode = (TextView) mContentView.findViewById(R.id.battery_time_enter);
++    }
++
++    @Override
++    public void initData() {
++        mUserManager = (UserManager) getContext().getSystemService(Context.USER_SERVICE);
++        mBatteryStatsHelper = new BatteryStatsHelper(getContext());
++        mBatteryStatsHelper.create(new Bundle());
++        updataBatteryRemaining();
++        mBatterySavingMode.setText(R.string.battery_saver_settings);
++        mBatteryController = new BatteryControllerImpl(getContext());
++    }
++
++    @Override
++    public void initListener() {
++        mBatterySavingMode.setOnClickListener(new View.OnClickListener() {
++            @Override
++            public void onClick(View view) {
++                U.launchApp(getContext(),
++                        new ComponentName("com.android.settings",
++                                "com.android.settings.BatteryInfo"));
++                dismiss();
++            }
++        });
++
++        mBatteryController.addStateChangedCallback(this);
++    }
++
++    @Override
++    public void onBatteryLevelChanged(int level, boolean pluggedIn, boolean charging) {
++        updataBatteryRemaining();
++        if (level == 0) {
++            mBatteryPercentage.setVisibility(View.GONE);
++            mBatteryRemaining.setVisibility(View.GONE);
++        } else if (charging || pluggedIn) {
++            mBatteryPercentage.setVisibility(View.VISIBLE);
++            mBatteryRemaining.setVisibility(View.GONE);
++            if (level == 100) {
++                mBatteryPercentage.setText(R.string.battery_percent_full);
++            } else {
++                mBatteryPercentage.setText(getContext().getResources().getString(
++                        R.string.battery_percent, level) + "%");
++            }
++        } else {
++            mBatteryPercentage.setVisibility(View.VISIBLE);
++            mBatteryRemaining.setVisibility(View.VISIBLE);
++            String strBatteryRemaining;
++            long elapsedRealtime = SystemClock.elapsedRealtime() * 1000;
++            long batteryTimeRemaining = mBatteryStats.
++                    computeBatteryTimeRemaining(elapsedRealtime);
++            if (batteryTimeRemaining < 0) {
++                strBatteryRemaining = getContext().getResources().getString(
++                        R.string.battery_remaining,
++                        REMAIN_HOUR_DEFAULT,
++                        REMAIN_MINUTE_DEFAULT);
++            } else {
++                String batteryString = Formatter.formatShortElapsedTime(getContext(),
++                        batteryTimeRemaining / 1000);
++                strBatteryRemaining = getContext().getResources().getString(
++                        R.string.battery_remaining_string, batteryString);
++            }
++            mBatteryPercentage.setText(getContext().getResources().getString(
++                    R.string.battery_percent, level) + "%");
++            mBatteryRemaining.setText(strBatteryRemaining);
++        }
++    }
++
++    @Override
++    public void onPowerSaveChanged(boolean isPowerSave) {
++
++    }
++
++    private void updataBatteryRemaining() {
++        BatteryStatsHelper.dropFile(getContext(), BATTERY_HISTORY_FILE);
++        List<UserHandle> profiles = mUserManager.getUserProfiles();
++        mBatteryStatsHelper.clearStats();
++        mBatteryStats = mBatteryStatsHelper.getStats();
++        mBatteryStatsHelper.refreshStats(BatteryStats.STATS_SINCE_CHARGED, profiles);
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/CalendarDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/CalendarDialog.java
+new file mode 100644
+index 0000000..6933f30
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/dialog/CalendarDialog.java
+@@ -0,0 +1,246 @@
++package com.android.systemui.dialog;
++
++import android.app.ActivityManager;
++import android.content.Context;
++import android.content.Intent;
++import android.graphics.Color;
++import android.os.Bundle;
++import android.os.Handler;
++import android.os.Message;
++import android.provider.Settings;
++import android.text.format.DateFormat;
++import android.view.LayoutInflater;
++import android.view.View;
++import android.view.View.OnClickListener;
++import android.widget.RelativeLayout;
++import android.widget.TextView;
++
++import com.android.systemui.R;
++
++import java.text.SimpleDateFormat;
++import java.util.ArrayList;
++import java.util.Calendar;
++import java.util.Date;
++import java.util.List;
++import java.util.Locale;
++
++public class CalendarDialog extends BaseDialog implements OnClickListener , Runnable{
++
++    public static final int COLOR_VIEW_FOCUS = Color.parseColor("#2b1f52");
++    String mDate;
++    String mStr;
++    private CalendarView mCalendarView;
++    private Handler mHandler;
++    private Calendar mCalendar;
++    public static final int TIME_CUT_BEGIN = 11;
++    public static final int TIME_CUT_THIRTEEN = 13;
++    public static final int TIME_CUT_EIGHTEEN = 22;
++    public static final int WEEK_CUT_BEGIN = 21;
++    public static final int YEAR_BREAK_NUMBER = -11;// Across the years
++    public static final int NEXT_DATE = 1;// year, month, and day to add 1
++    public static final int THREAD_SEND_MESSAGE = 100;// send message to handler
++    public static final int UPDATE_DATE_INTERVAL = 1000;// per 1 second
++    public static final int TIME_FORMAT_TWELVE = 12;
++    public String mYear, mMonth, mDay, mMonthText;
++    private TextView mCalendarMonth;
++    private TextView mCalendarTime;
++    private TextView mCalendarDate;
++    private TextView mCalendarEnter;
++    private RelativeLayout mLastMonth;
++    private RelativeLayout mNextMonth;
++
++    public CalendarDialog(Context context) {
++        super(context);
++        mContentView =
++                LayoutInflater.from(getContext()).inflate(R.layout.popupwindows_calendar, null);
++        setContentView(mContentView);
++    }
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++    }
++
++    @Override
++    public void initView() {
++        mCalendarTime = (TextView) mContentView.findViewById(R.id.calendar_time);
++        mCalendarDate = (TextView) mContentView.findViewById(R.id.calendar_date);
++        mCalendarMonth = (TextView) mContentView.findViewById(R.id.calendar_month);
++        mCalendarView = (CalendarView) mContentView.findViewById(R.id.calendar_view);
++        mCalendarEnter = (TextView)mContentView.findViewById(R.id.calendar_enter);
++        mLastMonth = (RelativeLayout) mContentView.findViewById(R.id.calendar_last_month);
++        mNextMonth = (RelativeLayout) mContentView.findViewById(R.id.calendar_next_month);
++    }
++
++    @Override
++    public void initData() {
++        mCalendar = Calendar.getInstance();
++        mHandler = new Handler() {
++            public void handleMessage(Message msg) {
++                mStr = (String)msg.obj;
++                mDate = (String)msg.obj;
++                mCalendarTime.setText(showTime(mStr));
++                mCalendarDate.setText(showMonth(mStr));
++                mCalendarEnter.setText(R.string.set_date_and_time);
++                mCalendarMonth.setText(mCalendarView.getCalendarYear() + mYear
++                        + mCalendarView.getCalendarMonth() + mMonthText);
++            }
++        };
++        new Thread(this).start();
++
++        List<String> list = new ArrayList<String>();
++        list.add("2014-04-01");
++        list.add("2014-04-02");
++        mCalendarView.addMarks(list, 0);
++    }
++
++    @Override
++    public void initListener() {
++        mCalendarView.setOnCalendarClickListener(new CalendarView.OnCalendarClickListener() {
++            public void onCalendarClick(int row, int col, String dateFormat) {
++                int month = Integer.parseInt(dateFormat.substring(
++                        dateFormat.indexOf("-") + NEXT_DATE,
++                        dateFormat.lastIndexOf("-")));
++                if (mCalendarView.getCalendarMonth() - month == NEXT_DATE
++                        || mCalendarView.getCalendarMonth() - month == YEAR_BREAK_NUMBER) {
++                    mCalendarView.lastMonth();
++                } else if (month - mCalendarView.getCalendarMonth() == NEXT_DATE
++                        || month - mCalendarView.getCalendarMonth() == YEAR_BREAK_NUMBER) {
++                    mCalendarView.nextMonth();
++                } else {
++                    mCalendarView.removeAllBgColor();
++                    mCalendarView.setCalendarDayBgColor(dateFormat,
++                            R.mipmap.status_bar_calendar_background);
++                    mDate = dateFormat;
++                }
++            }
++        });
++
++        mCalendarView.setOnCalendarDateChangedListener(
++                new CalendarView.OnCalendarDateChangedListener() {
++            public void onCalendarDateChanged(int year, int month) {
++                mCalendarMonth.setText(year + mYear + month + mMonthText);
++            }
++        });
++
++        mCalendarEnter.setOnClickListener(this);
++        mNextMonth.setOnClickListener(this);
++        mLastMonth.setOnClickListener(this);
++    }
++
++    public void onClick(View v) {
++        switch (v.getId()) {
++        case R.id.calendar_enter:
++            getContext().startActivity(new Intent(Settings.ACTION_DATE_SETTINGS)
++             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
++            CalendarDialog.this.dismiss();
++            break;
++        case R.id.calendar_next_month:
++            mCalendarView.nextMonth();
++            break;
++        case R.id.calendar_last_month:
++            mCalendarView.lastMonth();
++            break;
++        }
++    }
++
++    public String showMonth(String str) {
++        String week = str.substring(WEEK_CUT_BEGIN, str.length());
++        return str.substring(0, TIME_CUT_BEGIN) + " " + week;
++    }
++
++    public String showTime(String str) {
++        Locale locale = getContext().getResources().getConfiguration().locale;
++        String language = locale.getLanguage();
++        if (language.endsWith("zh")) {
++            String time = str.substring(TIME_CUT_THIRTEEN, TIME_CUT_EIGHTEEN);
++            if (!DateFormat.is24HourFormat(getContext(), ActivityManager.getCurrentUser())) {
++                if (mCalendar.get(Calendar.AM_PM) != 0) {
++                    int hhFormat24 = Integer.parseInt(time.substring(0, 2));
++                    int hhFormat12 = hhFormat24 - TIME_FORMAT_TWELVE;
++                    if (hhFormat24 <= 12) {
++                        if (hhFormat24 == 00) {
++                            String timeFormat12 = 12 + time.substring(2);
++                            return getContext().getString(R.string.morning)+" "+timeFormat12;
++                        }
++                        return getContext().getString(R.string.morning) + " " + time;
++                    }
++                    String timeFormat12 = hhFormat12 + time.substring(2);
++                    return getContext().getString(R.string.afternoon) + " " + timeFormat12;
++                } else {
++                    int hhFormat24 = Integer.parseInt(time.substring(0, 2));
++                    if (hhFormat24 > 12) {
++                        int hhFormat12 = hhFormat24 - TIME_FORMAT_TWELVE;
++                        String timeFormat12 = hhFormat12 + time.substring(2);
++                        return getContext().getString(R.string.afternoon) + " " + timeFormat12;
++                    }
++                    return getContext().getString(R.string.morning) + " " + time;
++                }
++            }
++            return time;
++        } else {
++            String time = str.substring(TIME_CUT_THIRTEEN - NEXT_DATE,
++                                          TIME_CUT_EIGHTEEN - NEXT_DATE);
++            if (!DateFormat.is24HourFormat(getContext(), ActivityManager.getCurrentUser())) {
++                if (mCalendar.get(Calendar.AM_PM) != 0) {
++                    int hhFormat24 = Integer.parseInt(time.substring(0, 2));
++                    int hhFormat12 = hhFormat24 - TIME_FORMAT_TWELVE;
++                    if (hhFormat24 <= 12) {
++                        if (hhFormat24 == 00) {
++                            String timeFormat12 = 12 + time.substring(2);
++                            return timeFormat12+" "+getContext().getString(R.string.morning);
++                        }
++                        return time + " " + getContext().getString(R.string.morning);
++                    }
++                    String timeFormat12 = hhFormat12 + time.substring(2) + " " +
++                                                   getContext().getString(R.string.afternoon);
++                    return timeFormat12;
++                } else {
++                    int hhFormat24 = Integer.parseInt(time.substring(0, 2));
++                    if (hhFormat24 > 12) {
++                        int hhFormat12 = hhFormat24 - TIME_FORMAT_TWELVE;
++                        String timeFormat12 = hhFormat12 + time.substring(2) + " " +
++                                                    getContext().getString(R.string.afternoon);
++                        return timeFormat12;
++                    }
++                    return time + " " + getContext().getString(R.string.morning);
++                }
++            }
++            return time;
++        }
++    }
++
++    @Override
++    public void run() {
++        try {
++            while(true) {
++                mYear = getContext().getString(R.string.year);
++                mMonth = getContext().getString(R.string.month);
++                mDay = getContext().getString(R.string.day);
++                mMonthText = getContext().getString(R.string.text_month);
++                SimpleDateFormat formatter = new SimpleDateFormat
++                                              ("yyyy" + mYear + "MM" + mMonth + "dd" +
++                                               mDay +"  "+ "HH:mm:ss EEEE" , Locale.getDefault());
++                String str = formatter.format(new Date());
++                mHandler.sendMessage(mHandler.obtainMessage(THREAD_SEND_MESSAGE, str));
++                Thread.sleep(UPDATE_DATE_INTERVAL);
++            }
++        } catch (InterruptedException e) {
++            e.printStackTrace();
++        }
++    }
++
++    @Override
++    public void show(View v) {
++        super.show(v);
++        /**
++         * Only show year and month.(yyyy-MM)
++         */
++        Calendar calendar=Calendar.getInstance();
++        int years = calendar.get(Calendar.YEAR);
++        int month = calendar.get(Calendar.MONTH) + 1;
++        mCalendarView.clearAll();
++        mCalendarMonth.setText(years + mYear  + month + mMonthText);
++        mCalendarView.showCalendar(years, month);
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/CalendarDisplayView.java b/packages/SystemUI/src/com/android/systemui/dialog/CalendarDisplayView.java
+new file mode 100644
+index 0000000..ac1be46
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/dialog/CalendarDisplayView.java
+@@ -0,0 +1,277 @@
++/*
++ * Copyright (C) 2006 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.systemui.dialog;
++
++import android.app.ActivityManager;
++import android.content.BroadcastReceiver;
++import android.content.Context;
++import android.content.Intent;
++import android.content.IntentFilter;
++import android.content.res.TypedArray;
++import android.os.Bundle;
++import android.os.UserHandle;
++import android.text.Spannable;
++import android.text.SpannableStringBuilder;
++import android.text.format.DateFormat;
++import android.text.style.CharacterStyle;
++import android.text.style.RelativeSizeSpan;
++import android.util.AttributeSet;
++import android.util.TypedValue;
++import android.widget.TextView;
++
++import com.android.systemui.DemoMode;
++import com.android.systemui.R;
++
++import java.text.SimpleDateFormat;
++import java.util.Calendar;
++import java.util.Date;
++import java.util.Locale;
++import java.util.TimeZone;
++
++import libcore.icu.LocaleData;
++
++/**
++ * Digital clock for the status bar.
++ */
++public class CalendarDisplayView extends TextView implements DemoMode {
++    private boolean mAttached;
++    private Calendar mCalendar;
++    private String mClockFormatString;
++    private SimpleDateFormat mClockFormat;
++    private Locale mLocale;
++
++    private static final int AM_PM_STYLE_NORMAL  = 0;
++    private static final int AM_PM_STYLE_SMALL   = 1;
++    private static final int AM_PM_STYLE_GONE    = 2;
++
++    private final int mAmPmStyle;
++
++    public CalendarDisplayView(Context context) {
++        this(context, null);
++    }
++
++    public CalendarDisplayView(Context context, AttributeSet attrs) {
++        this(context, attrs, 0);
++    }
++
++    public CalendarDisplayView(Context context, AttributeSet attrs, int defStyle) {
++        super(context, attrs, defStyle);
++        TypedArray a = context.getTheme().obtainStyledAttributes(
++                attrs,
++                R.styleable.Clock,
++                0, 0);
++        try {
++            mAmPmStyle = a.getInt(R.styleable.Clock_amPmStyle, AM_PM_STYLE_GONE);
++        } finally {
++            a.recycle();
++        }
++    }
++
++    @Override
++    protected void onAttachedToWindow() {
++        super.onAttachedToWindow();
++
++        if (!mAttached) {
++            mAttached = true;
++            IntentFilter filter = new IntentFilter();
++
++            filter.addAction(Intent.ACTION_TIME_TICK);
++            filter.addAction(Intent.ACTION_TIME_CHANGED);
++            filter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
++            filter.addAction(Intent.ACTION_CONFIGURATION_CHANGED);
++            filter.addAction(Intent.ACTION_USER_SWITCHED);
++
++            getContext().registerReceiverAsUser(mIntentReceiver, UserHandle.ALL, filter,
++                    null, getHandler());
++        }
++
++        // NOTE: It's safe to do these after registering the receiver since the receiver always runs
++        // in the main thread, therefore the receiver can't run before this method returns.
++
++        // The time zone may have changed while the receiver wasn't registered, so update the Time
++        mCalendar = Calendar.getInstance(TimeZone.getDefault());
++
++        // Make sure we update to the current time
++        updateClock();
++    }
++
++    @Override
++    protected void onDetachedFromWindow() {
++        super.onDetachedFromWindow();
++        if (mAttached) {
++            getContext().unregisterReceiver(mIntentReceiver);
++            mAttached = false;
++        }
++    }
++
++    private final BroadcastReceiver mIntentReceiver = new BroadcastReceiver() {
++        @Override
++        public void onReceive(Context context, Intent intent) {
++            String action = intent.getAction();
++            if (action.equals(Intent.ACTION_TIMEZONE_CHANGED)) {
++                String tz = intent.getStringExtra("time-zone");
++                mCalendar = Calendar.getInstance(TimeZone.getTimeZone(tz));
++                if (mClockFormat != null) {
++                    mClockFormat.setTimeZone(mCalendar.getTimeZone());
++                }
++            } else if (action.equals(Intent.ACTION_CONFIGURATION_CHANGED)) {
++                final Locale newLocale = getResources().getConfiguration().locale;
++                if (! newLocale.equals(mLocale)) {
++                    mLocale = newLocale;
++                    mClockFormatString = ""; // force refresh
++                }
++            }
++            updateClock();
++        }
++    };
++
++    final void updateClock() {
++        if (mDemoMode) return;
++        mCalendar.setTimeInMillis(System.currentTimeMillis());
++        showTimeFormat();
++    }
++
++    private final CharSequence getSmallTime() {
++        Context context = getContext();
++        boolean is24 = DateFormat.is24HourFormat(context, ActivityManager.getCurrentUser());
++        LocaleData d = LocaleData.get(context.getResources().getConfiguration().locale);
++
++        final char MAGIC1 = '\uEF00';
++        final char MAGIC2 = '\uEF01';
++
++        SimpleDateFormat sdf;
++        String format = is24 ? d.timeFormat_Hm : d.timeFormat_hm;
++        if (!format.equals(mClockFormatString)) {
++            /*
++             * Search for an unquoted "a" in the format string, so we can
++             * add dummy characters around it to let us find it again after
++             * formatting and change its size.
++             */
++            if (mAmPmStyle != AM_PM_STYLE_NORMAL) {
++                int a = -1;
++                boolean quoted = false;
++                for (int i = 0; i < format.length(); i++) {
++                    char c = format.charAt(i);
++
++                    if (c == '\'') {
++                        quoted = !quoted;
++                    }
++                    if (!quoted && c == 'a') {
++                        a = i;
++                        break;
++                    }
++                }
++
++                if (a >= 0) {
++                    // Move a back so any whitespace before AM/PM is also in the alternate size.
++                    final int b = a;
++                    while (a > 0 && Character.isWhitespace(format.charAt(a-1))) {
++                        a--;
++                    }
++                    format = format.substring(0, a) + MAGIC1 + format.substring(a, b)
++                        + "a" + MAGIC2 + format.substring(b + 1);
++                }
++            }
++            mClockFormat = sdf = new SimpleDateFormat(format);
++            mClockFormatString = format;
++        } else {
++            sdf = mClockFormat;
++        }
++        String result = sdf.format(mCalendar.getTime());
++
++        if (mAmPmStyle != AM_PM_STYLE_NORMAL) {
++            int magic1 = result.indexOf(MAGIC1);
++            int magic2 = result.indexOf(MAGIC2);
++            if (magic1 >= 0 && magic2 > magic1) {
++                SpannableStringBuilder formatted = new SpannableStringBuilder(result);
++                if (mAmPmStyle == AM_PM_STYLE_GONE) {
++                    formatted.delete(magic1, magic2+1);
++                } else {
++                    if (mAmPmStyle == AM_PM_STYLE_SMALL) {
++                        CharacterStyle style = new RelativeSizeSpan(0.7f);
++                        formatted.setSpan(style, magic1, magic2,
++                                          Spannable.SPAN_EXCLUSIVE_INCLUSIVE);
++                    }
++                    formatted.delete(magic2, magic2 + 1);
++                    formatted.delete(magic1, magic1 + 1);
++                }
++                return formatted;
++            }
++        }
++
++        return result;
++
++    }
++
++    private boolean mDemoMode;
++
++    @Override
++    public void dispatchDemoCommand(String command, Bundle args) {
++        if (!mDemoMode && command.equals(COMMAND_ENTER)) {
++            mDemoMode = true;
++        } else if (mDemoMode && command.equals(COMMAND_EXIT)) {
++            mDemoMode = false;
++            updateClock();
++        } else if (mDemoMode && command.equals(COMMAND_CLOCK)) {
++            String millis = args.getString("millis");
++            String hhmm = args.getString("hhmm");
++            if (millis != null) {
++                mCalendar.setTimeInMillis(Long.parseLong(millis));
++            } else if (hhmm != null && hhmm.length() == 4) {
++                int hh = Integer.parseInt(hhmm.substring(0, 2));
++                int mm = Integer.parseInt(hhmm.substring(2));
++                mCalendar.set(Calendar.HOUR, hh);
++                mCalendar.set(Calendar.MINUTE, mm);
++            }
++
++            showTimeFormat();
++        }
++    }
++    private String getClockYear() {
++        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
++        return sdf.format(new Date());
++    }
++
++    private void showTimeFormat() {
++        Locale locale = getContext().getResources().getConfiguration().locale;
++        String language = locale.getLanguage();
++        setTextSize(TypedValue.COMPLEX_UNIT_PX,
++                getResources().getDimensionPixelSize(R.dimen.systemui_date_text_size));
++        if (!DateFormat.is24HourFormat(getContext(), ActivityManager.getCurrentUser())) {
++            if (mCalendar.get(Calendar.AM_PM) == 0) {
++                if (language.endsWith("zh")) {
++                    setText(getContext().getString(R.string.morning) + " " +
++                                         getSmallTime() + "\n" + getClockYear());
++                } else {
++                    setText(getSmallTime() + " " + getContext().getString(R.string.morning)
++                                                        + "\n" + getClockYear());
++                }
++                return;
++            } else {
++                if (language.endsWith("zh")) {
++                    setText(getContext().getString(R.string.afternoon) + " " +
++                                         getSmallTime() + "\n" + getClockYear());
++                } else {
++                    setText(getSmallTime()+ " " +getContext().getString(R.string.afternoon)
++                                                        + "\n" + getClockYear());
++                }
++                return;
++            }
++        }
++        setText(getSmallTime() + "\n" + getClockYear());
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/CalendarView.java b/packages/SystemUI/src/com/android/systemui/dialog/CalendarView.java
+new file mode 100644
+index 0000000..ddd4da1
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/dialog/CalendarView.java
+@@ -0,0 +1,592 @@
++package com.android.systemui.dialog;
++
++import android.content.Context;
++import android.content.res.Resources;
++import android.graphics.Color;
++import android.util.AttributeSet;
++import android.view.GestureDetector;
++import android.view.Gravity;
++import android.view.MotionEvent;
++import android.view.View;
++import android.view.ViewGroup;
++import android.view.animation.Animation;
++import android.view.animation.AnimationUtils;
++import android.widget.ImageView;
++import android.widget.LinearLayout;
++import android.widget.RelativeLayout;
++import android.widget.TextView;
++import android.widget.ViewFlipper;
++
++import com.android.systemui.R;
++
++import java.util.Calendar;
++import java.util.Date;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++
++@SuppressWarnings("deprecation")
++public class CalendarView extends ViewFlipper implements
++                                        GestureDetector.OnGestureListener {
++    public static final int COLOR_BG_WEEK_TITLE = Color.parseColor("#ffeeeeee");
++    public static final int COLOR_TX_WEEK_TITLE = Color.parseColor("#3f2d76");
++    public static final int COLOR_TX_THIS_MONTH_DAY = Color.parseColor("#aa564b4b");
++    public static final int COLOR_TX_OTHER_MONTH_DAY = Color.parseColor("#ffcccccc");
++    public static final int COLOR_TX_THIS_DAY = Color.parseColor("#ff008000");
++    public static final int COLOR_BG_THIS_DAY = Color.parseColor("#ffcccccc");
++    public static final int COLOR_BG_CALENDAR = Color.parseColor("#ffeeeeee");
++    public static final int COLOR_BK_TRANSPARENT = Color.parseColor("#2b1f52");
++    public static final int COLOR_BK_DAGE_GRAY = Color.parseColor("#786C9f");
++    public static final int COLOR_BK_DAGE_WHITE = Color.parseColor("#FFFFFF");
++    public static final int COLOR_TX_WEEK_RED = Color.parseColor("#ffcc3333");
++
++    private GestureDetector mGD;
++    private Animation mPushLeftIn;
++    private Animation mPushLeftOut;
++    private Animation mPushRightIn;
++    private Animation mPushRightOut;
++
++    private int ROWS_TOTAL = 6;
++    private int COLS_TOTAL = 7;
++    private String[][] mDates = new String[6][7];
++    private float mTB;
++
++    private OnCalendarClickListener mOnCalendarClickListener;
++    private OnCalendarDateChangedListener mOnCalendarDateChangedListener;
++    private int mCalendarYear;
++    private int mCalendarMonth;
++    private Date mThisday = new Date();
++    private Date mCalendarday;
++    private Context mContext;
++
++    private LinearLayout mFirstCalendar;
++    private LinearLayout mSecondCalendar;
++    private LinearLayout mCurrentCalendar;
++
++    private Map<String, Integer> mMarksMap = new HashMap<String, Integer>();
++    private Map<String, Integer> mDayBgColorMap = new HashMap<String, Integer>();
++
++    private int TEXT_SIZE=12;
++
++    public CalendarView(Context context, AttributeSet attrs) {
++        super(context, attrs);
++        mContext = context;
++        init();
++    }
++    public CalendarView(Context context) {
++        super(context);
++        mContext = context;
++        init();
++    }
++
++    private void init() {
++        //setBackgroundColor(COLOR_BG_CALENDAR);
++        setBackgroundColor(COLOR_TX_WEEK_TITLE);
++        mGD = new GestureDetector(this);
++        mPushLeftIn = AnimationUtils.loadAnimation(getContext(),
++                                                   R.anim.push_left_in);
++        mPushLeftOut = AnimationUtils.loadAnimation(getContext(),
++                                                    R.anim.push_left_out);
++        mPushRightIn = AnimationUtils.loadAnimation(getContext(),
++                                                    R.anim.push_right_in);
++        mPushRightOut = AnimationUtils.loadAnimation(getContext(),
++                                                     R.anim.push_right_out);
++        mPushLeftIn.setDuration(400);
++        mPushLeftOut.setDuration(400);
++        mPushRightIn.setDuration(400);
++        mPushRightOut.setDuration(400);
++        mFirstCalendar = new LinearLayout(getContext());
++        mFirstCalendar.setOrientation(LinearLayout.VERTICAL);
++        mFirstCalendar.setLayoutParams(new LinearLayout.LayoutParams(-1, -1));
++        mSecondCalendar = new LinearLayout(getContext());
++        mSecondCalendar.setOrientation(LinearLayout.VERTICAL);
++        mSecondCalendar.setLayoutParams(new LinearLayout.LayoutParams(-1, -1));
++        mCurrentCalendar = mFirstCalendar;
++        addView(mFirstCalendar);
++        addView(mSecondCalendar);
++        drawFrame(mFirstCalendar);
++        drawFrame(mSecondCalendar);
++        mCalendarYear = mThisday.getYear() + 1900;
++        mCalendarMonth = mThisday.getMonth();
++        mCalendarday = new Date(mCalendarYear - 1900, mCalendarMonth, 1);
++        setCalendarDate();
++    }
++
++    private void drawFrame(LinearLayout oneCalendar) {
++        String[] weekday = new String[] {
++                mContext.getString(R.string.sunday),
++                mContext.getString(R.string.monday),
++                mContext.getString(R.string.tuesday),
++                mContext.getString(R.string.wednesday),
++                mContext.getString(R.string.thursday),
++                mContext.getString(R.string.friday),
++                mContext.getString(R.string.saturday)};
++        LinearLayout title = new LinearLayout(getContext());
++        title.setBackgroundColor(COLOR_TX_WEEK_TITLE);
++        title.setOrientation(LinearLayout.HORIZONTAL);
++        LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(
++                                  LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, 1);
++        Resources res = getResources();
++        mTB = res.getDimension(R.dimen.startupmenu_search_icon_size);
++        title.setLayoutParams(layout);
++        oneCalendar.addView(title);
++
++        for (int i = 0; i < COLS_TOTAL; i++) {
++            TextView view = new TextView(getContext());
++            view.setGravity(Gravity.CENTER);
++            view.setText(weekday[i]);
++            view.setTextColor(COLOR_BK_DAGE_GRAY);
++            view.setTextSize(TEXT_SIZE);
++            view.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT,
++                                                               LayoutParams.WRAP_CONTENT, 1));
++            title.addView(view);
++        }
++
++        LinearLayout content = new LinearLayout(getContext());
++        content.setOrientation(LinearLayout.VERTICAL);
++        content.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,
++                                                              LayoutParams.WRAP_CONTENT, 7f));
++        oneCalendar.addView(content);
++
++        for (int i = 0; i < ROWS_TOTAL; i++) {
++            LinearLayout row = new LinearLayout(getContext());
++            row.setOrientation(LinearLayout.HORIZONTAL);
++            row.setLayoutParams(new LinearLayout.LayoutParams(
++            LayoutParams.MATCH_PARENT, 0, 1));
++            content.addView(row);
++            for (int j = 0; j < COLS_TOTAL; j++) {
++                RelativeLayout col = new RelativeLayout(getContext());
++                col.setLayoutParams(new LinearLayout.LayoutParams(0,
++                LayoutParams.MATCH_PARENT, 1));
++                //col.setBackgroundResource(R.drawable.statusbar_sound);
++                row.addView(col);
++                col.setOnClickListener(new OnClickListener() {
++                    @Override
++                    public void onClick(View v) {
++                        ViewGroup parent = (ViewGroup) v.getParent();
++                        int row = 0, col = 0;
++                        for (int i = 0; i < parent.getChildCount(); i++) {
++                            if (v.equals(parent.getChildAt(i))) {
++                                col = i;
++                                break;
++                            }
++                        }
++                        ViewGroup pparent = (ViewGroup) parent.getParent();
++                        for (int i = 0; i < pparent.getChildCount(); i++) {
++                            if (parent.equals(pparent.getChildAt(i))) {
++                                row = i;
++                                break;
++                            }
++                        }
++                        if (mOnCalendarClickListener != null) {
++                            mOnCalendarClickListener.onCalendarClick(row, col,
++                                                                     mDates[row][col]);
++                        }
++                    }
++                });
++            }
++        }
++    }
++
++    private void setCalendarDate() {
++        int weekday = mCalendarday.getDay();
++        int firstDay = 1;
++        int day = firstDay;
++        int lastDay = getDateNum(mCalendarday.getYear(), mCalendarday.getMonth());
++        int nextMonthDay = 1;
++        int lastMonthDay = 1;
++        for (int i = 0; i < ROWS_TOTAL; i++) {
++            for (int j = 0; j < COLS_TOTAL; j++) {
++                if (i == 0 && j == 0 && weekday != 0) {
++                    int year = 0;
++                    int month = 0;
++                    int lastMonthDays = 0;
++                    if (mCalendarday.getMonth() == 0) {
++                        year = mCalendarday.getYear() - 1;
++                        month = Calendar.DECEMBER;
++                    } else {
++                        year = mCalendarday.getYear();
++                        month = mCalendarday.getMonth() - 1;
++                    }
++                lastMonthDays = getDateNum(year, month);
++                int firstShowDay = lastMonthDays - weekday + 1;
++                for (int k = 0; k < weekday; k++) {
++                    lastMonthDay = firstShowDay + k;
++                    RelativeLayout group = getDateView(0, k);
++                    group.setGravity(Gravity.CENTER);
++                    TextView view = null;
++                    if (group.getChildCount() > 0) {
++                        view = (TextView) group.getChildAt(0);
++                    } else {
++                        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
++                        -1, -1);
++                        view = new TextView(getContext());
++                        view.setLayoutParams(params);
++                        view.setGravity(Gravity.CENTER);
++                        group.addView(view);
++                    }
++                    view.setText(Integer.toString(lastMonthDay));
++                    view.setTextColor(COLOR_BK_DAGE_GRAY);
++                    view.setTextSize(TEXT_SIZE);
++                    mDates[0][k] = format(new Date(year, month, lastMonthDay));
++                    if (mDayBgColorMap.get(mDates[0][k]) != null) {
++                    } else {
++                        view.setBackgroundColor(Color.TRANSPARENT);
++                    }
++                    setMarker(group, 0, k);
++                }
++                j = weekday - 1;
++            } else {
++                RelativeLayout group = getDateView(i, j);
++                group.setGravity(Gravity.CENTER);
++                TextView view = null;
++                if (group.getChildCount() > 0) {
++                    view = (TextView) group.getChildAt(0);
++                } else {
++                    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
++                    -1, -1);
++                    view = new TextView(getContext());
++                    view.setLayoutParams(params);
++                    view.setGravity(Gravity.CENTER);
++                    view.setTextSize(TEXT_SIZE);
++                    group.addView(view);
++                }
++                if (day <= lastDay) {
++                    mDates[i][j] = format(new Date(mCalendarday.getYear(),
++                    mCalendarday.getMonth(), day));
++                    view.setText(Integer.toString(day));
++                    if (mThisday.getDate() == day
++                        && mThisday.getMonth() == mCalendarday.getMonth()
++                        && mThisday.getYear() == mCalendarday.getYear()) {
++                        view.setBackgroundColor(COLOR_BK_TRANSPARENT);
++                    } else {
++                         //COLOR_BK_DAGE_GRAY
++                        //view.setTextColor(COLOR_TX_THIS_MONTH_DAY);
++                        view.setTextColor(COLOR_BK_DAGE_WHITE);
++                        view.setBackgroundColor(Color.TRANSPARENT);
++                    }
++                    if (mDayBgColorMap.get(mDates[i][j]) != null) {
++                        //view.setTextColor(Color.WHITE);
++                        view.setTextColor(COLOR_BK_DAGE_GRAY);
++                        view.setBackgroundResource(mDayBgColorMap.get(mDates[i][j]));
++                    }
++                    setMarker(group, i, j);
++                    day++;
++                } else {
++                    if (mCalendarday.getMonth() == Calendar.DECEMBER) {
++                        mDates[i][j] = format(new Date(
++                        mCalendarday.getYear() + 1,
++                        Calendar.JANUARY, nextMonthDay));
++                    } else {
++                        mDates[i][j] = format(new Date(
++                        mCalendarday.getYear(),
++                        mCalendarday.getMonth() + 1, nextMonthDay));
++                    }
++                    view.setText(Integer.toString(nextMonthDay));
++                    //view.setTextColor(COLOR_TX_OTHER_MONTH_DAY);
++                    view.setTextColor(COLOR_BK_DAGE_GRAY);
++                    if (mDayBgColorMap.get(mDates[i][j]) != null) {
++                    } else {
++                        view.setBackgroundColor(Color.TRANSPARENT);
++                        //view.setBackgroundColor(COLOR_BK_DAGE_GRAY);
++                    }
++                    setMarker(group, i, j);
++                    nextMonthDay++;
++                    }
++                }
++            }
++        }
++    }
++
++    public interface OnCalendarClickListener {
++        void onCalendarClick(int row, int col, String dateFormat);
++    }
++
++    public interface OnCalendarDateChangedListener {
++        void onCalendarDateChanged(int year, int month);
++    }
++
++    public void showCalendar(int year, int month) {
++        mCalendarYear = year;
++        mCalendarMonth = month - 1;
++        mCalendarday = new Date(mCalendarYear - 1900, mCalendarMonth, 1);
++        setCalendarDate();
++    }
++
++    public void showCalendar() {
++        Date now = new Date();
++        mCalendarYear = now.getYear() + 1900;
++        mCalendarMonth = now.getMonth();
++        mCalendarday = new Date(mCalendarYear - 1900, mCalendarMonth, 1);
++        setCalendarDate();
++    }
++
++    public synchronized void nextMonth() {
++        if (mCurrentCalendar == mFirstCalendar) {
++            mCurrentCalendar = mSecondCalendar;
++        } else {
++            mCurrentCalendar = mFirstCalendar;
++        }
++        setInAnimation(mPushLeftIn);
++        setOutAnimation(mPushLeftOut);
++        if (mCalendarMonth == Calendar.DECEMBER) {
++            mCalendarYear++;
++            mCalendarMonth = Calendar.JANUARY;
++        } else {
++            mCalendarMonth++;
++        }
++        mCalendarday = new Date(mCalendarYear - 1900, mCalendarMonth, 1);
++        setCalendarDate();
++        showNext();
++        if (mOnCalendarDateChangedListener != null) {
++            mOnCalendarDateChangedListener.onCalendarDateChanged(mCalendarYear,
++                                                                 mCalendarMonth + 1);
++        }
++    }
++
++    public synchronized void lastMonth() {
++        if (mCurrentCalendar == mFirstCalendar) {
++            mCurrentCalendar = mSecondCalendar;
++        } else {
++            mCurrentCalendar = mFirstCalendar;
++        }
++        setInAnimation(mPushRightIn);
++        setOutAnimation(mPushRightOut);
++        if (mCalendarMonth == Calendar.JANUARY) {
++            mCalendarYear--;
++            mCalendarMonth = Calendar.DECEMBER;
++        } else {
++            mCalendarMonth--;
++        }
++        mCalendarday = new Date(mCalendarYear - 1900, mCalendarMonth, 1);
++        setCalendarDate();
++        showPrevious();
++        if (mOnCalendarDateChangedListener != null) {
++            mOnCalendarDateChangedListener.onCalendarDateChanged(mCalendarYear,
++                                                                 mCalendarMonth + 1);
++        }
++    }
++
++    public int getCalendarYear() {
++        return mCalendarday.getYear() + 1900;
++    }
++
++    public int getCalendarMonth() {
++        return mCalendarday.getMonth() + 1;
++    }
++
++    public void addMark(Date date, int id) {
++        addMark(format(date), id);
++    }
++
++    void addMark(String date, int id) {
++        mMarksMap.put(date, id);
++        setCalendarDate();
++    }
++
++    public void addMarks(Date[] date, int id) {
++        for (int i = 0; i < date.length; i++) {
++            mMarksMap.put(format(date[i]), id);
++        }
++        setCalendarDate();
++    }
++
++    public void addMarks(List<String> date, int id) {
++        for (int i = 0; i < date.size(); i++) {
++            mMarksMap.put(date.get(i), id);
++        }
++        setCalendarDate();
++    }
++
++    public void removeMark(Date date) {
++        removeMark(format(date));
++    }
++
++    public void removeMark(String date) {
++        mMarksMap.remove(date);
++        setCalendarDate();
++    }
++
++    public void removeAllMarks() {
++        mMarksMap.clear();
++        setCalendarDate();
++    }
++
++    public void setCalendarDayBgColor(Date date, int color) {
++        setCalendarDayBgColor(format(date), color);
++    }
++
++    void setCalendarDayBgColor(String date, int color) {
++        mDayBgColorMap.put(date, color);
++        setCalendarDate();
++    }
++
++    public void setCalendarDaysBgColor(List<String> date, int color) {
++        for (int i = 0; i < date.size(); i++) {
++            mDayBgColorMap.put(date.get(i), color);
++        }
++        setCalendarDate();
++    }
++
++    public void setCalendarDayBgColor(String[] date, int color) {
++        for (int i = 0; i < date.length; i++) {
++            mDayBgColorMap.put(date[i], color);
++        }
++        setCalendarDate();
++    }
++
++    public void removeCalendarDayBgColor(Date date) {
++        removeCalendarDayBgColor(format(date));
++    }
++
++    public void removeCalendarDayBgColor(String date) {
++        mDayBgColorMap.remove(date);
++        setCalendarDate();
++    }
++
++    public void removeAllBgColor() {
++        mDayBgColorMap.clear();
++        setCalendarDate();
++    }
++
++    public String getDate(int row, int col) {
++        return mDates[row][col];
++    }
++
++    public boolean hasMarked(String date) {
++        return mMarksMap.get(date) == null ? false : true;
++    }
++
++    public void clearAll() {
++        mMarksMap.clear();
++        mDayBgColorMap.clear();
++    }
++
++    private void setMarker(RelativeLayout group, int i, int j) {
++        int childCount = group.getChildCount();
++        if (mMarksMap.get(mDates[i][j]) != null) {
++            if (childCount < 2) {
++                RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(
++                (int) (mTB * 0.7), (int) (mTB * 0.7));
++                params.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
++                params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
++                params.setMargins(0, 0, 1, 1);
++                ImageView markView = new ImageView(getContext());
++                markView.setImageResource(mMarksMap.get(mDates[i][j]));
++                markView.setLayoutParams(params);
++                //markView.setBackgroundResource(R.drawable.statusbar_sound);
++                group.addView(markView);
++            }
++        } else {
++            if (childCount > 1) {
++                group.removeView(group.getChildAt(1));
++            }
++        }
++    }
++
++    private int getDateNum(int year, int month) {
++        Calendar time = Calendar.getInstance();
++        time.clear();
++        time.set(Calendar.YEAR, year + 1900);
++        time.set(Calendar.MONTH, month);
++        return time.getActualMaximum(Calendar.DAY_OF_MONTH);
++    }
++
++    private RelativeLayout getDateView(int row, int col) {
++        return (RelativeLayout) ((LinearLayout) ((LinearLayout) mCurrentCalendar
++                                                  .getChildAt(1)).getChildAt(row)).getChildAt(col);
++    }
++
++    private String format(Date d) {
++        return addZero(d.getYear() + 1900, 4) + "-"
++                       + addZero(d.getMonth() + 1, 2) + "-" + addZero(d.getDate(), 2);
++    }
++
++    private static String addZero(int i, int count) {
++        if (count == 2) {
++            if (i < 10) {
++                return "0" + i;
++            }
++        } else if (count == 4) {
++            if (i < 10) {
++                return "000" + i;
++            } else if (i < 100 && i > 10) {
++                return "00" + i;
++            } else if (i < 1000 && i > 100) {
++                return "0" + i;
++            }
++        }
++        return "" + i;
++    }
++
++    public boolean dispatchTouchEvent(MotionEvent ev) {
++        if (mGD != null) {
++            if (mGD.onTouchEvent(ev))
++            return true;
++        }
++        return super.dispatchTouchEvent(ev);
++    }
++
++    public boolean onTouchEvent(MotionEvent event) {
++        return mGD.onTouchEvent(event);
++    }
++
++    public boolean onDown(MotionEvent e) {
++        return false;
++    }
++
++    public void onShowPress(MotionEvent e) {}
++
++    public boolean onSingleTapUp(MotionEvent e) {
++        return false;
++    }
++
++    public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
++        return false;
++    }
++
++    public void onLongPress(MotionEvent e) {}
++
++    @Override
++    public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
++        if (e1.getX() - e2.getX() > 20) {
++            nextMonth();
++        } else if (e1.getX() - e2.getX() < -20) {
++            lastMonth();
++        }
++        return false;
++    }
++
++    public OnCalendarClickListener getOnCalendarClickListener() {
++        return mOnCalendarClickListener;
++    }
++
++    public void setOnCalendarClickListener(OnCalendarClickListener listener) {
++            mOnCalendarClickListener = listener;
++    }
++
++    public OnCalendarDateChangedListener getOnCalendarDateChangedListener() {
++        return mOnCalendarDateChangedListener;
++    }
++
++    public void setOnCalendarDateChangedListener(
++                    OnCalendarDateChangedListener listener) {
++        mOnCalendarDateChangedListener = listener;
++    }
++
++    public Date getThisday() {
++        return mThisday;
++    }
++
++    public void setThisday(Date thisday) {
++        mThisday = thisday;
++    }
++
++    public Map<String, Integer> getDayBgColorMap() {
++        return mDayBgColorMap;
++    }
++
++    public void setDayBgColorMap(Map<String, Integer> map) {
++        mDayBgColorMap = map;
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/InputAppInfo.java b/packages/SystemUI/src/com/android/systemui/dialog/InputAppInfo.java
+new file mode 100644
+index 0000000..ca5ba63
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/dialog/InputAppInfo.java
+@@ -0,0 +1,39 @@
++package com.android.systemui.dialog;
++
++import android.view.textservice.SpellCheckerSubtype;
++
++public class InputAppInfo {
++    private String mName;
++    private boolean mIsSelected;
++    private SpellCheckerSubtype mSubtype;
++
++    public String getName() {
++        return mName;
++    }
++
++    public void setName(String name) {
++        this.mName = name;
++    }
++
++    public boolean isSelected() {
++        return mIsSelected;
++    }
++
++    public void setSelected(boolean selected) {
++        mIsSelected = selected;
++    }
++
++    public SpellCheckerSubtype getSubtype() {
++        return mSubtype;
++    }
++
++    public void setSubtype(SpellCheckerSubtype subtype) {
++        mSubtype = subtype;
++    }
++
++    @Override
++    public String toString() {
++        return "AppInfo [name=" + mName + "]";
++    }
++
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/InputMethodDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/InputMethodDialog.java
+new file mode 100644
+index 0000000..31c2ede
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/dialog/InputMethodDialog.java
+@@ -0,0 +1,177 @@
++package com.android.systemui.dialog;
++
++import android.content.Context;
++import android.content.pm.PackageManager;
++import android.os.Bundle;
++import android.provider.Settings;
++import android.view.LayoutInflater;
++import android.view.MotionEvent;
++import android.view.View;
++import android.view.ViewGroup;
++import android.view.inputmethod.InputMethodInfo;
++import android.view.inputmethod.InputMethodManager;
++import android.widget.BaseAdapter;
++import android.widget.ImageView;
++import android.widget.ListView;
++import android.widget.TextView;
++
++import com.android.systemui.R;
++
++import java.util.List;
++
++public class InputMethodDialog extends BaseDialog {
++    private ListView mInputListView;
++    private InputMethodAdapter mInputMethodAdapter;
++
++    public InputMethodDialog(Context context) {
++        super(context);
++        mContentView = LayoutInflater.from(getContext())
++                .inflate(R.layout.status_bar_input_method, null);
++        setContentView(mContentView);
++    }
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++    }
++
++    @Override
++    protected void onStop() {
++        super.onStop();
++    }
++
++    @Override
++    public void show(View v) {
++        super.show(v);
++        setListviewParams();
++    }
++
++    @Override
++    public void initView() {
++        mInputListView = (ListView) mContentView.findViewById(R.id.input_lv_view);
++    }
++
++    public void initData() {
++        mInputMethodAdapter = new InputMethodAdapter(getContext());
++        mInputListView.setAdapter(mInputMethodAdapter);
++        mInputListView.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
++    }
++
++    public void setListviewParams() {
++        mInputMethodAdapter.refresh();
++        int maxWidth = 0;
++        int height = 0;
++        for (int i = 0; i < mInputMethodAdapter.getCount(); i++) {
++            View listItem = mInputMethodAdapter.getView(i, null, mInputListView);
++            listItem.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
++            int width = listItem.getMeasuredWidth();
++            if (width > maxWidth) {
++                maxWidth = width;
++            }
++            height = height + listItem.getMeasuredHeight();
++        }
++        ViewGroup.LayoutParams params = mInputListView.getLayoutParams();
++        params.width = maxWidth;
++        params.height = height;
++        mInputListView.setLayoutParams(params);
++    }
++
++    private class InputMethodAdapter extends BaseAdapter {
++        private final PackageManager mPackageManager;
++        private Context mContext;
++        private InputMethodManager mInputMethodManager;
++        private List<InputMethodInfo> mMethodList;
++        private String mCurrentInputMethodId;
++
++        public InputMethodAdapter(Context context) {
++            mContext = context;
++            mInputMethodManager =
++                    (InputMethodManager) mContext.getSystemService(Context.INPUT_METHOD_SERVICE);
++            mPackageManager = mContext.getPackageManager();
++            initAppInfos();
++        }
++
++        @Override
++        public int getCount() {
++            return mMethodList.size();
++        }
++
++        @Override
++        public Object getItem(int position) {
++            return mMethodList.get(position);
++        }
++
++        @Override
++        public long getItemId(int position) {
++            return position;
++        }
++
++        @Override
++        public View getView(final int position, View convertview, ViewGroup arg2) {
++            View view = null;
++            ViewHolder holder = null;
++            if (convertview == null || convertview.getTag() == null) {
++                view = LayoutInflater.from(mContext).
++                        inflate(R.layout.status_bar_inputmethod_item, null);
++                holder = new ViewHolder(view);
++                view.setTag(holder);
++            } else {
++                view = convertview;
++                holder = (ViewHolder) convertview.getTag();
++            }
++            final InputMethodInfo inputMethodInfo = mMethodList.get(position);
++            holder.label.setText(inputMethodInfo.loadLabel(mPackageManager));
++            view.setOnHoverListener(hoverListener);
++            view.setOnClickListener(new View.OnClickListener() {
++                public void onClick(View v) {
++                    Settings.Secure.putString(mContext.getContentResolver(),
++                            Settings.Secure.DEFAULT_INPUT_METHOD, inputMethodInfo.getId());
++                    dismiss();
++                }
++            });
++            if (mCurrentInputMethodId.equals(inputMethodInfo.getId())) {
++                holder.img.setImageDrawable(
++                        mContext.getDrawable(android.R.drawable.checkbox_on_background));
++            } else {
++                holder.img.setImageDrawable(null);
++            }
++            return view;
++        }
++
++        public void refresh() {
++            initAppInfos();
++            notifyDataSetChanged();
++        }
++
++        private void initAppInfos() {
++            mMethodList = mInputMethodManager.getInputMethodList();
++            mCurrentInputMethodId = Settings.Secure.getString(
++                    mContext.getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD);
++        }
++
++        View.OnHoverListener hoverListener = new View.OnHoverListener() {
++            public boolean onHover(View v, MotionEvent event) {
++                int action = event.getAction();
++                switch (action) {
++                    case MotionEvent.ACTION_HOVER_ENTER:
++                        v.setBackgroundResource(R.color.inputmethodfocus);
++                        break;
++                    case MotionEvent.ACTION_HOVER_EXIT:
++                        v.setBackgroundResource(android.R.color.transparent);
++                        break;
++                }
++                return false;
++            }
++        };
++
++        class ViewHolder {
++            ImageView img;
++            TextView label;
++
++            public ViewHolder(View view) {
++                img = (ImageView) view.findViewById(R.id.input_method_img);
++                label = (TextView) view.findViewById(R.id.input_method_name);
++            }
++        }
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/VerticalSeekBar.java b/packages/SystemUI/src/com/android/systemui/dialog/VerticalSeekBar.java
+new file mode 100644
+index 0000000..343eb94
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/dialog/VerticalSeekBar.java
+@@ -0,0 +1,165 @@
++package com.android.systemui.dialog;
++
++import android.content.Context;
++import android.graphics.Canvas;
++import android.util.AttributeSet;
++import android.view.MotionEvent;
++import android.view.ViewConfiguration;
++import android.view.ViewParent;
++import android.widget.SeekBar;
++
++/**
++ * Created by Luning on 2016/9/19.
++ */
++public class VerticalSeekBar extends SeekBar {
++
++    private boolean mIsDragging;
++    private float mTouchDownY;
++    private int mScaledTouchSlop;
++    private boolean isInScrollingContainer = false;
++    private final int ROTATETION_ANGLE = -90;
++
++    public boolean isInScrollingContainer() {
++        return isInScrollingContainer;
++    }
++
++    public void setInScrollingContainer(boolean isInScrollingContainer) {
++        this.isInScrollingContainer = isInScrollingContainer;
++    }
++
++    float mTouchProgressOffset;
++
++    public VerticalSeekBar(Context context, AttributeSet attrs, int defStyle) {
++        super(context, attrs, defStyle);
++        mScaledTouchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
++
++    }
++
++    public VerticalSeekBar(Context context, AttributeSet attrs) {
++        super(context, attrs);
++    }
++
++    public VerticalSeekBar(Context context) {
++        super(context);
++    }
++
++    @Override
++    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
++        super.onSizeChanged(h, w, oldh, oldw);
++    }
++
++    @Override
++    protected synchronized void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
++        super.onMeasure(heightMeasureSpec, widthMeasureSpec);
++        setMeasuredDimension(getMeasuredHeight(), getMeasuredWidth());
++    }
++
++    @Override
++    protected synchronized void onDraw(Canvas canvas) {
++        canvas.rotate(ROTATETION_ANGLE);
++        canvas.translate(-getHeight(), 0);
++        super.onDraw(canvas);
++    }
++
++    @Override
++    public boolean onTouchEvent(MotionEvent event) {
++        if (!isEnabled()) {
++            return false;
++        }
++
++        switch (event.getAction()) {
++            case MotionEvent.ACTION_DOWN:
++                if (isInScrollingContainer()) {
++                    mTouchDownY = event.getY();
++                } else {
++                    setPressed(false);
++                    invalidate();
++                    onStartTrackingTouch();
++                    trackTouchEvent(event);
++                    attemptClaimDrag();
++                    onSizeChanged(getWidth(), getHeight(), 0, 0);
++                }
++                break;
++            case MotionEvent.ACTION_MOVE:
++                if (mIsDragging) {
++                    trackTouchEvent(event);
++                } else {
++                    final float y = event.getY();
++                    if (Math.abs(y - mTouchDownY) > mScaledTouchSlop) {
++                        setPressed(false);
++                        invalidate();
++                        onStartTrackingTouch();
++                        trackTouchEvent(event);
++                        attemptClaimDrag();
++                    }
++                }
++                onSizeChanged(getWidth(), getHeight(), 0, 0);
++                break;
++            case MotionEvent.ACTION_UP:
++                if (mIsDragging) {
++                    trackTouchEvent(event);
++                    onStopTrackingTouch();
++                    setPressed(false);
++                } else {
++                    onStartTrackingTouch();
++                    trackTouchEvent(event);
++                    onStopTrackingTouch();
++                }
++                onSizeChanged(getWidth(), getHeight(), 0, 0);
++                invalidate();
++                break;
++        }
++        return true;
++    }
++
++    private void trackTouchEvent(MotionEvent event) {
++        final int height = getHeight();
++        final int top = getPaddingTop();
++        final int bottom = getPaddingBottom();
++        final int available = height - top - bottom;
++
++        int y = (int) event.getY();
++
++        float scale;
++        float progress = 0;
++
++        if (y > height - bottom) {
++            scale = 0.0f;
++        } else if (y < top) {
++            scale = 1.0f;
++        } else {
++            scale = (float) (available - y + top) / (float) available;
++            progress = mTouchProgressOffset;
++        }
++
++        final int max = getMax();
++        progress += scale * max;
++
++        setProgress((int) progress);
++
++    }
++
++    void onStartTrackingTouch() {
++        mIsDragging = true;
++    }
++
++    void onStopTrackingTouch() {
++        mIsDragging = false;
++    }
++
++    private void attemptClaimDrag() {
++        ViewParent p = getParent();
++        if (p != null) {
++            p.requestDisallowInterceptTouchEvent(true);
++        }
++    }
++
++    @Override
++    public synchronized void setProgress(int progress) {
++
++        super.setProgress(progress);
++        onSizeChanged(getWidth(), getHeight(), 0, 0);
++
++    }
++
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/VolumeDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/VolumeDialog.java
+new file mode 100644
+index 0000000..37ae706
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/dialog/VolumeDialog.java
+@@ -0,0 +1,99 @@
++package com.android.systemui.dialog;
++
++import android.content.Context;
++import android.content.SharedPreferences;
++import android.media.AudioManager;
++import android.os.Bundle;
++import android.view.LayoutInflater;
++import android.view.View;
++import android.widget.ImageView;
++import android.widget.SeekBar;
++
++import com.android.systemui.R;
++
++
++/**
++ * Created by Mingkai on 2016/6/22.
++ */
++public class VolumeDialog extends BaseDialog implements SeekBar.OnSeekBarChangeListener, View.OnClickListener {
++    private final static String VOL_KEY = "VOLUME_KEY";
++    private final static int DEFAULT_VALUE = 5;
++    private SharedPreferences.Editor mEditor;
++    private VerticalSeekBar mVerticalSeekBar;
++    private AudioManager mAudioManager;
++    private ImageView mVolView;
++    private int mTempValue = DEFAULT_VALUE;
++    private int mVol = 0;
++
++    public VolumeDialog(Context context) {
++        super(context);
++        mContentView = LayoutInflater.from(getContext()).inflate(R.layout.ringer_volume, null);
++        setContentView(mContentView);
++    }
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++    }
++
++    @Override
++    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
++        mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC,
++                                         progress, AudioManager.FLAG_PLAY_SOUND);
++        mVerticalSeekBar.setProgress(progress);
++        mVolView.setImageDrawable(getContext().getDrawable(progress > 0 ?
++            android.R.drawable.ic_lock_silent_mode_off : android.R.drawable.ic_lock_silent_mode));
++        mVol = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
++        mEditor.putInt(VOL_KEY, mVol).commit();
++    }
++
++    @Override
++    public void show(View v) {
++        super.show(v);
++        mVerticalSeekBar.setProgress(mVol);
++    }
++
++    @Override
++    public void initView() {
++        mVerticalSeekBar = (VerticalSeekBar) mContentView.findViewById(R.id.media_volume_seekbar);
++        mVolView = (ImageView) mContentView.findViewById(R.id.media_volume_btn);
++    }
++
++    @Override
++    public void initData() {
++        mAudioManager = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
++        mVerticalSeekBar.setMax(mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
++        SharedPreferences sharePre = getContext().getSharedPreferences(VOL_KEY, Context.MODE_APPEND);
++        mEditor = sharePre.edit();
++        mVol = sharePre.getInt(VOL_KEY, DEFAULT_VALUE);
++        if (mVol == 0) {
++            mVolView.setImageDrawable(getContext().getDrawable(android.R.drawable.ic_lock_silent_mode));
++        }
++    }
++
++    @Override
++    public void initListener() {
++        mVerticalSeekBar.setOnSeekBarChangeListener(this);
++        mVolView.setOnClickListener(this);
++    }
++
++    @Override
++    public void onClick(View v) {
++        if (mVol != 0) {
++            mTempValue = mVol;
++            mVerticalSeekBar.setProgress(0);
++        } else {
++            mVerticalSeekBar.setProgress(mTempValue);
++        }
++    }
++
++    @Override
++    public void onStartTrackingTouch(SeekBar seekBar) {
++
++    }
++
++    @Override
++    public void onStopTrackingTouch(SeekBar seekBar) {
++
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/WifiDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/WifiDialog.java
+new file mode 100644
+index 0000000..309f8a9
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/dialog/WifiDialog.java
+@@ -0,0 +1,312 @@
++package com.android.systemui.dialog;
++
++import android.content.ComponentName;
++import android.content.Context;
++import android.content.Intent;
++import android.net.wifi.ScanResult;
++import android.net.wifi.WifiInfo;
++import android.net.wifi.WifiManager;
++import android.os.Handler;
++import android.os.Message;
++import android.text.TextUtils;
++import android.view.LayoutInflater;
++import android.view.View;
++import android.view.ViewGroup;
++import android.widget.BaseAdapter;
++import android.widget.CompoundButton;
++import android.widget.ImageView;
++import android.widget.LinearLayout;
++import android.widget.ListView;
++import android.widget.Switch;
++import android.widget.TextView;
++
++import com.android.systemui.R;
++
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.Comparator;
++import java.util.HashSet;
++import java.util.List;
++import java.util.Set;
++
++/**
++ * Created by Mingkai on 2016/6/22.
++ */
++public final class WifiDialog extends BaseDialog {
++    private final String CLASSNAME_ETHERNET_SETTINGS =
++            "com.android.settings.ethernet.EthernetSettings";
++    private final String PACKAGENAME_SETTING = "com.android.settings";
++    private final String TAG = "umic";
++
++    private static final int MAX_DISPLAY_NUM = 13;
++
++    private static final int UPDATE_LIST = 1;
++    private static final int WIFI_ENABLE = 2;
++    private static final int WIFI_UNABLE = 3;
++
++    private WifiInfo mWifiInfo;
++    private WifiManager mWifiManager;
++
++    private ListView mWifiListView;
++    private Switch mWifiEnableBtn;
++    private TextView mWifiEnable;
++    private TextView mEthernetConfigure;
++
++    private List<ScanResult> mScanResults;
++    private NetInfoAdapter mNetInfoAdapter;
++    private int mMaxListViewHeight;
++
++    final Handler mHandler = new Handler(new Handler.Callback() {
++        @Override
++        public boolean handleMessage(Message msg) {
++            switch (msg.what) {
++                case UPDATE_LIST:
++                    initScanResults();
++                    break;
++                case WIFI_ENABLE:
++                    wifiStateChangeViewUpdate(true);
++                    mWifiManager.startScan();
++                    break;
++                case WIFI_UNABLE:
++                    wifiStateChangeViewUpdate(false);
++                    break;
++                default:
++                    return false;
++            }
++            return true;
++        }
++    });
++    private LinearLayout mWifiEnableLayout;
++    private LinearLayout mLayout;
++
++    public WifiDialog(Context context) {
++        super(context);
++        mContentView = LayoutInflater.from(getContext()).inflate(R.layout.wifi_list, null, false);
++        setContentView(mContentView);
++    }
++
++    @Override
++    public void initView() {
++
++        mWifiListView = (ListView) mContentView.findViewById(R.id.wifi_list);
++        mWifiEnableLayout = (LinearLayout) mContentView.findViewById(R.id.wifi_enable_layout);
++        mLayout = (LinearLayout) mContentView.findViewById(R.id.wifi_layout);
++        mWifiEnable = (TextView) mContentView.findViewById(R.id.wifi_enable);
++        mWifiEnableBtn = (Switch) mContentView.findViewById(R.id.wifi_enable_btn);
++        mEthernetConfigure = (TextView) mContentView.findViewById(R.id.ethernet_configure);
++    }
++
++    @Override
++    public void initData() {
++        mWifiEnableLayout.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.EXACTLY);
++        mLayout.setLayoutParams(new LinearLayout.LayoutParams(
++                mWifiEnableLayout.getMeasuredWidth(), ViewGroup.LayoutParams.WRAP_CONTENT));
++        mMaxListViewHeight =
++                getContext().getResources().getDimensionPixelOffset(R.dimen.systemui_size_wifi_height);
++        mWifiManager = (WifiManager) getContext().getSystemService(Context.WIFI_SERVICE);
++        mScanResults = new ArrayList<>();
++        mNetInfoAdapter = new NetInfoAdapter();
++        mWifiListView.setAdapter(mNetInfoAdapter);
++    }
++
++    @Override
++    public void initListener() {
++        mWifiEnableBtn.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
++            @Override
++            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
++                if (isChecked) {
++                    if (!mWifiManager.isWifiEnabled()) {
++                        mWifiManager.setWifiEnabled(true);
++                    }
++                } else {
++                    if (mWifiManager.isWifiEnabled()) {
++                        mWifiManager.setWifiEnabled(false);
++                    }
++                }
++            }
++        });
++        mEthernetConfigure.setOnClickListener(new View.OnClickListener() {
++            @Override
++            public void onClick(View view) {
++                Intent intent = new Intent();
++                intent.setComponent(new ComponentName(PACKAGENAME_SETTING,
++                        CLASSNAME_ETHERNET_SETTINGS));
++                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
++                getContext().startActivity(intent);
++                dismiss();
++            }
++        });
++    }
++
++    private void initScanResults() {
++        mWifiInfo = mWifiManager.getConnectionInfo();
++        mScanResults.clear();
++        Set<String> set = new HashSet<>();
++        for (ScanResult result : mWifiManager.getScanResults()) {
++            if (!TextUtils.isEmpty(result.SSID) && !set.contains(result.SSID)) {
++                mScanResults.add(result);
++                set.add(result.SSID);
++            }
++        }
++        Collections.sort(mScanResults, new NetLevel());
++        mNetInfoAdapter.notifyDataSetChanged();
++        ViewGroup.LayoutParams params = mWifiListView.getLayoutParams();
++        params.width = mWifiEnableLayout.getMeasuredWidth();
++        if (mScanResults.size() > MAX_DISPLAY_NUM) {
++            params.height = mMaxListViewHeight;
++        } else {
++            params.height = ViewGroup.LayoutParams.WRAP_CONTENT;
++        }
++        mWifiListView.setLayoutParams(params);
++    }
++
++    private void wifiStateChangeViewUpdate(boolean enable) {
++        mWifiEnableBtn.setChecked(enable);
++        if (enable) {
++            mWifiEnable.setText(getContext().getText(R.string.wifi_enable));
++            mWifiListView.setVisibility(View.VISIBLE);
++        } else {
++            mWifiEnable.setText(getContext().getText(R.string.wifi_unable));
++            mWifiListView.setVisibility(View.GONE);
++        }
++    }
++
++    @Override
++    public void dismiss() {
++        super.dismiss();
++    }
++
++    @Override
++    protected void onStart() {
++        super.onStart();
++        wifiStateChangeViewUpdate(mWifiManager.isWifiEnabled());
++        if (mWifiManager.isWifiEnabled()) {
++            mWifiManager.startScan();
++            initScanResults();
++        }
++    }
++
++    @Override
++    public void show(View v) {
++        super.show(v);
++    }
++
++    private class NetInfoAdapter extends BaseAdapter {
++
++        @Override
++        public int getCount() {
++            return mScanResults.size();
++        }
++
++        @Override
++        public Object getItem(int position) {
++            return mScanResults.get(position);
++        }
++
++        @Override
++        public long getItemId(int position) {
++            return position;
++        }
++
++        @Override
++        public View getView(int position, View convertView, ViewGroup parent) {
++            ViewHolder holder = null;
++            if (convertView == null) {
++                convertView = LayoutInflater.from(getContext()).inflate(R.layout.wifi_content, null);
++                holder = new ViewHolder(convertView);
++                convertView.setTag(holder);
++            } else {
++                holder = (ViewHolder) convertView.getTag();
++            }
++
++            ScanResult scanResult = mScanResults.get(position);
++            if (mWifiInfo != null
++                    && scanResult.SSID.equals(mWifiInfo.getSSID().replace("\"", ""))) {
++                holder.wifiConnect.setImageDrawable(
++                        getContext().getDrawable(android.R.drawable.checkbox_on_background));
++            } else {
++                holder.wifiConnect.setImageDrawable(null);
++            }
++            holder.wifiName.setText(scanResult.SSID);
++            if (hasPassword(scanResult)) {
++                holder.wifiHasPWD.setImageDrawable(getContext().getDrawable(R.mipmap.wifi_locked));
++            } else {
++                holder.wifiHasPWD.setImageDrawable(
++                        getContext().getDrawable(android.R.drawable.ic_dialog_alert));
++            }
++            if (scanResult.level >= -55) {
++                holder.wifiLevel.setImageDrawable(getContext().getDrawable(R.mipmap.wifi_level_4));
++            } else if (scanResult.level >= -65) {
++                holder.wifiLevel.setImageDrawable(getContext().getDrawable(R.mipmap.wifi_level_3));
++            } else if (scanResult.level >= -75) {
++                holder.wifiLevel.setImageDrawable(getContext().getDrawable(R.mipmap.wifi_level_2));
++            } else {
++                holder.wifiLevel.setImageDrawable(getContext().getDrawable(R.mipmap.wifi_level_1));
++            }
++            return convertView;
++        }
++
++        private boolean hasPassword(ScanResult scanResult) {
++            return scanResult.capabilities.contains("WPA")
++                    || scanResult.capabilities.contains("WPA2")
++                    || scanResult.capabilities.contains("WEP");
++        }
++
++        private class ViewHolder implements View.OnClickListener {
++            private ImageView wifiConnect;
++            private TextView wifiName;
++            private ImageView wifiHasPWD;
++            private ImageView wifiLevel;
++
++            public ViewHolder(View view) {
++                wifiConnect = (ImageView) view.findViewById(R.id.wifi_content_is_cnted);
++                wifiName = (TextView) view.findViewById(R.id.wifi_content_name);
++                wifiHasPWD = (ImageView) view.findViewById(R.id.wifi_has_psw);
++                wifiLevel = (ImageView) view.findViewById(R.id.wifi_content_level);
++                view.setOnClickListener(this);
++            }
++
++            @Override
++            public void onClick(View v) {
++                dismiss();
++                Intent intent = new Intent();
++                ComponentName comp = new ComponentName("com.android.settings",
++                        "com.android.settings.wifi.WifiSettings");
++                intent.setComponent(comp);
++                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
++                getContext().startActivity(intent);
++            }
++        }
++    }
++
++    private class NetLevel implements Comparator<ScanResult> {
++
++        @Override
++        public int compare(ScanResult lhs, ScanResult rhs) {
++            if (lhs.SSID.equals(mWifiInfo.getSSID().replace("\"", ""))) {
++                return -1;
++            }
++            if (rhs.SSID.equals(mWifiInfo.getSSID().replace("\"", ""))) {
++                return 1;
++            }
++            return rhs.level - lhs.level;
++        }
++    }
++
++    public void updateWifiEnabled(int state) {
++        switch (state) {
++            case WifiManager.WIFI_STATE_DISABLED:
++                mHandler.sendEmptyMessage(WIFI_UNABLE);
++                break;
++            case WifiManager.WIFI_STATE_ENABLED:
++                mHandler.sendEmptyMessage(WIFI_ENABLE);
++                break;
++            default:
++                break;
++        }
++    }
++
++    public void updateList() {
++        mHandler.sendEmptyMessage(UPDATE_LIST);
++    }
++}
+-- 
+2.7.4
+
