@@ -1,0 +1,221 @@
+From 0a205c02713cf97bdd14262687a75ac8e5d3aa1b Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Tue, 5 Mar 2019 03:34:09 +0000
+Subject: [PATCH 066/110] oto8: frameworks: base: Run app will use task bounds
+ which is saved
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Reviewed-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ core/java/android/provider/Settings.java           | 69 ++++++++++++++++++++++
+ .../systemui/startupmenu/LaunchAppUtil.java        |  2 +-
+ .../android/server/am/LaunchingTaskPositioner.java |  5 ++
+ .../java/com/android/server/am/TaskRecord.java     | 54 +++++++++++++++++
+ 4 files changed, 129 insertions(+), 1 deletion(-)
+
+diff --git a/core/java/android/provider/Settings.java b/core/java/android/provider/Settings.java
+index ba62b47..dc83d4f 100755
+--- a/core/java/android/provider/Settings.java
++++ b/core/java/android/provider/Settings.java
+@@ -47,6 +47,7 @@ import android.content.res.Configuration;
+ import android.content.res.Resources;
+ import android.database.Cursor;
+ import android.database.SQLException;
++import android.graphics.Rect;
+ import android.location.LocationManager;
+ import android.net.ConnectivityManager;
+ import android.net.NetworkScoreManager;
+@@ -10721,6 +10722,74 @@ public final class Settings {
+         }
+ 
+         /**
++         * Convenience function for retrieving a single secure settings value
++         * as a floating point number.  Note that internally setting values are
++         * always stored as strings; this function converts the string to an
++         * float for you. The default value will be returned if the setting
++         * is not defined or not a valid float.
++         *
++         * @param cr The ContentResolver to access.
++         * @param name The name of the setting to retrieve.
++         * @param def Value to return if the setting is not defined.
++         *
++         * @return The setting's current value, or 'def' if it is not defined
++         * or not a valid float.
++         */
++        public static Rect getRect(ContentResolver cr, String name, Rect def) {
++            String rectValue = getString(cr, name);
++            try {
++                return rectValue != null ? Rect.unflattenFromString(rectValue) : def;
++            } catch (NumberFormatException e) {
++                return def;
++            }
++        }
++
++        /**
++         * Convenience function for retrieving a single secure settings value
++         * as a float.  Note that internally setting values are always
++         * stored as strings; this function converts the string to a float
++         * for you.
++         * <p>
++         * This version does not take a default value.  If the setting has not
++         * been set, or the string value is not a number,
++         * it throws {@link SettingNotFoundException}.
++         *
++         * @param cr The ContentResolver to access.
++         * @param name The name of the setting to retrieve.
++         *
++         * @throws SettingNotFoundException Thrown if a setting by the given
++         * name can't be found or the setting value is not a float.
++         *
++         * @return The setting's current value.
++         */
++        public static Rect getRect(ContentResolver cr, String name)
++                throws SettingNotFoundException {
++            String rectValue = getString(cr, name);
++            try {
++                return Rect.unflattenFromString(rectValue);
++            } catch (NumberFormatException e) {
++                throw new SettingNotFoundException(name);
++            }
++        }
++
++        /**
++         * Convenience function for updating a single settings value as a
++         * floating point number. This will either create a new entry in the
++         * table if the given name does not exist, or modify the value of the
++         * existing row with that name.  Note that internally setting values
++         * are always stored as strings, so this function converts the given
++         * value to a string before storing it.
++         *
++         * @param cr The ContentResolver to access.
++         * @param name The name of the setting to modify.
++         * @param value The new value for the setting.
++         * @return true if the value was set, false on database errors
++         */
++        public static boolean putRect(ContentResolver cr, String name, Rect value) {
++            return putString(cr, name, value.flattenToString());
++        }
++
++        /**
+           * Subscription to be used for voice call on a multi sim device. The supported values
+           * are 0 = SUB1, 1 = SUB2 and etc.
+           * @hide
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+index 3ced437..a07a594 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+@@ -55,7 +55,7 @@ public class LaunchAppUtil {
+      * @param componentName
+      */
+     public static void launchApp(Context context, ComponentName componentName) {
+-        launchApp(context, componentName, DESKTOP_MODE);
++        launchApp(context, componentName, STANDARD_MODE);
+     }
+ 
+     /**
+diff --git a/services/core/java/com/android/server/am/LaunchingTaskPositioner.java b/services/core/java/com/android/server/am/LaunchingTaskPositioner.java
+index 4d56da1..570266a 100644
+--- a/services/core/java/com/android/server/am/LaunchingTaskPositioner.java
++++ b/services/core/java/com/android/server/am/LaunchingTaskPositioner.java
+@@ -209,6 +209,11 @@ class LaunchingTaskPositioner {
+ 
+     private void position(TaskRecord task, ArrayList<TaskRecord> tasks, Rect proposal,
+             boolean allowRestart, int shiftPolicy) {
++        Rect memoryBounds = task.getTaskMemoryBounds();
++        if (memoryBounds != null) {
++            task.updateOverrideConfiguration(memoryBounds);
++            return;
++        }
+         mTmpOriginal.set(proposal);
+         boolean restarted = false;
+         while (boundsConflict(proposal, tasks) && !task.isHomeTask()) {
+diff --git a/services/core/java/com/android/server/am/TaskRecord.java b/services/core/java/com/android/server/am/TaskRecord.java
+index 85fbfee2..3dab374 100644
+--- a/services/core/java/com/android/server/am/TaskRecord.java
++++ b/services/core/java/com/android/server/am/TaskRecord.java
+@@ -173,6 +173,10 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     static final int INVALID_TASK_ID = -1;
+     private static final int INVALID_MIN_SIZE = -1;
+ 
++    // Display standard size
++    private static final int STANDARD_DISPLAY_WIDTH = 1920;
++    private static final int STANDARD_DISPLAY_HEIGHT = 1080;
++
+     /**
+      * The modes to control how the stack is moved to the front when calling
+      * {@link TaskRecord#reparent}.
+@@ -460,6 +464,27 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+                 lastTaskDescription));
+     }
+ 
++    Rect getTaskMemoryBounds() {
++        Rect bounds = null;
++        if (mService.mRecentTasks != null && mService.mRecentTasks.size() > 0) {
++            for (int taskNdx = mService.mRecentTasks.size() - 1; taskNdx >= 0; --taskNdx) {
++                final TaskRecord tk = mService.mRecentTasks.get(taskNdx);
++                if (affinity.equals(tk.affinity)) {
++                    if (tk.mBounds != null)
++                    bounds = new Rect(tk.mBounds);
++                    break;
++                }
++            }
++        }
++
++        if (bounds == null) {
++            Rect rect = Settings.Global.getRect(
++                            mService.mContext.getContentResolver(), affinity, null);
++            bounds = formatTaskBounds(rect, false);
++        }
++        return bounds;
++    }
++
+     /**
+      * Should only be invoked from {@link #createWindowContainer(boolean, boolean)}.
+      */
+@@ -1486,6 +1511,8 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     }
+ 
+     void removeTaskActivitiesLocked(boolean pauseImmediately) {
++        // Store the task bounds.
++        storeTaskBounds();
+         // Just remove the entire task.
+         performClearTaskAtIndexLocked(0, pauseImmediately);
+     }
+@@ -1741,6 +1768,33 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+         setIntent(r);
+     }
+ 
++    void storeTaskBounds() {
++        if (!isHomeTask() && mBounds != null && StackId.persistTaskBounds(mStack.mStackId)) {
++            Settings.Global.putRect(mService.mContext.getContentResolver(),
++                    affinity, formatTaskBounds(mBounds, true));
++        }
++    }
++
++    private Rect formatTaskBounds(Rect bounds, boolean isStored) {
++        Rect storeBounds = null;
++        Rect restoreBounds = null;
++        if (bounds != null) {
++            final Point displaySize = new Point();
++            mStack.getDisplaySize(displaySize);
++            int displayWidth = displaySize.x;
++            int displayHeight = displaySize.y;
++            storeBounds = new Rect(bounds.left * STANDARD_DISPLAY_WIDTH / displayWidth,
++                    bounds.top * STANDARD_DISPLAY_HEIGHT / displayHeight,
++                    bounds.right * STANDARD_DISPLAY_WIDTH / displayWidth,
++                    bounds.bottom * STANDARD_DISPLAY_HEIGHT / displayHeight);
++            restoreBounds = new Rect(bounds.left * displayWidth / STANDARD_DISPLAY_WIDTH,
++                    bounds.top * displayHeight / STANDARD_DISPLAY_HEIGHT,
++                    bounds.right * displayWidth / STANDARD_DISPLAY_WIDTH,
++                    bounds.bottom * displayHeight / STANDARD_DISPLAY_HEIGHT);
++        }
++        return isStored ? storeBounds : restoreBounds;
++    }
++
+     void saveToXml(XmlSerializer out) throws IOException, XmlPullParserException {
+         if (DEBUG_RECENTS) Slog.i(TAG_RECENTS, "Saving task=" + this);
+ 
+-- 
+2.7.4
+

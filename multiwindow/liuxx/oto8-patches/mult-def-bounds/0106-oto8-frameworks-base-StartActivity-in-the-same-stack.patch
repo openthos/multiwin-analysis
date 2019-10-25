@@ -1,0 +1,67 @@
+From 51a23980626a6950ec8f2b858f41c147cb97913e Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Wed, 18 Sep 2019 03:27:57 +0000
+Subject: [PATCH 106/110] oto8: frameworks: base: StartActivity in the same
+ stack for calling activity from background stack.
+
+And make sure the top activity in the background stack unresumed.
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ .../core/java/com/android/server/am/ActivityMetricsLogger.java   | 2 +-
+ services/core/java/com/android/server/am/ActivityStack.java      | 4 ++++
+ services/core/java/com/android/server/am/ActivityStarter.java    | 9 +++++----
+ 3 files changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/services/core/java/com/android/server/am/ActivityMetricsLogger.java b/services/core/java/com/android/server/am/ActivityMetricsLogger.java
+index 3043ccf..ffbfba5 100644
+--- a/services/core/java/com/android/server/am/ActivityMetricsLogger.java
++++ b/services/core/java/com/android/server/am/ActivityMetricsLogger.java
+@@ -73,7 +73,7 @@ class ActivityMetricsLogger {
+     // Preallocated strings we are sending to tron, so we don't have to allocate a new one every
+     // time we log.
+     private static final String[] TRON_WINDOW_STATE_VARZ_STRINGS = {
+-            "window_time_0", "window_time_1", "window_time_2", "window_time_3"};
++            "window_time_0", "window_time_1", "window_time_2", "window_time_3", "window_time_4"};
+ 
+     private int mWindowState = WINDOW_STATE_STANDARD;
+     private long mLastLogTimeSecs;
+diff --git a/services/core/java/com/android/server/am/ActivityStack.java b/services/core/java/com/android/server/am/ActivityStack.java
+index e5764ec..1e311f44 100644
+--- a/services/core/java/com/android/server/am/ActivityStack.java
++++ b/services/core/java/com/android/server/am/ActivityStack.java
+@@ -2303,6 +2303,10 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
+             return false;
+         }
+ 
++        if (hasRunningActivity && next.getStackId() == BACKGROUND_STACK_ID) {
++            return false;
++        }
++
+         mStackSupervisor.cancelInitializingActivities();
+ 
+         // Remember how we'll process this pause/resume situation, and ensure
+diff --git a/services/core/java/com/android/server/am/ActivityStarter.java b/services/core/java/com/android/server/am/ActivityStarter.java
+index 1acb934..2e2f7c3 100644
+--- a/services/core/java/com/android/server/am/ActivityStarter.java
++++ b/services/core/java/com/android/server/am/ActivityStarter.java
+@@ -1033,10 +1033,11 @@ class ActivityStarter {
+ 
+         //final int preferredLaunchStackId =
+         //        (mOptions != null) ? mOptions.getLaunchStackId() : INVALID_STACK_ID;
+-        final int preferredLaunchStackId =
+-                (mOptions != null) ? mOptions.getLaunchStackId() :
+-                (sourceRecord != null ? sourceRecord.getTask().getStackId() :
+-                                          FREEFORM_WORKSPACE_STACK_ID);
++        int sourceStackId = sourceRecord != null ?
++                sourceRecord.getTask().getStackId() : FREEFORM_WORKSPACE_STACK_ID;
++        boolean isMiniTask = sourceRecord != null && sourceStackId == BACKGROUND_STACK_ID;
++        final int preferredLaunchStackId = isMiniTask ? sourceStackId :
++                (mOptions != null ? mOptions.getLaunchStackId() : sourceStackId);
+ 
+         final int preferredLaunchDisplayId =
+                 (mOptions != null) ? mOptions.getLaunchDisplayId() : DEFAULT_DISPLAY;
+-- 
+2.7.4
+

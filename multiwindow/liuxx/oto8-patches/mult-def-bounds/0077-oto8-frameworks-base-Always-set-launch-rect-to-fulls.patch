@@ -1,0 +1,65 @@
+From ae798ec2ea253ee5427cb42cbaf9e32fab91c0c0 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Wed, 13 Mar 2019 08:43:30 +0000
+Subject: [PATCH 077/110] oto8: frameworks: base: Always set launch rect to
+ fullscreen for floating window
+
+and skip non-visible window when calculate exludeTouchRegion. These change can
+
+make dialog clickable and show dialog more resonable in Freeform.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ services/core/java/com/android/server/am/ActivityStarter.java        | 5 +++++
+ services/core/java/com/android/server/wm/Task.java                   | 3 +++
+ .../core/java/com/android/server/wm/TaskTapPointerEventListener.java | 2 +-
+ 3 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/services/core/java/com/android/server/am/ActivityStarter.java b/services/core/java/com/android/server/am/ActivityStarter.java
+index b72efdc..a979c6b 100644
+--- a/services/core/java/com/android/server/am/ActivityStarter.java
++++ b/services/core/java/com/android/server/am/ActivityStarter.java
+@@ -1798,6 +1798,11 @@ class ActivityStarter {
+             addOrReparentStartingActivity(task, "setTaskFromReuseOrCreateNewTask - mReuseTask");
+             if (mOptions != null && mOptions.getFreeformBounds() != null)
+                 task.resize(mOptions.getFreeformBounds(), ActivityManager.RESIZE_MODE_FORCED, true, true);
++            if (!mStartActivity.fullscreen) {
++                Rect bounds = new Rect();
++                mTargetStack.getDisplay().mDisplay.getRectSize(bounds);
++                task.resize(bounds, ActivityManager.RESIZE_MODE_FORCED, true, true);
++            }
+             if (mLaunchBounds != null) {
+                 final int stackId = mTargetStack.mStackId;
+                 if (StackId.resizeStackWithLaunchBounds(stackId)) {
+diff --git a/services/core/java/com/android/server/wm/Task.java b/services/core/java/com/android/server/wm/Task.java
+index 816c1b5..a4bbc24 100644
+--- a/services/core/java/com/android/server/wm/Task.java
++++ b/services/core/java/com/android/server/wm/Task.java
+@@ -517,6 +517,9 @@ class Task extends WindowContainer<AppWindowToken> implements DimLayer.DimLayerU
+             if (win == null) {
+                 continue;
+             }
++            if (win.mVisibleFrame.height() == 0 && win.mVisibleFrame.width() == 0) {
++                continue;
++            }
+             if (!foundTop) {
+                 out.set(win.mVisibleFrame);
+                 foundTop = true;
+diff --git a/services/core/java/com/android/server/wm/TaskTapPointerEventListener.java b/services/core/java/com/android/server/wm/TaskTapPointerEventListener.java
+index e3b1fe2..bf4b455 100644
+--- a/services/core/java/com/android/server/wm/TaskTapPointerEventListener.java
++++ b/services/core/java/com/android/server/wm/TaskTapPointerEventListener.java
+@@ -112,7 +112,7 @@ public class TaskTapPointerEventListener implements PointerEventListener {
+ 
+     void setTouchExcludeRegion(Region newRegion) {
+         synchronized (this) {
+-           mTouchExcludeRegion.set(newRegion);
++            mTouchExcludeRegion.set(newRegion);
+         }
+     }
+ 
+-- 
+2.7.4
+
