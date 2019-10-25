@@ -1,0 +1,39 @@
+From 36a3631fa471bd3cd655944c1ed7783bfa6003f3 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Wed, 11 Oct 2017 06:25:45 +0000
+Subject: [PATCH 019/110] Using stack resize min bounds to limit window size.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ services/core/java/com/android/server/wm/TaskPositioner.java | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/services/core/java/com/android/server/wm/TaskPositioner.java b/services/core/java/com/android/server/wm/TaskPositioner.java
+index ede28d1..4ae7e1b 100644
+--- a/services/core/java/com/android/server/wm/TaskPositioner.java
++++ b/services/core/java/com/android/server/wm/TaskPositioner.java
+@@ -533,15 +533,17 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+         // Calculate the resulting width and height of the drag operation.
+         int width = right - left;
+         int height = bottom - top;
++        int visibleWidth = Math.max(mMinVisibleWidth, mMinStackResizeWidth);
++        int visibleHeight = Math.max(mMinVisibleHeight, mMinStackResizeHeight);
+         if ((mCtrlType & CTRL_LEFT) != 0) {
+-            width = Math.max(mMinVisibleWidth, width - deltaX);
++            width = Math.max(visibleWidth, width - deltaX);
+         } else if ((mCtrlType & CTRL_RIGHT) != 0) {
+-            width = Math.max(mMinVisibleWidth, width + deltaX);
++            width = Math.max(visibleWidth, width + deltaX);
+         }
+         if ((mCtrlType & CTRL_TOP) != 0) {
+-            height = Math.max(mMinVisibleHeight, height - deltaY);
++            height = Math.max(visibleHeight, height - deltaY);
+         } else if ((mCtrlType & CTRL_BOTTOM) != 0) {
+-            height = Math.max(mMinVisibleHeight, height + deltaY);
++            height = Math.max(visibleHeight, height + deltaY);
+         }
+ 
+         // If we have to preserve the orientation - check that we are doing so.
+-- 
+2.7.4
+

@@ -1,0 +1,49 @@
+From 16076d6ca4fade313002ed7ef52b57cdca03a2dc Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Tue, 27 Aug 2019 04:55:15 +0000
+Subject: [PATCH 100/110] oto8: frameworks: base: Set isInMultiWindowMode in
+ Activity
+
+return false for application setRequestedOrientation in compat runmode.
+
+Ensure event mode work on down or scroll, if it is coming from a mouse screen device.
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: ladehunter <ladehunter@gmail.com>
+---
+ core/java/android/app/Activity.java      | 3 +++
+ core/java/android/view/ViewRootImpl.java | 3 ++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/core/java/android/app/Activity.java b/core/java/android/app/Activity.java
+index 79a6078..268b2b7 100644
+--- a/core/java/android/app/Activity.java
++++ b/core/java/android/app/Activity.java
+@@ -2021,6 +2021,9 @@ public class Activity extends ContextThemeWrapper
+      * @return True if the activity is in multi-window mode.
+      */
+     public boolean isInMultiWindowMode() {
++        if (isCompatContext()) {
++            return false;
++        }
+         try {
+             return ActivityManager.getService().isInMultiWindowMode(mToken);
+         } catch (RemoteException e) {
+diff --git a/core/java/android/view/ViewRootImpl.java b/core/java/android/view/ViewRootImpl.java
+index 3f1ea34..fb627fc 100644
+--- a/core/java/android/view/ViewRootImpl.java
++++ b/core/java/android/view/ViewRootImpl.java
+@@ -4540,7 +4540,8 @@ public final class ViewRootImpl implements ViewParent,
+             // exit otherwise.
+             final int action = event.getAction();
+             if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_SCROLL) {
+-                ensureTouchMode(event.isFromSource(InputDevice.SOURCE_TOUCHSCREEN));
++                ensureTouchMode(event.isFromSource(InputDevice.SOURCE_TOUCHSCREEN) ||
++                        event.isFromSource(InputDevice.SOURCE_MOUSE));
+             }
+ 
+             if (action == MotionEvent.ACTION_DOWN && mAttachInfo.mTooltipHost != null) {
+-- 
+2.7.4
+

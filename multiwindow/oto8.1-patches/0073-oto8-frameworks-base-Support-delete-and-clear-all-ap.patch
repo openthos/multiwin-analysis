@@ -1,0 +1,841 @@
+From b7abb5c13f57eb2cb7dfec4cb7d547917549a198 Mon Sep 17 00:00:00 2001
+From: Lu Ning <luning@openthos.org>
+Date: Fri, 8 Mar 2019 08:55:34 +0000
+Subject: [PATCH 073/110] oto8: frameworks: base: Support delete and clear all
+ applications in recent list
+
+Correct the wrong order of recent list.
+
+Signed-off-by: Lu Ning <luning@openthos.org>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ core/java/android/app/ActivityManager.java         |   8 +
+ core/java/android/app/IActivityManager.aidl        |   1 +
+ .../SystemUI/res/drawable/mw_btn_close_default.png | Bin 0 -> 415 bytes
+ packages/SystemUI/res/layout/task_dialog.xml       |  18 +-
+ packages/SystemUI/res/layout/task_item.xml         |  22 +-
+ .../com/android/systemui/dialog/BaseDialog.java    |   1 +
+ .../recents/taskview/TaskSwitchAdapter.java        | 223 ----------------
+ .../systemui/recents/taskview/TaskViewDialog.java  | 283 ++++++++++++++++++++-
+ .../statusbar/phone/OpenthosStatusBarView.java     |  12 +-
+ .../android/server/am/ActivityManagerService.java  |   7 +-
+ .../android/server/am/ActivityStackSupervisor.java |   9 +
+ 11 files changed, 329 insertions(+), 255 deletions(-)
+ create mode 100644 packages/SystemUI/res/drawable/mw_btn_close_default.png
+ delete mode 100644 packages/SystemUI/src/com/android/systemui/recents/taskview/TaskSwitchAdapter.java
+
+diff --git a/core/java/android/app/ActivityManager.java b/core/java/android/app/ActivityManager.java
+index e402607..2b1acb0 100644
+--- a/core/java/android/app/ActivityManager.java
++++ b/core/java/android/app/ActivityManager.java
+@@ -2150,6 +2150,14 @@ public class ActivityManager {
+         }
+     }
+ 
++    public boolean isHomeTask(int taskId) {
++        try {
++            return getService().isHomeTask(taskId);
++        } catch (RemoteException e) {
++            throw e.rethrowFromSystemServer();
++        }
++    }
++
+     /**
+      * Metadata related to the {@link TaskThumbnail}.
+      *
+diff --git a/core/java/android/app/IActivityManager.aidl b/core/java/android/app/IActivityManager.aidl
+index fd65a8c..2e307c7 100644
+--- a/core/java/android/app/IActivityManager.aidl
++++ b/core/java/android/app/IActivityManager.aidl
+@@ -291,6 +291,7 @@ interface IActivityManager {
+     boolean switchUser(int userid);
+     void setFocusedTask(int taskId);
+     boolean removeTask(int taskId);
++    boolean isHomeTask(int taskId);
+     void registerProcessObserver(in IProcessObserver observer);
+     void unregisterProcessObserver(in IProcessObserver observer);
+     boolean isIntentSenderTargetedToPackage(in IIntentSender sender);
+diff --git a/packages/SystemUI/res/drawable/mw_btn_close_default.png b/packages/SystemUI/res/drawable/mw_btn_close_default.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..e71f471fb2053488be8e833b687dfc5bd01e8129
+GIT binary patch
+literal 415
+zcmV;Q0bu@#P)<h;3K|Lk000e1NJLTq001Na001Ni1^@s6;Q*MJ00001b5ch_0Itp)
+z=>Px$SxH1eR9Fe^l`(3=KoCVGOLvIf8bVy;3=R%XBZ1na${}))Tq2!Ifz%40A&pHA
+zU^`t3cLL>qMGnid8#7DX&4SSG%<RtN?~D{hI#dBwKow90Q~_1sUloX@r{#J6+I8J6
+z_C42iy?5=;vTPj3@f&>aRaL#XVtlrd&+&)-9=-=8Y?#=N8(<nhFX3C*{&Q<FP?98%
+zICO`EGaJf)nK1^jPv-z^zxc{{Kv5JoZQC}OP5`w5T(1NH2@3lzP18kLmRrV4Mi3Aa
+zSWq9d0p=R7U>Kee48+X?)Ed((t}zZ!<}O5;pY2g3uA$RLzHx0|xTd3FJJM#X#nWIQ
+zqkyN#`Z+vPyU?XXK|lt~setFWsyUK7yH5fot|14^Z#P+m-glqx<LQGGD}*aq`C6OB
+z%yu`FTKN+D>|!7s#NS1q*wsx26u&`?)u9Tg0;+&2pbA`4fp74Ql@d>D{S5#B002ov
+JPDHLkV1iR_t|0&b
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/layout/task_dialog.xml b/packages/SystemUI/res/layout/task_dialog.xml
+index 4353063..8148b20 100644
+--- a/packages/SystemUI/res/layout/task_dialog.xml
++++ b/packages/SystemUI/res/layout/task_dialog.xml
+@@ -3,7 +3,6 @@
+     xmlns:android="http://schemas.android.com/apk/res/android"
+     android:layout_width="match_parent"
+     android:layout_height="match_parent"
+-    android:layout_alignParentBottom="true"
+     android:layout_centerHorizontal="true"
+     android:id="@+id/frameLayout"
+     android:background="@drawable/taskview_bg">
+@@ -12,23 +11,22 @@
+         android:orientation="vertical"
+         android:layout_width="match_parent"
+         android:layout_height="match_parent"
+-        android:layout_gravity="center_horizontal|top"
+-        android:layout_marginLeft="@dimen/recents_layout_min_margin"
+-        android:layout_marginRight="@dimen/recents_layout_min_margin"
+-        android:layout_marginTop="@dimen/recents_layout_min_margin"
+-        android:layout_marginBottom="@dimen/recents_layout_min_margin">
++        android:layout_margin="@dimen/recents_layout_min_margin"
++        android:layout_gravity="center_horizontal|top">
+ 
+         <GridView
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:id="@+id/gridView"
+-            android:layout_alignParentTop="true"
+-            android:layout_alignParentLeft="true"
+-            android:layout_alignParentStart="true"
+             android:verticalSpacing="@dimen/recents_layout_min_margin"
+             android:horizontalSpacing="@dimen/recents_layout_min_margin"
+             android:numColumns="auto_fit"
+-            android:stretchMode="columnWidth"
+             android:gravity="center" />
++
++        <TextView
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:id="@+id/recent_clear_all"
++            android:text="@string/clear_all" />
+     </LinearLayout>
+ </FrameLayout>
+diff --git a/packages/SystemUI/res/layout/task_item.xml b/packages/SystemUI/res/layout/task_item.xml
+index 9038e26..f54f0a1 100644
+--- a/packages/SystemUI/res/layout/task_item.xml
++++ b/packages/SystemUI/res/layout/task_item.xml
+@@ -3,12 +3,11 @@
+     android:orientation="vertical"
+     android:layout_width="@dimen/start_row_item_width"
+     android:layout_height="wrap_content">
+-    <LinearLayout
+-        android:orientation="vertical"
++    <RelativeLayout
+         android:layout_width="match_parent"
+         android:layout_height="match_parent"
+         android:layout_marginBottom="@dimen/recents_freeform_layout_task_padding"
+-        android:padding="@dimen/padding_five"
++        android:padding="@dimen/pip_action_padding"
+         android:layout_gravity="center_horizontal|top"
+         android:background="@drawable/taskview_item_bg_normal"
+         android:id="@+id/linearLayoutItem">
+@@ -17,9 +16,16 @@
+             android:layout_width="@dimen/size_fiftyfive"
+             android:layout_height="@dimen/size_fiftyfive"
+             android:id="@+id/imageView"
+-            android:scaleType="fitXY"
+-            android:layout_gravity="center_horizontal" />
+-    </LinearLayout>
++            android:layout_margin="@dimen/padding_fifteen"
++            android:scaleType="fitXY" />
++
++        <ImageView
++            android:id="@+id/remove"
++	        android:layout_width="@dimen/padding_thirty"
++	        android:layout_height="@dimen/padding_thirty"
++	        android:layout_alignParentRight="true"
++	        android:src="@drawable/mw_btn_close_default" />
++    </RelativeLayout>
+ 
+     <LinearLayout
+         android:orientation="vertical"
+@@ -29,8 +35,8 @@
+         android:textAlignment="center">
+ 
+         <TextView
+-            android:layout_width="@dimen/size_fiftyfive"
+-            android:layout_height="match_parent"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
+             android:text="@string/app_name"
+             android:id="@+id/title"
+             android:layout_gravity="center_horizontal"
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
+index 6642d25..1173f60 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
+@@ -67,6 +67,7 @@ public class BaseDialog extends Dialog {
+         Window dialogWindow = getWindow();
+         dialogWindow.setType(WindowManager.LayoutParams.TYPE_STATUS_BAR_DIALOG);
+         dialogWindow.setWindowAnimations(R.style.ShowDialog);
++        dialogWindow.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
+         WindowManager.LayoutParams lp = dialogWindow.getAttributes();
+         lp.format = PixelFormat.TRANSPARENT;
+         lp.dimAmount = 0;
+diff --git a/packages/SystemUI/src/com/android/systemui/recents/taskview/TaskSwitchAdapter.java b/packages/SystemUI/src/com/android/systemui/recents/taskview/TaskSwitchAdapter.java
+deleted file mode 100644
+index 3299292..0000000
+--- a/packages/SystemUI/src/com/android/systemui/recents/taskview/TaskSwitchAdapter.java
++++ /dev/null
+@@ -1,223 +0,0 @@
+-package com.android.systemui.recents.taskview;
+-
+-import android.app.ActivityManager;
+-import android.app.ActivityManager.RecentTaskInfo;
+-import android.content.Context;
+-import android.content.Intent;
+-import android.content.pm.PackageManager;
+-import android.content.pm.ResolveInfo;
+-import android.graphics.drawable.Drawable;
+-import android.util.Log;
+-import android.view.LayoutInflater;
+-import android.view.MotionEvent;
+-import android.view.View;
+-import android.view.ViewGroup;
+-import android.view.View.OnHoverListener;
+-import android.widget.BaseAdapter;
+-import android.widget.GridView;
+-import android.widget.ImageView;
+-import android.widget.LinearLayout;
+-import android.widget.TextView;
+-import com.android.systemui.R;
+-import java.util.ArrayList;
+-import android.graphics.Bitmap;
+-import android.graphics.drawable.BitmapDrawable;
+-import android.graphics.Matrix;
+-import android.os.RemoteException;
+-
+-public class TaskSwitchAdapter extends BaseAdapter {
+-    private LayoutInflater mInflater;
+-    private ArrayList<TaskInfo> mTasks = new ArrayList();
+-    private ActivityManager mActivityManager;
+-    private Context mContext;
+-    private PackageManager mPackageManager;
+-    private int mCurrentPosition = 1;
+-    private GridView mContainer;
+-    private Drawable mDrawable;
+-    private ActivityManager.TaskSnapshot mSnapshot = null;
+-    private float mImageSize;
+-    private static final int DISPLAY_TASKS = 100;
+-    private static final int MAX_TASKS = DISPLAY_TASKS + 1;
+-
+-    class TaskInfo {
+-        public RecentTaskInfo info;
+-        public Intent intent;
+-
+-        public TaskInfo(RecentTaskInfo info, Intent intent) {
+-            this.info = info;
+-            this.intent = intent;
+-        }
+-    }
+-
+-    public TaskSwitchAdapter(Context c, GridView parent) {
+-        super();
+-        mContext = c;
+-        mActivityManager = (ActivityManager)c.getSystemService(Context.ACTIVITY_SERVICE);
+-        mInflater = LayoutInflater.from(c);
+-        mPackageManager = mContext.getPackageManager();
+-        mContainer = parent;
+-        mImageSize = c.getResources().getDimension(R.dimen.size_fiftyfive);
+-        reloadTask();
+-    }
+-
+-    public void reloadTask() {
+-        ArrayList<RecentTaskInfo> recentTasks = new ArrayList();
+-        try {
+-            recentTasks = (ArrayList) mActivityManager.getRecentTasks(MAX_TASKS,
+-                    ActivityManager.RECENT_WITH_EXCLUDED);
+-        } catch(Exception e) {
+-            e.printStackTrace();
+-        }
+-
+-        mTasks.clear();
+-        mCurrentPosition = 1;
+-        for (int i = 0; i < recentTasks.size(); i++) {
+-            RecentTaskInfo ri = (RecentTaskInfo) recentTasks.get(i);
+-            if (ri.id < 0) {
+-                continue;
+-            }
+-            Intent intent = new Intent(ri.baseIntent);
+-            intent.setComponent(ri.realActivity);
+-
+-            int stackId = ri.stackId;
+-            if (stackId != 0 || mTasks.isEmpty()) {
+-                mTasks.add(new TaskInfo(ri, intent));
+-            } else {
+-                mTasks.add(0, new TaskInfo(ri, intent));
+-            }
+-        }
+-        notifyDataSetChanged();
+-    }
+-
+-    public void resetTask() {
+-        mTasks.clear();
+-    }
+-
+-    public void stepTask() {
+-        if (!mTasks.isEmpty()) {
+-            mCurrentPosition = (mCurrentPosition + 1) % (mTasks.size());
+-            notifyDataSetChanged();
+-        }
+-    }
+-
+-    public void switchTask(int position) {
+-        if (position == -1) {
+-            position = mCurrentPosition;
+-        }
+-        if (mTasks != null && position >= 0 && position < mTasks.size()) {
+-            mCurrentPosition = position;
+-            TaskInfo taskInfo = mTasks.get(mCurrentPosition);
+-            if (taskInfo.info.id >= 0) {
+-                mActivityManager.moveTaskToFront(mTasks.get(mCurrentPosition).info.id, 0, null);
+-            } else if (taskInfo.intent != null) {
+-                taskInfo.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+-                        | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+-                try {
+-                    mContext.startActivity(taskInfo.intent);
+-                } catch(Exception e) {
+-                    e.printStackTrace();
+-                    Log.w("TaskSwitchAdapter", "switchTask e:   " + e );
+-                }
+-            }
+-        }
+-    }
+-
+-    @Override
+-    public int getCount() {
+-        return mTasks != null ? mTasks.size() : 0;
+-    }
+-
+-    @Override
+-    public Object getItem(int position) {
+-        return mTasks.get(position);
+-    }
+-
+-    @Override
+-    public long getItemId(int position) {
+-        return position;
+-    }
+-
+-    @Override
+-    public View getView(int position, View view, ViewGroup parent) {
+-        ViewHolder viewHolder;
+-        if (view == null) {
+-            view = (View) mInflater.inflate(R.layout.task_item, null);
+-            viewHolder = new ViewHolder(view);
+-            view.setTag(viewHolder);
+-            view.setOnHoverListener(new ItemHoverListener());
+-        } else {
+-            viewHolder = (ViewHolder) view.getTag();
+-        }
+-        TaskInfo taskInfo = (TaskInfo) mTasks.get(position);
+-        ResolveInfo resolveInfo = mPackageManager.resolveActivity(taskInfo.intent, 0);
+-        viewHolder.title.setText(resolveInfo.activityInfo.loadLabel(mPackageManager));
+-        mSnapshot = null;
+-        try {
+-            mSnapshot = mActivityManager.getService().getTaskSnapshot(taskInfo.info.id, false);
+-        } catch (RemoteException e) {
+-            e.printStackTrace();
+-        }
+-        if (mSnapshot != null) {
+-            mDrawable = zoomBitmap(Bitmap.createHardwareBitmap(mSnapshot.getSnapshot()));
+-        } else {
+-            mDrawable = resolveInfo.activityInfo.loadIcon(mPackageManager);
+-        }
+-        viewHolder.image.setImageDrawable(mDrawable);
+-
+-        setItemNormal(view);
+-        if (mCurrentPosition == position) {
+-            setItemFocus(view);
+-        }
+-        return view;
+-    }
+-
+-    private class ViewHolder {
+-        public TextView title;
+-        public ImageView image;
+-
+-        public ViewHolder(View view) {
+-            title = (TextView) view.findViewById(R.id.title);
+-            image = (ImageView) view.findViewById(R.id.imageView);
+-        }
+-    }
+-
+-    private class ItemHoverListener implements OnHoverListener {
+-
+-        @Override
+-        public boolean onHover(View v, MotionEvent event) {
+-            switch(event.getAction()) {
+-                case MotionEvent.ACTION_HOVER_ENTER:
+-                    setItemNormal(mContainer.getChildAt(mCurrentPosition));
+-                    setItemFocus(v);
+-                    mCurrentPosition = mContainer.getPositionForView(v);
+-                    break;
+-            }
+-            return false;
+-        }
+-    }
+-
+-    public void setItemFocus(View v) {
+-        v.setBackground(mContext.getResources().getDrawable(R.drawable.taskview_item_bg_focus));
+-        v.findViewById(R.id.title).setVisibility(View.VISIBLE);
+-    }
+-
+-    public void setItemNormal(View v) {
+-        v.setBackground(mContext.getResources().getDrawable(R.drawable.taskview_item_bg_normal));
+-        v.findViewById(R.id.title).setVisibility(View.INVISIBLE);
+-    }
+-
+-    public int getTaskSize() {
+-        return getCount();
+-    }
+-
+-    private BitmapDrawable zoomBitmap(Bitmap bitmap) {
+-        int width = bitmap.getWidth();
+-        int height = bitmap.getHeight();
+-        Matrix matrix = new Matrix();
+-        float scaleWidth = (mImageSize / width);
+-        float scaleHeight = (mImageSize / height);
+-        matrix.postScale(scaleWidth, scaleHeight);
+-        Bitmap newbmp = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true);
+-        return new BitmapDrawable(newbmp);
+-    }
+-}
+diff --git a/packages/SystemUI/src/com/android/systemui/recents/taskview/TaskViewDialog.java b/packages/SystemUI/src/com/android/systemui/recents/taskview/TaskViewDialog.java
+index b8ec0ba..7c6514f 100644
+--- a/packages/SystemUI/src/com/android/systemui/recents/taskview/TaskViewDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/recents/taskview/TaskViewDialog.java
+@@ -1,22 +1,42 @@
+ package com.android.systemui.recents.taskview;
+ 
+-import com.android.systemui.R;
++import android.app.ActivityManager;
++import android.app.ActivityManager.RecentTaskInfo;
+ import android.app.Dialog;
+ import android.content.BroadcastReceiver;
+ import android.content.Context;
+ import android.content.IntentFilter;
+ import android.content.Intent;
+-import android.graphics.drawable.ColorDrawable;
++import android.content.pm.PackageManager;
++import android.content.pm.ResolveInfo;
++import android.graphics.Bitmap;
+ import android.graphics.Color;
++import android.graphics.drawable.ColorDrawable;
++import android.graphics.drawable.Drawable;
++import android.graphics.drawable.BitmapDrawable;
++import android.graphics.Matrix;
+ import android.os.Bundle;
++import android.os.RemoteException;
++import android.view.LayoutInflater;
+ import android.view.KeyEvent;
++import android.view.MotionEvent;
+ import android.util.Log;
+ import android.util.DisplayMetrics;
+ import android.view.View;
++import android.view.ViewGroup;
++import android.view.View.OnHoverListener;
+ import android.view.Window;
+ import android.view.WindowManager.LayoutParams;
+ import android.widget.AdapterView;
++import android.widget.BaseAdapter;
++import android.widget.ImageView;
+ import android.widget.GridView;
++import android.widget.LinearLayout;
++import android.widget.TextView;
++
++import java.util.ArrayList;
++
++import com.android.systemui.R;
+ 
+ public class TaskViewDialog extends Dialog {
+     private static final String TAG = "TaskViewDialog";
+@@ -25,6 +45,8 @@ public class TaskViewDialog extends Dialog {
+     private Context mContext;
+     private TaskSwitchAdapter mTaskAdapter;
+     private GridView mTaskContainer;
++    private TextView mClearAll;
++    private ClickListener mClickListener;
+     private DisplayMetrics mDisplayMetrics;
+ 
+     public static TaskViewDialog getInstance(Context context) {
+@@ -54,8 +76,11 @@ public class TaskViewDialog extends Dialog {
+ 
+         setContentView(R.layout.task_dialog);
+         mTaskContainer = (GridView) findViewById(R.id.gridView);
++        mClearAll = (TextView) findViewById(R.id.recent_clear_all);
+         gridViewReloadTask();
+         setCanceledOnTouchOutside(true);
++        mClickListener = new ClickListener();
++        mClearAll.setOnClickListener(mClickListener);
+ 
+         LayoutParams params = window.getAttributes();
+         params.setTitle("TaskView");
+@@ -64,6 +89,23 @@ public class TaskViewDialog extends Dialog {
+         mTaskContainer.setSelector(new ColorDrawable(Color.TRANSPARENT));
+     }
+ 
++    private class ClickListener implements View.OnClickListener{
++
++        @Override
++        public void onClick(View view) {
++            switch (view.getId()) {
++                case R.id.recent_clear_all:
++                    mTaskAdapter.clearAllRecents();
++                    refreshWindow();
++                    break;
++                case R.id.remove:
++                    mTaskAdapter.removeSingleRecent();
++                    refreshWindow();
++                    break;
++            }
++        }
++    }
++
+     @Override
+     public boolean onKeyDown(int keyCode, KeyEvent event) {
+         switch (keyCode) {
+@@ -78,7 +120,7 @@ public class TaskViewDialog extends Dialog {
+ 
+     private void gridViewReloadTask() {
+         if (mTaskContainer != null) {
+-            mTaskAdapter = new TaskSwitchAdapter(getContext(), mTaskContainer);
++            mTaskAdapter = new TaskSwitchAdapter();
+ 
+             mTaskContainer.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                 @Override
+@@ -92,13 +134,11 @@ public class TaskViewDialog extends Dialog {
+ 
+     public void showTaskView() {
+         gridViewReloadTask();
+-
++        show();
+         Window window = getWindow();
+         LayoutParams params = window.getAttributes();
+         params.width = getDialogWidth();
+         window.setAttributes(params);
+-
+-        show();
+         if (mTaskAdapter != null) {
+             mTaskAdapter.stepTask();
+         }
+@@ -138,7 +178,9 @@ public class TaskViewDialog extends Dialog {
+         View listItem = mTaskAdapter.getView(0, null, mTaskContainer);
+         listItem.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+         int itemWidth = listItem.getMeasuredWidth();
+-        int spacing = mTaskContainer.getHorizontalSpacing();
++        int spacing = mTaskContainer.getHorizontalSpacing() == 0
++                ? (int) mContext.getResources().getDimension(R.dimen.recents_layout_min_margin)
++                : mTaskContainer.getHorizontalSpacing();
+ 
+         int taskSize = mTaskAdapter.getTaskSize();
+         int dialogWidth = 0;
+@@ -163,4 +205,231 @@ public class TaskViewDialog extends Dialog {
+         }
+         return itemSize;
+     }
++
++    public void refreshWindow() {
++        Window window = getWindow();
++        LayoutParams params = window.getAttributes();
++        params.width = getDialogWidth();
++        window.setAttributes(params);
++    }
++
++    private class TaskSwitchAdapter extends BaseAdapter {
++        private LayoutInflater mInflater;
++        private ArrayList<TaskInfo> mTasks = new ArrayList();
++        private ActivityManager mActivityManager;
++        private PackageManager mPackageManager;
++        private int mCurrentPosition = 1;
++        private Drawable mDrawable;
++        private ActivityManager.TaskSnapshot mSnapshot = null;
++        private float mImageSize;
++        private static final int DISPLAY_TASKS = 100;
++        private static final int MAX_TASKS = DISPLAY_TASKS + 1;
++
++        class TaskInfo {
++            public RecentTaskInfo info;
++            public Intent intent;
++            public boolean isHome;
++
++            public TaskInfo(RecentTaskInfo info, Intent intent, boolean isHome) {
++                this.info = info;
++                this.intent = intent;
++                this.isHome = isHome;
++            }
++        }
++
++        public TaskSwitchAdapter() {
++            super();
++            mActivityManager = (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
++            mInflater = LayoutInflater.from(mContext);
++            mPackageManager = mContext.getPackageManager();
++            mImageSize = mContext.getResources().getDimension(R.dimen.size_fiftyfive);
++            reloadTask();
++        }
++
++        public void reloadTask() {
++            ArrayList<RecentTaskInfo> recentTasks = new ArrayList();
++            try {
++                recentTasks = (ArrayList) mActivityManager.getRecentTasks(MAX_TASKS,
++                        ActivityManager.RECENT_WITH_EXCLUDED);
++            } catch(Exception e) {
++                e.printStackTrace();
++            }
++
++            mTasks.clear();
++            mCurrentPosition = 1;
++            for (RecentTaskInfo ri : recentTasks) {
++                if (ri.id < 0) {
++                    continue;
++                }
++                Intent intent = new Intent(ri.baseIntent);
++                intent.setComponent(ri.realActivity);
++                boolean isHome = mActivityManager.isHomeTask(ri.id);
++                int stackId = ri.stackId;
++                if (stackId != 0 || mTasks.isEmpty()) {
++                    mTasks.add(new TaskInfo(ri, intent, isHome));
++                } else {
++                    mTasks.add(0, new TaskInfo(ri, intent, isHome));
++                }
++            }
++            notifyDataSetChanged();
++        }
++
++        public void resetTask() {
++            mTasks.clear();
++        }
++
++        public void stepTask() {
++            if (!mTasks.isEmpty()) {
++                mCurrentPosition = (mCurrentPosition + 1) % (mTasks.size());
++                notifyDataSetChanged();
++            }
++        }
++
++        public void switchTask(int position) {
++            if (position == -1) {
++                position = mCurrentPosition;
++            }
++            if (mTasks != null && position >= 0 && position < mTasks.size()) {
++                mCurrentPosition = position;
++                TaskInfo taskInfo = mTasks.get(mCurrentPosition);
++                if (taskInfo.info.id >= 0) {
++                    mActivityManager.moveTaskToFront(mTasks.get(mCurrentPosition).info.id, 0, null);
++                } else if (taskInfo.intent != null) {
++                    taskInfo.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
++                            | Intent.FLAG_ACTIVITY_CLEAR_TOP);
++                    try {
++                        mContext.startActivity(taskInfo.intent);
++                    } catch(Exception e) {
++                        e.printStackTrace();
++                        Log.w("TaskSwitchAdapter", "switchTask e:   " + e );
++                    }
++                }
++            }
++        }
++
++        @Override
++        public int getCount() {
++            return mTasks != null ? mTasks.size() : 0;
++        }
++
++        @Override
++        public Object getItem(int position) {
++            return mTasks.get(position);
++        }
++
++        @Override
++        public long getItemId(int position) {
++            return position;
++        }
++
++        @Override
++        public View getView(int position, View view, ViewGroup parent) {
++            ViewHolder viewHolder;
++            if (view == null) {
++                view = (View) mInflater.inflate(R.layout.task_item, null);
++                viewHolder = new ViewHolder(view);
++                view.setTag(viewHolder);
++                view.setOnHoverListener(new ItemHoverListener());
++            } else {
++                viewHolder = (ViewHolder) view.getTag();
++            }
++            TaskInfo taskInfo = mTasks.get(position);
++            ResolveInfo resolveInfo = mPackageManager.resolveActivity(taskInfo.intent, 0);
++            viewHolder.title.setText(resolveInfo.activityInfo.loadLabel(mPackageManager));
++            mSnapshot = null;
++            try {
++                mSnapshot = mActivityManager.getService().getTaskSnapshot(taskInfo.info.id, false);
++            } catch (RemoteException e) {
++                e.printStackTrace();
++            }
++            if (mSnapshot != null) {
++                mDrawable = zoomBitmap(Bitmap.createHardwareBitmap(mSnapshot.getSnapshot()));
++            } else {
++                mDrawable = resolveInfo.activityInfo.loadIcon(mPackageManager);
++            }
++            viewHolder.image.setImageDrawable(mDrawable);
++            if (taskInfo.isHome) {
++                viewHolder.remove.setVisibility(View.GONE);
++            } else {
++                viewHolder.remove.setVisibility(View.VISIBLE);
++            }
++
++            setItemNormal(view);
++            if (mCurrentPosition == position) {
++                setItemFocus(view);
++            }
++            viewHolder.remove.setOnClickListener(mClickListener);
++            return view;
++        }
++
++        private class ViewHolder {
++            public TextView title;
++            public ImageView image;
++            public ImageView remove;
++
++            public ViewHolder(View view) {
++                title = (TextView) view.findViewById(R.id.title);
++                image = (ImageView) view.findViewById(R.id.imageView);
++                remove = (ImageView) view.findViewById(R.id.remove);
++            }
++        }
++
++        private class ItemHoverListener implements OnHoverListener {
++
++            @Override
++            public boolean onHover(View v, MotionEvent event) {
++                switch(event.getAction()) {
++                    case MotionEvent.ACTION_HOVER_ENTER:
++                        setItemNormal(mTaskContainer.getChildAt(mCurrentPosition));
++                        setItemFocus(v);
++                        mCurrentPosition = mTaskContainer.getPositionForView(v);
++                        break;
++                }
++                return false;
++            }
++        }
++
++        public void setItemFocus(View v) {
++            if (v != null) {
++                v.setBackground(mContext.getResources().getDrawable(R.drawable.taskview_item_bg_focus));
++                v.findViewById(R.id.title).setVisibility(View.VISIBLE);
++            }
++        }
++
++        public void setItemNormal(View v) {
++            if (v != null) {
++                v.setBackground(mContext.getResources().getDrawable(R.drawable.taskview_item_bg_normal));
++                v.findViewById(R.id.title).setVisibility(View.INVISIBLE);
++            }
++        }
++
++        public int getTaskSize() {
++            return getCount();
++        }
++
++        private BitmapDrawable zoomBitmap(Bitmap bitmap) {
++            int width = bitmap.getWidth();
++            int height = bitmap.getHeight();
++            Matrix matrix = new Matrix();
++            float scaleWidth = (mImageSize / width);
++            float scaleHeight = (mImageSize / height);
++            matrix.postScale(scaleWidth, scaleHeight);
++            Bitmap newbmp = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true);
++            return new BitmapDrawable(newbmp);
++        }
++
++        public void removeSingleRecent() {
++            mActivityManager.removeTask(mTasks.get(mCurrentPosition).info.id);
++            reloadTask();
++        }
++
++        public void clearAllRecents() {
++            for (TaskInfo task : mTasks) {
++                if (!task.isHome) {
++                    mActivityManager.removeTask(task.info.id);
++                }
++            }
++            reloadTask();
++        }
++    }
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+index f652254..1ad7c7f 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+@@ -130,12 +130,12 @@ public class OpenthosStatusBarView extends PanelBar {
+         mEmptyStatusBar.setOnTouchListener(mTouchListener);
+ //        mLlScrollContents.setOnClickListener(mOpenthosStatusbarListener);
+ 
+-	mInputView.setOnHoverListener(mHoverListener);
+-	mBatteryView.setOnHoverListener(mHoverListener);
+-	mWifiView.setOnHoverListener(mHoverListener);
+-	mVolumeView.setOnHoverListener(mHoverListener);
+-	mNotificationView.setOnHoverListener(mHoverListener);
+-	mCalendarView.setOnHoverListener(mHoverListener);
++        mInputView.setOnHoverListener(mHoverListener);
++        mBatteryView.setOnHoverListener(mHoverListener);
++        mWifiView.setOnHoverListener(mHoverListener);
++        mVolumeView.setOnHoverListener(mHoverListener);
++        mNotificationView.setOnHoverListener(mHoverListener);
++        mCalendarView.setOnHoverListener(mHoverListener);
+     }
+ 
+     private View.OnHoverListener mHoverListener = (View v, MotionEvent event) -> {
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index 90ed79e..4a40113 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -10471,13 +10471,18 @@ public class ActivityManagerService extends IActivityManager.Stub
+         synchronized (this) {
+             final long ident = Binder.clearCallingIdentity();
+             try {
+-                return mStackSupervisor.removeTaskByIdLocked(taskId, true, REMOVE_FROM_RECENTS);
++                return mStackSupervisor.removeTaskByIdLocked(taskId, true, !REMOVE_FROM_RECENTS);
+             } finally {
+                 Binder.restoreCallingIdentity(ident);
+             }
+         }
+     }
+ 
++    @Override
++    public boolean isHomeTask(int taskId) {
++        return mStackSupervisor.isHomeTaskByIdLocked(taskId);
++    }
++
+     /**
+      * TODO: Add mController hook
+      */
+diff --git a/services/core/java/com/android/server/am/ActivityStackSupervisor.java b/services/core/java/com/android/server/am/ActivityStackSupervisor.java
+index 8dbe231..1b61e7e 100644
+--- a/services/core/java/com/android/server/am/ActivityStackSupervisor.java
++++ b/services/core/java/com/android/server/am/ActivityStackSupervisor.java
+@@ -2712,6 +2712,15 @@ public class ActivityStackSupervisor extends ConfigurationContainer implements D
+         return false;
+     }
+ 
++    boolean isHomeTaskByIdLocked(int taskId) {
++        TaskRecord tr = anyTaskForIdLocked(taskId,
++                MATCH_TASK_IN_STACKS_OR_RECENT_TASKS, INVALID_STACK_ID);
++        if (tr != null && tr.isHomeTask()) {
++            return true;
++        }
++        return false;
++    }
++
+     void cleanUpRemovedTaskLocked(TaskRecord tr, boolean killProcess, boolean removeFromRecents) {
+         if (removeFromRecents) {
+             mRecentTasks.remove(tr);
+-- 
+2.7.4
+

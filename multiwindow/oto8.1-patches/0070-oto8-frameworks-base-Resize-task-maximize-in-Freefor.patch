@@ -1,0 +1,175 @@
+From 0776d1b438793317fe714f5094816375dee93d18 Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Wed, 6 Mar 2019 06:21:45 +0000
+Subject: [PATCH 070/110] oto8: frameworks: base: Resize task maximize in
+ FreeformStack
+
+by decor caption double-click or maximize button
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Reviewed-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ core/java/android/app/Activity.java                |  8 ++++++
+ core/java/android/app/IActivityManager.aidl        |  1 +
+ core/java/android/view/Window.java                 |  5 +++-
+ .../android/internal/widget/DecorCaptionView.java  |  2 +-
+ .../android/server/am/ActivityManagerService.java  | 17 ++++++++++++
+ .../java/com/android/server/am/TaskRecord.java     | 32 ++++++++++++++++++++++
+ 6 files changed, 63 insertions(+), 2 deletions(-)
+
+diff --git a/core/java/android/app/Activity.java b/core/java/android/app/Activity.java
+index 1c302b7..6a24199 100644
+--- a/core/java/android/app/Activity.java
++++ b/core/java/android/app/Activity.java
+@@ -5914,6 +5914,14 @@ public class Activity extends ContextThemeWrapper
+     }
+ 
+     /**
++     * Resize the activity between maximize and non maximize.
++     */
++    @Override
++    public void moveWindowMaximize() throws RemoteException {
++        ActivityManager.getService().moveTaskMaximize(mToken);
++    }
++
++    /**
+      * Returns class name for this activity with the package prefix removed.
+      * This is the default name used to read and write settings.
+      *
+diff --git a/core/java/android/app/IActivityManager.aidl b/core/java/android/app/IActivityManager.aidl
+index 19b0684..fd65a8c 100644
+--- a/core/java/android/app/IActivityManager.aidl
++++ b/core/java/android/app/IActivityManager.aidl
+@@ -491,6 +491,7 @@ interface IActivityManager {
+     boolean getIsHome(in IBinder token);
+     void exitFreeformMode(in IBinder token);
+     void switchTaskFreeformAndFullscreen(in IBinder token);
++    void moveTaskMaximize(in IBinder token);
+     void changeTaskOrientation(in IBinder token);
+     void reportSizeConfigurations(in IBinder token, in int[] horizontalSizeConfiguration,
+             in int[] verticalSizeConfigurations, in int[] smallestWidthConfigurations);
+diff --git a/core/java/android/view/Window.java b/core/java/android/view/Window.java
+index 7f7cbcc..1c156d9 100644
+--- a/core/java/android/view/Window.java
++++ b/core/java/android/view/Window.java
+@@ -623,7 +623,7 @@ public abstract class Window {
+          */
+         void enterPictureInPictureModeIfPossible();
+ 
+-        /** Returns the current stack Id for the window. */
++        /** Returns whether the window belongs to the home task. */
+         boolean getIsHome();
+ 
+         /** Returns the current stack Id for the window. */
+@@ -638,6 +638,9 @@ public abstract class Window {
+         /** Switch the activity between FULLSCREEN and FREEFORM*/
+         void switchWindowFreeformAndFullscreen() throws RemoteException;
+ 
++        /** Resize task to maximize it */
++        void moveWindowMaximize() throws RemoteException;
++
+         /** Move task back to minimize it*/
+         void moveTaskBack();
+ 
+diff --git a/core/java/com/android/internal/widget/DecorCaptionView.java b/core/java/com/android/internal/widget/DecorCaptionView.java
+index 448b980..b750823 100644
+--- a/core/java/com/android/internal/widget/DecorCaptionView.java
++++ b/core/java/com/android/internal/widget/DecorCaptionView.java
+@@ -442,7 +442,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
+         if (callback != null) {
+             try {
+-                callback.switchWindowFreeformAndFullscreen();
++                callback.moveWindowMaximize();
+             } catch (RemoteException ex) {
+                 Log.e(TAG, "Cannot change task workspace.");
+             }
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index 81c68a6..b547728 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -10570,6 +10570,23 @@ public class ActivityManagerService extends IActivityManager.Stub
+     }
+ 
+     @Override
++    public void moveTaskMaximize(IBinder token) {
++        synchronized (this) {
++            long ident = Binder.clearCallingIdentity();
++            try {
++                final ActivityRecord r = ActivityRecord.forTokenLocked(token);
++                if (r == null) {
++                    throw new IllegalArgumentException(
++                            "moveTaskMaximize: No activity record matching token=" + token);
++                }
++                r.getTask().toggleTaskMaximize();
++            } finally {
++                Binder.restoreCallingIdentity(ident);
++            }
++        }
++    }
++
++    @Override
+     public void moveTaskBackwards(int task) {
+         //enforceCallingPermission(android.Manifest.permission.REORDER_TASKS,
+         //        "moveTaskBackwards()");
+diff --git a/services/core/java/com/android/server/am/TaskRecord.java b/services/core/java/com/android/server/am/TaskRecord.java
+index 3dab374..2d82862 100644
+--- a/services/core/java/com/android/server/am/TaskRecord.java
++++ b/services/core/java/com/android/server/am/TaskRecord.java
+@@ -313,6 +313,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     private final Rect mTmpStableBounds = new Rect();
+     private final Rect mTmpNonDecorBounds = new Rect();
+     private final Rect mTmpRect = new Rect();
++    private final Rect mTmpNonMaximizeBounds = new Rect();
+ 
+     // Last non-fullscreen bounds the task was launched in or resized to.
+     // The information is persisted and used to determine the appropriate stack to launch the
+@@ -321,6 +322,8 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+ 
+     Rect mLastPcRect = new Rect();
+     Rect mLastPhoneRect = new Rect();
++    Rect mMaximizeBounds = new Rect();
++    Rect mDefaultBounds = new Rect();
+     // Minimal width and height of this task when it's resizeable. -1 means it should use the
+     // default minimal width/height.
+     int mMinWidth;
+@@ -2325,6 +2328,35 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+         return mLastNonFullscreenBounds;
+     }
+ 
++    void toggleTaskMaximize() {
++        getMaximizeTaskBounds();
++        if (Objects.equals(mMaximizeBounds, mBounds)) {
++            mTmpNonMaximizeBounds.set(mTmpNonMaximizeBounds.isEmpty()
++                    ? mDefaultBounds : mTmpNonMaximizeBounds);
++            resize(mTmpNonMaximizeBounds, RESIZE_MODE_FORCED, true, true);
++        } else {
++            mTmpNonMaximizeBounds.set(mBounds);
++            resize(mMaximizeBounds, RESIZE_MODE_FORCED, true, true);
++        }
++    }
++
++    void getMaximizeTaskBounds() {
++        if (mMaximizeBounds.isEmpty()) {
++            // Maximize tasks
++            final Point displaySize = new Point();
++            mStack.getDisplaySize(displaySize);
++            int displayWidth = displaySize.x;
++            int displayHeight = displaySize.y;
++            int defStartX = displayWidth / 4;
++            int defStartY = displayHeight / 4;
++            int defWidth = displayWidth / 2;
++            int defHeight = defWidth / 16 * 9;
++            mMaximizeBounds.set(new Rect(0, 0, displayWidth, displayHeight));
++            mDefaultBounds.set(new Rect(defStartX, defStartY,
++                    defStartX + defWidth, defStartY + defHeight));
++        }
++    }
++
+     void changeTaskOrientation(int taskId, Rect taskBounds) {
+         if (taskBounds.width() > taskBounds.height()) {
+             mLastPcRect.set(taskBounds);
+-- 
+2.7.4
+

@@ -1,0 +1,79 @@
+From 452f808999b2507ea35d1ee73278d332ebd9c5bc Mon Sep 17 00:00:00 2001
+From: luojunhuan <forward_m@126.com>
+Date: Thu, 9 Nov 2017 10:06:14 +0000
+Subject: [PATCH 046/110] Oreo: frameworks: base: SystemUI: The batter icon
+ will change when electricity changes
+
+Signed-off-by: luojunhuan <forward_m@126.com>
+---
+ .../statusbar/phone/OpenthosStatusBarView.java     | 30 +++++++++++++++++-----
+ .../systemui/statusbar/phone/StatusBar.java        |  1 +
+ 2 files changed, 24 insertions(+), 7 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+index fbed3b4..a95b1b8 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+@@ -160,24 +160,40 @@ public class OpenthosStatusBarView extends PanelBar {
+                     home.addCategory(Intent.CATEGORY_HOME);
+                     mContext.startActivity(home);
+                     break;
+-		case R.id.sroll_status_bar:
++                case R.id.sroll_status_bar:
+                     //Handle events
+                     break;
+-		case R.id.ll_scroll_icon_contents:
+-		    //Handle events
+-		    break;
+-		case R.id.empty_statusbar:
++                case R.id.ll_scroll_icon_contents:
++                    //Handle events
++                    break;
++                case R.id.empty_statusbar:
+                     //click empty status bar ,then dismiss all dialog and hide notification panel.
+                     if (mCurrentDialog != null && mCurrentDialog.isShowing()) {
+                         mCurrentDialog.dismiss();
+                     }
+-		    setCustomStatusBar();
++                    setCustomStatusBar();
+                     mStatusBar.hideCustomNotificationPanel();
+-		    break;
++                    break;
+             }
+         }
+     };
+ 
++    public void updateBattertIcon(int level, boolean pluggedIn, boolean charging) {
++        if (charging || pluggedIn || level == 0) {
++            mBatteryView.setImageDrawable(mContext.getDrawable(
++                    R.mipmap.statusbar_battery));
++        } else if (level >= 75) {
++            mBatteryView.setImageDrawable(mContext.getDrawable(
++                    R.mipmap.statusbar_battery_high));
++        } else if (level >= 25 && level <= 75) {
++            mBatteryView.setImageDrawable(mContext.getDrawable(
++                    R.mipmap.ic_notice_battery_half));
++        } else {
++            mBatteryView.setImageDrawable(mContext.getDrawable(
++                    R.mipmap.statusbar_battery_low));
++        }
++    }
++
+     //show / hide status bar.
+     private void setCustomStatusBar() {
+         mEmptyStatusBar.setOnTouchListener(new View.OnTouchListener() {
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 0abc1c6..8abdde1 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -1159,6 +1159,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+             @Override
+             public void onBatteryLevelChanged(int level, boolean pluggedIn, boolean charging) {
+                 // noop
++                mOpenthosStatusBarView.updateBattertIcon(level, pluggedIn, charging);
+             }
+         });
+ 
+-- 
+2.7.4
+

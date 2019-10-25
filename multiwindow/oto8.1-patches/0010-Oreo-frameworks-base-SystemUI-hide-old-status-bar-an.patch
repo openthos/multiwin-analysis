@@ -1,0 +1,61 @@
+From a5ac511235362f127e599b39da6b2cc32363cb77 Mon Sep 17 00:00:00 2001
+From: caoyongren <m18410261910@163.com>
+Date: Thu, 19 Oct 2017 21:38:35 +0800
+Subject: [PATCH 010/110] Oreo: frameworks: base: SystemUI: hide old status bar
+ and set notification panel width.
+
+Change-Id: Ic4d5066138c39d05e6033edbae714384da0a0dd8
+Signed-off-by: caoyongren <m18410261910@163.com>
+---
+ .../src/com/android/systemui/statusbar/phone/StatusBar.java    |  1 +
+ .../systemui/statusbar/phone/StatusBarWindowManager.java       | 10 ++++++----
+ 2 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 826586c..7dcff20 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -1037,6 +1037,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+                     mStatusBarView.setBar(this);
+                     mStatusBarView.setPanel(mNotificationPanel);
+                     mStatusBarView.setScrimController(mScrimController);
++                    mStatusBarView.setVisibility(View.GONE);
+                     mStatusBarView.setBouncerShowing(mBouncerShowing);
+                     setAreThereNotifications();
+                     checkBarModes();
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
+index ed96b41..7e17c6e 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
+@@ -89,9 +89,11 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
+         // Now that the status bar window encompasses the sliding panel and its
+         // translucent backdrop, the entire thing is made TRANSLUCENT and is
+         // hardware-accelerated.
++        final Resources res = mContext.getResources();
+         mLp = new WindowManager.LayoutParams(
+-                ViewGroup.LayoutParams.MATCH_PARENT,
+-                barHeight,
++                //ViewGroup.LayoutParams.MATCH_PARENT,
++                res.getDimensionPixelSize(R.dimen.notification_panel_width),
++                0,//barHeight,
+                 WindowManager.LayoutParams.TYPE_STATUS_BAR,
+                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                         | WindowManager.LayoutParams.FLAG_TOUCHABLE_WHEN_WAKING
+@@ -100,12 +102,12 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
+                         | WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS,
+                 PixelFormat.TRANSLUCENT);
+         mLp.token = new Binder();
+-        mLp.gravity = Gravity.TOP;
++        mLp.gravity = Gravity.RIGHT | Gravity.TOP;
+         mLp.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
+         mLp.setTitle("StatusBar");
+         mLp.packageName = mContext.getPackageName();
+         mStatusBarView = statusBarView;
+-        mBarHeight = barHeight;
++        mBarHeight = 0;//barHeight;
+         mWindowManager.addView(mStatusBarView, mLp);
+         mLpChanged = new WindowManager.LayoutParams();
+         mLpChanged.copyFrom(mLp);
+-- 
+2.7.4
+

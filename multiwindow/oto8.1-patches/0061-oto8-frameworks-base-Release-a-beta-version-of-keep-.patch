@@ -1,0 +1,332 @@
+From 2a57253fc8a2887b3345c5e6c3cbf0a0053c42e4 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Wed, 27 Feb 2019 01:35:52 +0000
+Subject: [PATCH 061/110] oto8: frameworks: base: Release a beta version of
+ keep home
+
+always under other application even be focused. There steel is
+
+some problem like somtimes home may be front due to other way of
+
+get focuse.
+
+Also set launch stack to focused stack when there is no prefer set in
+
+activity start option.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ core/java/android/app/Activity.java                           |  9 +++++++++
+ core/java/android/app/ActivityManager.java                    |  2 +-
+ core/java/android/app/IActivityManager.aidl                   |  1 +
+ core/java/android/view/Window.java                            |  3 +++
+ core/java/com/android/internal/policy/DecorView.java          | 10 +++++++++-
+ .../java/com/android/server/am/ActivityManagerService.java    |  8 ++++++++
+ services/core/java/com/android/server/am/ActivityStack.java   |  8 +++++---
+ .../java/com/android/server/am/ActivityStackSupervisor.java   |  3 +++
+ services/core/java/com/android/server/am/ActivityStarter.java | 11 ++++++++---
+ .../java/com/android/server/am/LaunchingTaskPositioner.java   | 10 +++++++---
+ services/core/java/com/android/server/am/TaskRecord.java      |  6 +++---
+ .../com/android/server/wm/TaskTapPointerEventListener.java    |  5 ++++-
+ .../java/com/android/server/wm/WindowManagerDebugConfig.java  |  2 +-
+ .../core/java/com/android/server/wm/WindowManagerService.java | 11 ++++++++++-
+ 14 files changed, 72 insertions(+), 17 deletions(-)
+
+diff --git a/core/java/android/app/Activity.java b/core/java/android/app/Activity.java
+index 50650c6..1c302b7 100644
+--- a/core/java/android/app/Activity.java
++++ b/core/java/android/app/Activity.java
+@@ -3253,6 +3253,15 @@ public class Activity extends ContextThemeWrapper
+         return ActivityManager.getService().getActivityStackId(mToken);
+     }
+ 
++    @Override
++    public boolean getIsHome() {
++        try {
++            return ActivityManager.getService().getIsHome(mToken);
++        } catch (Exception e) {
++            return false;
++        }
++    }
++
+     /**
+      * Puts the activity in picture-in-picture mode if the activity supports.
+      * @see android.R.attr#supportsPictureInPicture
+diff --git a/core/java/android/app/ActivityManager.java b/core/java/android/app/ActivityManager.java
+index b72c060..e402607 100644
+--- a/core/java/android/app/ActivityManager.java
++++ b/core/java/android/app/ActivityManager.java
+@@ -856,7 +856,7 @@ public class ActivityManager {
+          * there are other tasks in the stack.
+          */
+         public static boolean allowTopTaskToReturnHome(int stackId) {
+-            return stackId != PINNED_STACK_ID;
++            return stackId != PINNED_STACK_ID && stackId != FREEFORM_WORKSPACE_STACK_ID;
+         }
+ 
+         /**
+diff --git a/core/java/android/app/IActivityManager.aidl b/core/java/android/app/IActivityManager.aidl
+index 215bb07..19b0684 100644
+--- a/core/java/android/app/IActivityManager.aidl
++++ b/core/java/android/app/IActivityManager.aidl
+@@ -488,6 +488,7 @@ interface IActivityManager {
+      */
+     void positionTaskInStack(int taskId, int stackId, int position);
+     int getActivityStackId(in IBinder token);
++    boolean getIsHome(in IBinder token);
+     void exitFreeformMode(in IBinder token);
+     void switchTaskFreeformAndFullscreen(in IBinder token);
+     void changeTaskOrientation(in IBinder token);
+diff --git a/core/java/android/view/Window.java b/core/java/android/view/Window.java
+index bd98691..7f7cbcc 100644
+--- a/core/java/android/view/Window.java
++++ b/core/java/android/view/Window.java
+@@ -624,6 +624,9 @@ public abstract class Window {
+         void enterPictureInPictureModeIfPossible();
+ 
+         /** Returns the current stack Id for the window. */
++        boolean getIsHome();
++
++        /** Returns the current stack Id for the window. */
+         int getWindowStackId() throws RemoteException;
+ 
+         /** Press the back button of window header */
+diff --git a/core/java/com/android/internal/policy/DecorView.java b/core/java/com/android/internal/policy/DecorView.java
+index e29063b..3daaf54 100644
+--- a/core/java/com/android/internal/policy/DecorView.java
++++ b/core/java/com/android/internal/policy/DecorView.java
+@@ -2020,7 +2020,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+         final boolean isApplication = attrs.type == TYPE_BASE_APPLICATION ||
+                 attrs.type == TYPE_APPLICATION || attrs.type == TYPE_DRAWN_APPLICATION;
+         // Only a non floating application window on one of the allowed workspaces can get a caption
+-        if (!mWindow.isFloating() && isApplication && mStackId > 0) {
++        if (!mWindow.isFloating() && isApplication && mStackId > 0 && !isHome()) {
+             // Dependent on the brightness of the used title we either use the
+             // dark or the light button frame.
+             if (decorCaptionView == null) {
+@@ -2167,6 +2167,14 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+         return workspaceId;
+     }
+ 
++    private boolean isHome() {
++        final Window.WindowControllerCallback callback = mWindow.getWindowControllerCallback();
++        if (callback != null) {
++            return callback.getIsHome();
++        }
++        return false;
++    }
++
+     void clearContentView() {
+         if (mDecorCaptionView != null) {
+             mDecorCaptionView.removeContentView();
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index f12f0e0..5c352a9 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -10620,6 +10620,14 @@ public class ActivityManagerService extends IActivityManager.Stub
+     }
+ 
+     @Override
++    public boolean getIsHome(IBinder token) throws RemoteException {
++        synchronized (this) {
++            final ActivityRecord r = ActivityRecord.forTokenLocked(token);
++            return r != null ? r.isHomeActivity() : false;
++        }
++    }
++
++    @Override
+     public int getActivityStackId(IBinder token) throws RemoteException {
+         synchronized (this) {
+             ActivityStack stack = ActivityRecord.getStackLocked(token);
+diff --git a/services/core/java/com/android/server/am/ActivityStack.java b/services/core/java/com/android/server/am/ActivityStack.java
+index ed8d118..ff45b85 100644
+--- a/services/core/java/com/android/server/am/ActivityStack.java
++++ b/services/core/java/com/android/server/am/ActivityStack.java
+@@ -2534,7 +2534,7 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
+             }
+         } else {
+             if (DEBUG_TRANSITION) Slog.v(TAG_TRANSITION, "Prepare open transition: no previous");
+-            if (mNoAnimActivities.contains(next)) {
++            if (mNoAnimActivities.contains(next) || next.isHomeActivity()) {
+                 anim = false;
+                 mWindowManager.prepareAppTransition(TRANSIT_NONE, false);
+             } else {
+@@ -2820,8 +2820,10 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
+         final int position = getAdjustedPositionForTask(task, mTaskHistory.size(), starting);
+         mTaskHistory.add(position, task);
+         updateTaskMovement(task, true);
+-        mWindowContainerController.positionChildAtTop(task.getWindowContainerController(),
+-                true /* includingParents */);
++        if (!task.isHomeTask()) {
++            mWindowContainerController.positionChildAtTop(task.getWindowContainerController(),
++                    true /* includingParents */);
++        }
+     }
+ 
+     /**
+diff --git a/services/core/java/com/android/server/am/ActivityStackSupervisor.java b/services/core/java/com/android/server/am/ActivityStackSupervisor.java
+index 795d7dd..6d854b7 100644
+--- a/services/core/java/com/android/server/am/ActivityStackSupervisor.java
++++ b/services/core/java/com/android/server/am/ActivityStackSupervisor.java
+@@ -3312,6 +3312,9 @@ public class ActivityStackSupervisor extends ConfigurationContainer implements D
+             mService.updateUsageStats(r, true);
+         }
+         if (allResumedActivitiesComplete()) {
++            if (r.isHomeActivity()) {
++                return true;
++            }
+             ensureActivitiesVisibleLocked(null, 0, !PRESERVE_WINDOWS);
+             mWindowManager.executeAppTransition();
+             return true;
+diff --git a/services/core/java/com/android/server/am/ActivityStarter.java b/services/core/java/com/android/server/am/ActivityStarter.java
+index 31cebd8..d47075f 100644
+--- a/services/core/java/com/android/server/am/ActivityStarter.java
++++ b/services/core/java/com/android/server/am/ActivityStarter.java
+@@ -1028,8 +1028,12 @@ class ActivityStarter {
+ 
+         ActivityRecord reusedActivity = getReusableIntentActivity();
+ 
++        //final int preferredLaunchStackId =
++        //        (mOptions != null) ? mOptions.getLaunchStackId() : INVALID_STACK_ID;
+         final int preferredLaunchStackId =
+-                (mOptions != null) ? mOptions.getLaunchStackId() : INVALID_STACK_ID;
++                (mOptions != null) ? mOptions.getLaunchStackId() :
++                (sourceRecord != null ? sourceRecord.getTask().getStackId() :
++                                          FREEFORM_WORKSPACE_STACK_ID);
+         final int preferredLaunchDisplayId =
+                 (mOptions != null) ? mOptions.getLaunchDisplayId() : DEFAULT_DISPLAY;
+ 
+@@ -2164,7 +2168,7 @@ class ActivityStarter {
+         // If the activity is of a specific type, return the associated stack, creating it if
+         // necessary
+         if (r.isHomeActivity()) {
+-            return mSupervisor.mHomeStack;
++            mLaunchBounds = new Rect(0, 0, 1920, 1008);
+         }
+         if (r.isRecentsActivity()) {
+             return mSupervisor.getStack(RECENTS_STACK_ID, CREATE_IF_NEEDED, ON_TOP);
+@@ -2275,7 +2279,8 @@ class ActivityStarter {
+     }
+ 
+     Rect getOverrideBounds(ActivityRecord r, ActivityOptions options, TaskRecord inTask) {
+-        Rect newBounds = null;
++        Rect newBounds = (mSupervisor.mFocusedStack.mStackId == FREEFORM_WORKSPACE_STACK_ID
++                            || r.isHomeActivity()) ? new Rect(100, 100, 420, 580) : null;
+         if (options != null && (r.isResizeable() || (inTask != null && inTask.isResizeable()))) {
+             if (mSupervisor.canUseActivityOptionsLaunchBounds(
+                     options, options.getLaunchStackId())) {
+diff --git a/services/core/java/com/android/server/am/LaunchingTaskPositioner.java b/services/core/java/com/android/server/am/LaunchingTaskPositioner.java
+index 51258d7..0c3c8e3 100644
+--- a/services/core/java/com/android/server/am/LaunchingTaskPositioner.java
++++ b/services/core/java/com/android/server/am/LaunchingTaskPositioner.java
+@@ -200,8 +200,12 @@ class LaunchingTaskPositioner {
+ 
+     private void positionCenter(TaskRecord task, ArrayList<TaskRecord> tasks, int width,
+             int height) {
+-        mTmpProposal.set(mDefaultFreeformStartX, mDefaultFreeformStartY,
+-                mDefaultFreeformStartX + width, mDefaultFreeformStartY + height);
++        if (task.isHomeTask()) {
++            mTmpProposal.set(0, 0, mDisplayWidth, mDisplayHeight);
++        } else {
++            mTmpProposal.set(mDefaultFreeformStartX, mDefaultFreeformStartY,
++                    mDefaultFreeformStartX + width, mDefaultFreeformStartY + height);
++        }
+         position(task, tasks, mTmpProposal, ALLOW_RESTART, SHIFT_POLICY_DIAGONAL_DOWN);
+     }
+ 
+@@ -209,7 +213,7 @@ class LaunchingTaskPositioner {
+             boolean allowRestart, int shiftPolicy) {
+         mTmpOriginal.set(proposal);
+         boolean restarted = false;
+-        while (boundsConflict(proposal, tasks)) {
++        while (boundsConflict(proposal, tasks) && !task.isHomeTask()) {
+             // Unfortunately there is already a task at that spot, so we need to look for some
+             // other place.
+             shiftStartingPoint(proposal, shiftPolicy);
+diff --git a/services/core/java/com/android/server/am/TaskRecord.java b/services/core/java/com/android/server/am/TaskRecord.java
+index d5189b1..85fbfee2 100644
+--- a/services/core/java/com/android/server/am/TaskRecord.java
++++ b/services/core/java/com/android/server/am/TaskRecord.java
+@@ -511,7 +511,6 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     }
+ 
+     boolean resize(Rect bounds, int resizeMode, boolean preserveWindow, boolean deferResume) {
+-        Slog.e("LADEHUNTER", "resizing", new Exception());
+         if (!isResizeable()) {
+             Slog.w(TAG, "resizeTask: task " + this + " not resizeable.");
+             return true;
+@@ -1574,8 +1573,9 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     }
+ 
+     private boolean isResizeable(boolean checkSupportsPip) {
+-        return (mService.mForceResizableActivities || ActivityInfo.isResizeableMode(mResizeMode)
+-                || (checkSupportsPip && mSupportsPictureInPicture)) && !mTemporarilyUnresizable;
++        return getStackId() == FREEFORM_WORKSPACE_STACK_ID;
++        //return (mService.mForceResizableActivities || ActivityInfo.isResizeableMode(mResizeMode)
++        //        || (checkSupportsPip && mSupportsPictureInPicture)) && !mTemporarilyUnresizable;
+     }
+ 
+     boolean isResizeable() {
+diff --git a/services/core/java/com/android/server/wm/TaskTapPointerEventListener.java b/services/core/java/com/android/server/wm/TaskTapPointerEventListener.java
+index 42a2d9d..e3b1fe2 100644
+--- a/services/core/java/com/android/server/wm/TaskTapPointerEventListener.java
++++ b/services/core/java/com/android/server/wm/TaskTapPointerEventListener.java
+@@ -59,9 +59,12 @@ public class TaskTapPointerEventListener implements PointerEventListener {
+             case MotionEvent.ACTION_DOWN: {
+                 final int x = (int) motionEvent.getX();
+                 final int y = (int) motionEvent.getY();
++                final boolean isHomeFocused = (mService.mFocusedApp != null
++                                       && mService.mFocusedApp.getTask() != null
++                                       && mService.mFocusedApp.getTask().isHomeTask());
+ 
+                 synchronized (this) {
+-                    if (!mTouchExcludeRegion.contains(x, y)) {
++                    if (!mTouchExcludeRegion.contains(x, y) || isHomeFocused) {
+                         mService.mH.obtainMessage(H.TAP_OUTSIDE_TASK,
+                                 x, y, mDisplayContent).sendToTarget();
+                     }
+diff --git a/services/core/java/com/android/server/wm/WindowManagerDebugConfig.java b/services/core/java/com/android/server/wm/WindowManagerDebugConfig.java
+index b809c32..6d5673e 100644
+--- a/services/core/java/com/android/server/wm/WindowManagerDebugConfig.java
++++ b/services/core/java/com/android/server/wm/WindowManagerDebugConfig.java
+@@ -63,7 +63,7 @@ public class WindowManagerDebugConfig {
+     static final boolean DEBUG_SURFACE_TRACE = false;
+     static final boolean DEBUG_WINDOW_TRACE = false;
+     static final boolean DEBUG_TASK_MOVEMENT = false;
+-    static final boolean DEBUG_TASK_POSITIONING = true;
++    static final boolean DEBUG_TASK_POSITIONING = false;
+     static final boolean DEBUG_STACK = false;
+     static final boolean DEBUG_DISPLAY = false;
+     static final boolean DEBUG_POWER = false;
+diff --git a/services/core/java/com/android/server/wm/WindowManagerService.java b/services/core/java/com/android/server/wm/WindowManagerService.java
+index 8de07a7..19516d8 100644
+--- a/services/core/java/com/android/server/wm/WindowManagerService.java
++++ b/services/core/java/com/android/server/wm/WindowManagerService.java
+@@ -2634,6 +2634,9 @@ public class WindowManagerService extends IWindowManager.Stub
+ 
+     void setFocusTaskRegionLocked(AppWindowToken previousFocus) {
+         final Task focusedTask = mFocusedApp != null ? mFocusedApp.getTask() : null;
++        if (focusedTask != null && focusedTask.isHomeTask()) {
++            return;
++        }
+         final Task previousTask = previousFocus != null ? previousFocus.getTask() : null;
+         final DisplayContent focusedDisplayContent =
+                 focusedTask != null ? focusedTask.getDisplayContent() : null;
+@@ -5967,7 +5970,13 @@ public class WindowManagerService extends IWindowManager.Stub
+ 
+     // TODO: Move to DisplayContent
+     boolean updateFocusedWindowLocked(int mode, boolean updateInputWindows) {
+-        WindowState newFocus = mRoot.computeFocusedWindow();
++        WindowState newFocus;
++        if (mFocusedApp != null && mFocusedApp.getTask() != null
++                                && mFocusedApp.getTask().isHomeTask()) {
++            newFocus = mFocusedApp.findMainWindow();
++        } else {
++            newFocus = mRoot.computeFocusedWindow();
++        }
+         if (mCurrentFocus != newFocus) {
+             Trace.traceBegin(TRACE_TAG_WINDOW_MANAGER, "wmUpdateFocus");
+             // This check makes sure that we don't already have the focus
+-- 
+2.7.4
+

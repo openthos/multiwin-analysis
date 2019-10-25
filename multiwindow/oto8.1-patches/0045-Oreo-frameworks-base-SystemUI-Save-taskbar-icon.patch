@@ -1,0 +1,211 @@
+From add00dc829cceb210ebe42d185d9bdc1e93c75af Mon Sep 17 00:00:00 2001
+From: luojunhuan <forward_m@126.com>
+Date: Wed, 8 Nov 2017 10:30:40 +0000
+Subject: [PATCH 045/110] Oreo: frameworks: base: SystemUI: Save taskbar icon
+
+Signed-off-by: luojunhuan <forward_m@126.com>
+---
+ .../com/android/systemui/dialog/TaskbarIcon.java   | 16 +++++++++++++
+ .../com/android/systemui/sql/SqliteOpenHelper.java |  8 ++++++-
+ .../com/android/systemui/sql/SqliteOperate.java    | 26 ++++++++++++++++++++++
+ .../com/android/systemui/sql/TaskbarIconField.java | 12 ++++++++++
+ .../systemui/statusbar/phone/StatusBar.java        | 21 +++++++++++++++++
+ 5 files changed, 82 insertions(+), 1 deletion(-)
+ create mode 100644 packages/SystemUI/src/com/android/systemui/sql/TaskbarIconField.java
+
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/TaskbarIcon.java b/packages/SystemUI/src/com/android/systemui/dialog/TaskbarIcon.java
+index 3d5e5d8..6f793ad 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/TaskbarIcon.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/TaskbarIcon.java
+@@ -1,6 +1,9 @@
+ package com.android.systemui.dialog;
+ 
+ import android.content.ComponentName;
++import android.content.Context;
++import android.os.Process;
++import android.os.UserManager;
+ import android.view.View;
+ import android.widget.FrameLayout;
+ 
+@@ -12,6 +15,7 @@ import com.android.systemui.R;
+ 
+ public class TaskbarIcon {
+     private int taskId;
++    private long userId;
+     private ComponentName componentName;
+     private FrameLayout iconLayout;
+     private boolean isRun;
+@@ -35,6 +39,18 @@ public class TaskbarIcon {
+         this.taskId = taskId;
+     }
+ 
++    public void setUserId(long userId) {
++        this.userId = userId;
++    }
++
++    public long getUserId(Context context) {
++        if(userId == -1) {
++            UserManager userManager = (UserManager) context.getSystemService(Context.USER_SERVICE);
++            return userManager.getSerialNumberForUser(Process.myUserHandle());
++        } else
++            return userId;
++    }
++
+     public ComponentName getComponentName() {
+         return componentName;
+     }
+diff --git a/packages/SystemUI/src/com/android/systemui/sql/SqliteOpenHelper.java b/packages/SystemUI/src/com/android/systemui/sql/SqliteOpenHelper.java
+index 4aef0f6..4e71fa0 100644
+--- a/packages/SystemUI/src/com/android/systemui/sql/SqliteOpenHelper.java
++++ b/packages/SystemUI/src/com/android/systemui/sql/SqliteOpenHelper.java
+@@ -5,7 +5,7 @@ import android.database.sqlite.SQLiteDatabase;
+ import android.database.sqlite.SQLiteOpenHelper;
+ 
+ public class SqliteOpenHelper extends SQLiteOpenHelper {
+-    private static final int SQL_VERSION_CODE = 3;
++    private static final int SQL_VERSION_CODE = 4;
+     private static final String SQL_NAME = "SYSTEMUI_DATABASE";
+ 
+     private static SqliteOpenHelper sqliteOpenHelper;
+@@ -31,6 +31,12 @@ public class SqliteOpenHelper extends SQLiteOpenHelper {
+                 + StartMenuDatabaseField.COLUMN_INSTALL_TIME + " integer,"
+                 + StartMenuDatabaseField.COLUMN_USECOUNT + " char(10)"
+                 + ")");
++
++        db.execSQL("create table " + TaskbarIconField.TABLE_NAME + "("
++                + TaskbarIconField.COLUMN_ID + " integer primary key autoincrement,"
++                + TaskbarIconField.USER_ID + " integer,"
++                + TaskbarIconField.COMPONENT_NAME + " char(100)"
++                + ")");
+     }
+ 
+     @Override
+diff --git a/packages/SystemUI/src/com/android/systemui/sql/SqliteOperate.java b/packages/SystemUI/src/com/android/systemui/sql/SqliteOperate.java
+index 3063cda..f4c5366 100644
+--- a/packages/SystemUI/src/com/android/systemui/sql/SqliteOperate.java
++++ b/packages/SystemUI/src/com/android/systemui/sql/SqliteOperate.java
+@@ -5,6 +5,7 @@ import android.content.Context;
+ import android.database.Cursor;
+ import android.database.sqlite.SQLiteDatabase;
+ 
++import com.android.systemui.dialog.TaskbarIcon;
+ import com.android.systemui.startupmenu.AppEntry;
+ 
+ /*
+@@ -47,4 +48,29 @@ public class SqliteOperate {
+                 + " = ? ", new String[]{pkgName});
+         db.close();
+     }
++
++    public static void saveTaskbarIcon(Context context, TaskbarIcon taskbarIcon){
++        SqliteOpenHelper sqliteOpenHelper = SqliteOpenHelper.getInstance(context);
++        SQLiteDatabase db = sqliteOpenHelper.getWritableDatabase();
++        Cursor cursor = db.rawQuery("select * from " + TaskbarIconField.TABLE_NAME +
++                " where " + TaskbarIconField.COMPONENT_NAME +
++                " = ? ", new String[]{taskbarIcon.getComponentName().flattenToString()});
++        ContentValues values = new ContentValues();
++        if (!cursor.moveToNext()) {
++            values.put(TaskbarIconField.USER_ID, taskbarIcon.getUserId(context));
++            values.put(TaskbarIconField.COMPONENT_NAME,
++                    taskbarIcon.getComponentName().flattenToString());
++            db.insert(TaskbarIconField.TABLE_NAME, null, values);
++        }
++        cursor.close();
++        db.close();
++    }
++
++    public static void deleteTaskbarIcon(Context context, String compontentName) {
++        SqliteOpenHelper sqliteOpenHelper = SqliteOpenHelper.getInstance(context);
++        SQLiteDatabase db = sqliteOpenHelper.getWritableDatabase();
++        db.delete(TaskbarIconField.TABLE_NAME, TaskbarIconField.COMPONENT_NAME
++                + " = ? ", new String[]{compontentName});
++        db.close();
++    }
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/sql/TaskbarIconField.java b/packages/SystemUI/src/com/android/systemui/sql/TaskbarIconField.java
+new file mode 100644
+index 0000000..4b30066
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/sql/TaskbarIconField.java
+@@ -0,0 +1,12 @@
++package com.android.systemui.sql;
++
++/**
++ * Created by ljh on 17-11-8.
++ */
++
++public class TaskbarIconField {
++    public static final String TABLE_NAME = "taskbar_icon";
++    public static final String COLUMN_ID = "id";
++    public static final String USER_ID = "user_id";
++    public static final String COMPONENT_NAME = "component_name";
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index dfb526b..0abc1c6 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -69,6 +69,8 @@ import android.content.pm.UserInfo;
+ import android.content.res.Configuration;
+ import android.content.res.Resources;
+ import android.database.ContentObserver;
++import android.database.Cursor;
++import android.database.sqlite.SQLiteDatabase;
+ import android.graphics.Bitmap;
+ import android.graphics.Canvas;
+ import android.graphics.ColorFilter;
+@@ -202,6 +204,9 @@ import com.android.systemui.recents.events.EventBus;
+ import com.android.systemui.recents.events.activity.AppTransitionFinishedEvent;
+ import com.android.systemui.recents.events.activity.UndockingTaskEvent;
+ import com.android.systemui.recents.misc.SystemServicesProxy;
++import com.android.systemui.sql.SqliteOpenHelper;
++import com.android.systemui.sql.SqliteOperate;
++import com.android.systemui.sql.TaskbarIconField;
+ import com.android.systemui.stackdivider.Divider;
+ import com.android.systemui.stackdivider.WindowManagerProxy;
+ import com.android.systemui.startupmenu.LaunchAppUtil;
+@@ -1298,6 +1303,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         mButtonNotificationClearAll.setOnClickListener(mNotificationClickListener);
+ 
+         mShowTaskbarDialog = new MenuDialog(mContext);
++        initTaskbarIcons();
+     }
+ 
+     //add openthos status bar view.
+@@ -3384,12 +3390,14 @@ public class StatusBar extends SystemUI implements DemoMode,
+         if (taskbarIcon == null) {
+             taskbarIcon = new TaskbarIcon(componentName, createIconLayout(componentName));
+             mShowIcons.put(componentName, taskbarIcon);
++            SqliteOperate.saveTaskbarIcon(mContext, taskbarIcon);
+         }
+         taskbarIcon.setLocked(true);
+     }
+ 
+     public void unlocked(ComponentName componentName) {
+         TaskbarIcon taskbarIcon = mShowIcons.get(componentName);
++        SqliteOperate.deleteTaskbarIcon(mContext, componentName.flattenToString());
+         if (taskbarIcon != null) {
+             if (!taskbarIcon.isRun()) {
+                 mActivityLayout.removeView(taskbarIcon.getIconLayout());
+@@ -3493,6 +3501,19 @@ public class StatusBar extends SystemUI implements DemoMode,
+         mPrevCmp = cmp;
+     }
+ 
++    private void initTaskbarIcons() {
++        SqliteOpenHelper instance = SqliteOpenHelper.getInstance(mContext);
++        SQLiteDatabase db = instance.getReadableDatabase();
++        Cursor cursor = db.rawQuery("select * from " + TaskbarIconField.TABLE_NAME, null);
++        while (cursor.moveToNext()) {
++            ComponentName cmp = ComponentName.unflattenFromString(
++                    cursor.getString(cursor.getColumnIndex(TaskbarIconField.COMPONENT_NAME)));
++            locked(cmp);
++        }
++        cursor.close();
++        db.close();
++    }
++
+     @Override
+     public void changeStatusBarIcon(int taskId, ComponentName cmp, boolean keep) {
+         android.util.Log.i("ljh", "taskId " + taskId + " keep " + keep + " cmp" + cmp);
+-- 
+2.7.4
+

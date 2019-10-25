@@ -1,0 +1,53 @@
+From c212ac73fabe5fa65db3bb9b3a85ed14cc489e1d Mon Sep 17 00:00:00 2001
+From: CaoYongren <m18410261910@163.com>
+Date: Tue, 24 Oct 2017 07:59:03 +0000
+Subject: [PATCH 026/110] Oreo: frameworks: base: Fixed bug: 1. click ethnet
+ config show crash 2. click battery save mod show crash.
+
+Change-Id: I64cb6498ef3d9b1422cdc084de5a34256de01f3b
+Signed-off-by: CaoYongren <m18410261910@163.com>
+---
+ .../SystemUI/src/com/android/systemui/dialog/BatteryDialog.java     | 6 ++++--
+ packages/SystemUI/src/com/android/systemui/dialog/WifiDialog.java   | 2 +-
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java
+index cb04f1c..c27c1db 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java
+@@ -21,6 +21,9 @@ import com.android.systemui.statusbar.policy.BatteryControllerImpl;
+ import java.util.List;
+ 
+ public class BatteryDialog extends BaseDialog implements BatteryController.BatteryStateChangeCallback {
++    private static final String BATTERY_SETTINGS = "com.android.settings";
++    private static final String BATTERY_SETTINGS_SAVER = BATTERY_SETTINGS
++	                        + ".fuelgauge.BatterySaverSettings";
+     private static final String BATTERY_HISTORY_FILE = "tmp_bat_history.bin";
+     private static final int REMAIN_HOUR_DEFAULT = 3;
+     private static final int REMAIN_MINUTE_DEFAULT = 30;
+@@ -71,8 +74,7 @@ public class BatteryDialog extends BaseDialog implements BatteryController.Batte
+             @Override
+             public void onClick(View view) {
+                 U.launchApp(getContext(),
+-                        new ComponentName("com.android.settings",
+-                                "com.android.settings.BatteryInfo"));
++                        new ComponentName(BATTERY_SETTINGS, BATTERY_SETTINGS_SAVER));
+                 dismiss();
+             }
+         });
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/WifiDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/WifiDialog.java
+index 88873ec..af284b2 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/WifiDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/WifiDialog.java
+@@ -36,7 +36,7 @@ import java.util.Set;
+  */
+ public final class WifiDialog extends BaseDialog {
+     private final String CLASSNAME_ETHERNET_SETTINGS =
+-            "com.android.settings.ethernet.EthernetSettings";
++            "com.android.settings.wifi.WifiSettings";
+     private final String PACKAGENAME_SETTING = "com.android.settings";
+     private final String TAG = "umic";
+ 
+-- 
+2.7.4
+

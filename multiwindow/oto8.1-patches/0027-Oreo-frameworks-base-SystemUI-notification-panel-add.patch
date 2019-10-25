@@ -1,0 +1,110 @@
+From fd21a80acb7380134ecb44f463a4b8af176567ca Mon Sep 17 00:00:00 2001
+From: CaoYongren <m18410261910@163.com>
+Date: Tue, 24 Oct 2017 05:55:58 +0000
+Subject: [PATCH 027/110] Oreo: frameworks: base: SystemUI: notification panel
+ add clear all and notification manager.
+
+Change-Id: I49f16ee8aa69006b79be83e3ac4224d17228f062
+Signed-off-by: CaoYongren <m18410261910@163.com>
+---
+ .../res/layout/openthos_notification_panel.xml     |  6 ++--
+ .../systemui/statusbar/phone/StatusBar.java        | 33 ++++++++++++++++++++++
+ 2 files changed, 37 insertions(+), 2 deletions(-)
+
+diff --git a/packages/SystemUI/res/layout/openthos_notification_panel.xml b/packages/SystemUI/res/layout/openthos_notification_panel.xml
+index bc31f43..3866280 100644
+--- a/packages/SystemUI/res/layout/openthos_notification_panel.xml
++++ b/packages/SystemUI/res/layout/openthos_notification_panel.xml
+@@ -30,13 +30,15 @@
+             android:layout_height="wrap_content"
+             android:layout_toLeftOf="@+id/notification_clear_all"
+             android:layout_marginRight="20dp"
+-            android:text="@string/clear_all"/>
++            android:background="@null"
++            android:text="@string/notification_manager"/>
+         <Button
+             android:id="@+id/notification_clear_all"
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:layout_alignParentRight="true"
+-            android:text="@string/notification_manager"/>
++            android:background="@null"
++            android:text="@string/clear_all"/>
+     </RelativeLayout>
+ 
+     <!-- start of notification panel -->
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index f484384..bb4a7e9 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -142,6 +142,7 @@ import android.widget.FrameLayout;
+ import android.widget.RemoteViews;
+ import android.widget.TextView;
+ import android.widget.Toast;
++import android.widget.Button;
+ 
+ import com.android.internal.annotations.VisibleForTesting;
+ import com.android.internal.colorextraction.ColorExtractor;
+@@ -355,6 +356,11 @@ public class StatusBar extends SystemUI implements DemoMode,
+      */
+     private static final int HINT_RESET_DELAY_MS = 1200;
+ 
++    //Notification panel
++    private static final String NOTIFICATION_SETTINGS = "com.android.settings";
++    private static final String NOTIFICATION_SETTINGS_MANAGER =
++                                NOTIFICATION_SETTINGS + ".applications.ManageApplications";
++
+     private static final AudioAttributes VIBRATION_ATTRIBUTES = new AudioAttributes.Builder()
+             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+             .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+@@ -446,6 +452,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     // expanded notifications
+     protected NotificationPanelView mNotificationPanel; // the sliding/resizing panel within the notification window
++    private Button mButtonNotificationManager;
++    private Button mButtonNotificationClearAll;
+     View mExpandedContents;
+     TextView mNotificationPanelDebugText;
+ 
+@@ -1268,6 +1276,11 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+         // Private API call to make the shadows look better for Recents
+         ThreadedRenderer.overrideProperty("ambientRatio", String.valueOf(1.5f));
++
++        mButtonNotificationManager = (Button) mNotificationPanel.findViewById(R.id.notification_manager);
++        mButtonNotificationClearAll = (Button) mNotificationPanel.findViewById(R.id.notification_clear_all);
++        mButtonNotificationManager.setOnClickListener(mNotificationClickListener);
++        mButtonNotificationClearAll.setOnClickListener(mNotificationClickListener);
+     }
+ 
+     protected void createNavigationBar() {
+@@ -1443,6 +1456,26 @@ public class StatusBar extends SystemUI implements DemoMode,
+         mStackScroller.setDismissView(mDismissView);
+     }
+ 
++    private View.OnClickListener mNotificationClickListener = new View.OnClickListener() {
++        @Override
++        public void onClick(View v) {
++            switch (v.getId()) {
++                case R.id.notification_manager:
++                    Intent displayIntent = new Intent();
++                    ComponentName cDisplay = new ComponentName(NOTIFICATION_SETTINGS,
++                                                 NOTIFICATION_SETTINGS_MANAGER);
++                    displayIntent.setComponent(cDisplay);
++                    displayIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
++                    mContext.startActivity(displayIntent);
++                    break;
++		case R.id.notification_clear_all:
++                    mMetricsLogger.action(MetricsEvent.ACTION_DISMISS_ALL_NOTES);
++                    clearAllNotifications();
++                    break;
++            }
++        }
++    };
++
+     protected void createUserSwitcher() {
+         mKeyguardUserSwitcher = new KeyguardUserSwitcher(mContext,
+                 (ViewStub) mStatusBarWindow.findViewById(R.id.keyguard_user_switcher),
+-- 
+2.7.4
+

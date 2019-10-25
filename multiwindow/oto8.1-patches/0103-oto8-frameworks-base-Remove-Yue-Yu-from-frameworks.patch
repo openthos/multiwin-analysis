@@ -1,0 +1,26 @@
+From e412653e1f9059a9cd315d14297b62806bac6208 Mon Sep 17 00:00:00 2001
+From: Wang Zhixu <wangzhixu@openthos.org>
+Date: Mon, 16 Sep 2019 06:21:32 +0000
+Subject: [PATCH 103/110] oto8: frameworks: base: Remove "Yue Yu" from
+ frameworks
+
+Signed-off-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ core/res/res/values/locale_config.xml | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/core/res/res/values/locale_config.xml b/core/res/res/values/locale_config.xml
+index 04ea077..2dada58 100644
+--- a/core/res/res/values/locale_config.xml
++++ b/core/res/res/values/locale_config.xml
+@@ -481,7 +481,6 @@
+         <item>yav-CM</item> <!-- Yangben (Cameroon) -->
+         <item>yo-BJ</item> <!-- Yoruba (Benin) -->
+         <item>yo-NG</item> <!-- Yoruba (Nigeria) -->
+-        <item>yue-HK</item> <!-- Cantonese (Hong Kong) -->
+         <item>zgh-MA</item> <!-- Standard Moroccan Tamazight (Morocco) -->
+         <item>zh-Hans-CN</item> <!-- Chinese (Simplified Han,China) -->
+         <item>zh-Hans-HK</item> <!-- Chinese (Simplified Han,Hong Kong) -->
+-- 
+2.7.4
+

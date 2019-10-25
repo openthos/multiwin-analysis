@@ -1,0 +1,177 @@
+From 5c4314432428d33785814e57953d6335121fbff0 Mon Sep 17 00:00:00 2001
+From: Lu Ning <luning@openthos.org>
+Date: Mon, 17 Sep 2018 10:24:30 +0000
+Subject: [PATCH 056/110] oto8: frameworks: base: SystemUI: Modify all icons'
+ background
+
+Signed-off-by: Lu Ning <luning@openthos.org>
+Reviewed-by: Cao Yongren <caoyongren@openthos.org>
+---
+ .../res/drawable/statusbar_img_hover_select.xml    |  5 ---
+ .../SystemUI/res/layout/openthos_status_bar.xml    |  5 ---
+ .../statusbar/phone/OpenthosStatusBarView.java     | 43 ++++++++++++++++------
+ .../systemui/statusbar/view/TaskBarIcon.java       | 12 ++----
+ 4 files changed, 35 insertions(+), 30 deletions(-)
+ delete mode 100644 packages/SystemUI/res/drawable/statusbar_img_hover_select.xml
+
+diff --git a/packages/SystemUI/res/drawable/statusbar_img_hover_select.xml b/packages/SystemUI/res/drawable/statusbar_img_hover_select.xml
+deleted file mode 100644
+index 767181e..0000000
+--- a/packages/SystemUI/res/drawable/statusbar_img_hover_select.xml
++++ /dev/null
+@@ -1,5 +0,0 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<selector xmlns:android="http://schemas.android.com/apk/res/android">
+-    <item android:drawable="@color/common_hover_bg" android:state_hovered="true"/>
+-    <item android:drawable="@drawable/system_bar_background" android:state_hovered="false"/>
+-</selector>
+\ No newline at end of file
+diff --git a/packages/SystemUI/res/layout/openthos_status_bar.xml b/packages/SystemUI/res/layout/openthos_status_bar.xml
+index 103d775..7f38ce9 100644
+--- a/packages/SystemUI/res/layout/openthos_status_bar.xml
++++ b/packages/SystemUI/res/layout/openthos_status_bar.xml
+@@ -57,7 +57,6 @@
+                 android:layout_width="wrap_content"
+                 android:layout_height="match_parent"
+                 android:layout_gravity="center_vertical"
+-                android:background="@drawable/statusbar_img_hover_select"
+                 android:padding="@dimen/padding_five"
+                 android:scaleType="fitCenter"
+                 android:src="@mipmap/statusbar_switch_input_method"
+@@ -68,7 +67,6 @@
+                 android:layout_width="wrap_content"
+                 android:layout_height="match_parent"
+                 android:layout_gravity="center_vertical"
+-                android:background="@drawable/statusbar_img_hover_select"
+                 android:padding="@dimen/padding_five"
+                 android:scaleType="fitCenter"
+                 android:src="@mipmap/statusbar_battery"
+@@ -79,7 +77,6 @@
+                 android:layout_width="wrap_content"
+                 android:layout_height="match_parent"
+                 android:layout_gravity="center_vertical"
+-                android:background="@drawable/statusbar_img_hover_select"
+                 android:padding="@dimen/padding_five"
+                 android:scaleType="fitCenter"
+                 android:src="@mipmap/statusbar_wifi"
+@@ -90,7 +87,6 @@
+                 android:layout_width="wrap_content"
+                 android:layout_height="match_parent"
+                 android:layout_gravity="center_vertical"
+-                android:background="@drawable/statusbar_img_hover_select"
+                 android:padding="@dimen/padding_five"
+                 android:scaleType="fitCenter"
+                 android:src="@mipmap/statusbar_sound"
+@@ -101,7 +97,6 @@
+                 android:layout_width="wrap_content"
+                 android:layout_height="match_parent"
+                 android:layout_gravity="center_vertical"
+-                android:background="@drawable/statusbar_img_hover_select"
+                 android:padding="@dimen/padding_five"
+                 android:scaleType="fitCenter"
+                 android:src="@mipmap/statusbar_action_center"
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+index 5107445..f652254 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+@@ -119,21 +119,39 @@ public class OpenthosStatusBarView extends PanelBar {
+     }
+ 
+     private void initListener() {
+-        mStartupMenu.setOnClickListener(mOpenthosStatusbarListener);
+-        mInputView.setOnClickListener(mOpenthosStatusbarListener);
+-        mBatteryView.setOnClickListener(mOpenthosStatusbarListener);
+-        mWifiView.setOnClickListener(mOpenthosStatusbarListener);
+-        mVolumeView.setOnClickListener(mOpenthosStatusbarListener);
+-        mNotificationView.setOnClickListener(mOpenthosStatusbarListener);
+-        mCalendarView.setOnClickListener(mOpenthosStatusbarListener);
+-        mHomeView.setOnClickListener(mOpenthosStatusbarListener);
+-        mEmptyStatusBar.setOnClickListener(mOpenthosStatusbarListener);
++        mStartupMenu.setOnTouchListener(mTouchListener);
++        mInputView.setOnTouchListener(mTouchListener);
++        mBatteryView.setOnTouchListener(mTouchListener);
++        mWifiView.setOnTouchListener(mTouchListener);
++        mVolumeView.setOnTouchListener(mTouchListener);
++        mNotificationView.setOnTouchListener(mTouchListener);
++        mCalendarView.setOnTouchListener(mTouchListener);
++        mHomeView.setOnTouchListener(mTouchListener);
++        mEmptyStatusBar.setOnTouchListener(mTouchListener);
+ //        mLlScrollContents.setOnClickListener(mOpenthosStatusbarListener);
++
++	mInputView.setOnHoverListener(mHoverListener);
++	mBatteryView.setOnHoverListener(mHoverListener);
++	mWifiView.setOnHoverListener(mHoverListener);
++	mVolumeView.setOnHoverListener(mHoverListener);
++	mNotificationView.setOnHoverListener(mHoverListener);
++	mCalendarView.setOnHoverListener(mHoverListener);
+     }
+ 
+-    private View.OnClickListener mOpenthosStatusbarListener = new View.OnClickListener() {
+-        @Override
+-        public void onClick(View v) {
++    private View.OnHoverListener mHoverListener = (View v, MotionEvent event) -> {
++        switch (event.getAction()) {
++            case MotionEvent.ACTION_HOVER_ENTER:
++                v.setBackground(getResources().getDrawable(R.color.common_hover_bg));
++                break;
++            case MotionEvent.ACTION_HOVER_EXIT:
++                v.setBackground(getResources().getDrawable(R.drawable.system_bar_background));
++                break;
++        }
++        return false;
++    };
++
++    private View.OnTouchListener mTouchListener = (View v, MotionEvent event) -> {
++        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+             switch (v.getId()) {
+                 case R.id.iv_startupmenu_status_bar:
+                     showDialog(mStartupMenu, mStartupMenuDialog);
+@@ -177,6 +195,7 @@ public class OpenthosStatusBarView extends PanelBar {
+                     break;
+             }
+         }
++        return false;
+     };
+ 
+     public void updateBattertIcon(int level, boolean pluggedIn, boolean charging) {
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java b/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java
+index 35864ab..f3c9742 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java
+@@ -19,8 +19,7 @@ import com.android.systemui.startupmenu.bean.AppInfo;
+ import com.android.systemui.startupmenu.listener.OnMenuClick;
+ import com.android.systemui.startupmenu.utils.AppOperateManager;
+ 
+-public class TaskBarIcon extends FrameLayout
+-        implements View.OnClickListener, View.OnTouchListener,
++public class TaskBarIcon extends FrameLayout implements View.OnTouchListener,
+         View.OnLongClickListener, OnMenuClick, View.OnHoverListener {
+ 
+     private static MenuDialog mMenuDialog;
+@@ -59,7 +58,6 @@ public class TaskBarIcon extends FrameLayout
+     }
+ 
+     private void initListener() {
+-        setOnClickListener(this);
+         setOnLongClickListener(this);
+         setOnTouchListener(this);
+         setOnHoverListener(this);
+@@ -74,12 +72,10 @@ public class TaskBarIcon extends FrameLayout
+     }
+ 
+     @Override
+-    public void onClick(View v) {
+-        startRun();
+-    }
+-
+-    @Override
+     public boolean onTouch(View v, MotionEvent event) {
++        if (event.getAction() == MotionEvent.ACTION_DOWN) {
++            startRun();
++        }
+         return false;
+     }
+ 
+-- 
+2.7.4
+

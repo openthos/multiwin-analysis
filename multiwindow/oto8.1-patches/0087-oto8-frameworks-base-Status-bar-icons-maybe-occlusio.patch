@@ -1,0 +1,61 @@
+From 8082d9db1bc1f1eb71b7acee1672f7dfa8a12a3a Mon Sep 17 00:00:00 2001
+From: Lu Ning <luning@openthos.org>
+Date: Fri, 12 Apr 2019 08:01:05 +0000
+Subject: [PATCH 087/110] oto8: frameworks: base: Status bar icons maybe
+ occlusion
+
+This is because the display density changes and the icon size does not
+change automatically.
+
+Signed-off-by: Lu Ning <luning@openthos.org>
+Reviewed-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ .../com/android/systemui/statusbar/phone/StatusBar.java | 17 +++++++++++++++++
+ .../statusbar/phone/StatusBarWindowManager.java         |  2 +-
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index f4fedb1..8aa75f0 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -4262,6 +4262,23 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+         updateRowStates();
+         mScreenPinningRequest.onConfigurationChanged();
++        updateStatusHeight();
++    }
++
++    private void updateStatusHeight() {
++        mNaturalBarHeight = mContext.getResources().
++                getDimensionPixelSize(R.dimen.navigation_bar_size);
++        ViewGroup.LayoutParams openthosLp = mOpenthosStatusBarView.getLayoutParams();
++        ViewGroup.LayoutParams statusLp = mStatusBarWindow.getLayoutParams();
++        if (openthosLp.height != mNaturalBarHeight) {
++            openthosLp.height = mNaturalBarHeight;
++            mOpenthosStatusBarView.setLayoutParams(openthosLp);
++            mWindowManager.updateViewLayout(mOpenthosStatusBarView, openthosLp);
++            statusLp.height = mNaturalBarHeight;
++            mStatusBarWindow.setLayoutParams(statusLp);
++            mWindowManager.updateViewLayout(mStatusBarWindow, statusLp);
++            mStatusBarWindowManager.setBarHeight(mNaturalBarHeight);
++        }
+     }
+ 
+     public void userSwitched(int newUserId) {
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
+index 7e17c6e..2e27818 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
+@@ -102,7 +102,7 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
+                         | WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS,
+                 PixelFormat.TRANSLUCENT);
+         mLp.token = new Binder();
+-        mLp.gravity = Gravity.RIGHT | Gravity.TOP;
++        mLp.gravity = Gravity.LEFT | Gravity.TOP;
+         mLp.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
+         mLp.setTitle("StatusBar");
+         mLp.packageName = mContext.getPackageName();
+-- 
+2.7.4
+

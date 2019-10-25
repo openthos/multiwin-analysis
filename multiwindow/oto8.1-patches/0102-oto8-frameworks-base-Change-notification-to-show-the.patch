@@ -1,0 +1,175 @@
+From 7df17eaf0b87fd4df9afe896759d8cd58dcb7e8a Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Mon, 9 Sep 2019 01:05:26 +0000
+Subject: [PATCH 102/110] oto8: frameworks: base: Change notification to show
+ the headsup notification more properly.
+
+Alos change visibility of notification panel parts when show headsup or show all panel.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ .../res/layout/openthos_notification_panel.xml     |  3 ++
+ .../systemui/statusbar/phone/StatusBar.java        |  3 ++
+ .../statusbar/phone/StatusBarWindowManager.java    | 47 +++++++++++++++++++++-
+ .../systemui/statusbar/policy/HeadsUpManager.java  |  7 ++++
+ 4 files changed, 59 insertions(+), 1 deletion(-)
+
+diff --git a/packages/SystemUI/res/layout/openthos_notification_panel.xml b/packages/SystemUI/res/layout/openthos_notification_panel.xml
+index d600d83..9f711ac 100644
+--- a/packages/SystemUI/res/layout/openthos_notification_panel.xml
++++ b/packages/SystemUI/res/layout/openthos_notification_panel.xml
+@@ -12,6 +12,7 @@
+     android:weightSum="3">
+ 
+     <RelativeLayout
++        android:id="@+id/panel_head"
+         android:layout_width="match_parent"
+         android:layout_height="0dp"
+         android:layout_weight="0.2"
+@@ -48,6 +49,7 @@
+ 
+     <!-- start of notification panel -->
+     <LinearLayout
++        android:id="@+id/notification_sub_panel"
+         android:layout_width="@dimen/notification_panel_width"
+         android:layout_height="0dp"
+         android:layout_weight="1.6"
+@@ -69,6 +71,7 @@
+ 
+     <!-- start of print panel -->
+     <LinearLayout
++        android:id="@+id/print_panel"
+         android:layout_width="@dimen/notification_panel_width"
+         android:layout_height="0dp"
+         android:layout_weight="1"
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 8aa75f0..d2641c3 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -1826,6 +1826,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         addNotificationViews(shadeEntry);
+         // Recalculate the position of the sliding windows and the titles.
+         setAreThereNotifications();
++        mStatusBarWindowManager.setAddEntry(true);
+     }
+ 
+     @Override
+@@ -3282,6 +3283,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     // show notification panel view.
+     public void showCustomNotificationPanel() {
++        mStatusBarWindowManager.setAddEntry(false);
++        mHeadsUpManager.removeTopNotification();
+         if (mNotificationPanel.isFullyCollapsed()) {
+             mNotificationPanel.expand(true);
+         } else if (mNotificationPanel.isFullyExpanded()) {
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
+index 7e17c6e..4085f41 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
+@@ -31,6 +31,7 @@ import android.view.View;
+ import android.view.ViewGroup;
+ import android.view.WindowManager;
+ import android.view.WindowManager.LayoutParams;
++import android.widget.LinearLayout;
+ 
+ import com.android.keyguard.R;
+ import com.android.systemui.Dumpable;
+@@ -172,6 +173,37 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
+         mLpChanged.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
+     }
+ 
++    private void setHeight(boolean partExpand) {
++        int barColor = partExpand ? 0 : mContext.getColor(R.color.system_bar_background_opaque);
++        int partVisibility = partExpand ? View.GONE : View.VISIBLE;
++        int notifyHeight = (int) (92.0f * mContext.getResources().getDisplayMetrics().density);
++        mLpChanged.height = partExpand ? notifyHeight : ViewGroup.LayoutParams.MATCH_PARENT;
++
++        mStatusBarView.setBackgroundColor(barColor);
++        mStatusBarView.findViewById(R.id.notification_container_parent).
++                                                setBackgroundColor(barColor);
++        mStatusBarView.findViewById(R.id.heads_up_scrim).setBackgroundColor(barColor);
++
++        View notificationSubPanel = mStatusBarView.findViewById(R.id.notification_sub_panel);
++        View panelHead = mStatusBarView.findViewById(R.id.panel_head);
++        View printPanel = mStatusBarView.findViewById(R.id.print_panel);
++        View qsPanel = mStatusBarView.findViewById(R.id.qs_panel_layout);
++
++        panelHead.setVisibility(partVisibility);
++        printPanel.setVisibility(partVisibility);
++        qsPanel.setVisibility(partVisibility);
++
++        LinearLayout.LayoutParams lp = null;
++        lp = (LinearLayout.LayoutParams) notificationSubPanel.getLayoutParams();
++        lp.weight = partExpand ? 3.0f : 1.6f;
++        lp = (LinearLayout.LayoutParams) panelHead.getLayoutParams();
++        lp.weight = partExpand ? 0 : 0.2f;
++        lp = (LinearLayout.LayoutParams) printPanel.getLayoutParams();
++        lp.weight = partExpand ? 0 : 1.0f;
++        lp = (LinearLayout.LayoutParams) qsPanel.getLayoutParams();
++        lp.weight = partExpand ? 0 : 0.2f;
++    }
++
+     private void applyHeight(State state) {
+         boolean expanded = isExpanded(state);
+         if (state.forcePluginOpen) {
+@@ -179,10 +211,17 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
+             expanded = true;
+         }
+         if (expanded) {
+-            mLpChanged.height = ViewGroup.LayoutParams.MATCH_PARENT;
++            int expandedHeight = mStatusBarView.getMeasuredHeightAndState();
++            int displayHeight = mContext.getDisplay().getHeight();
++            setHeight(state.addEntry && expandedHeight != displayHeight);
+         } else {
+             mLpChanged.height = mBarHeight;
++            mStatusBarView.setBackgroundColor(0);
++            mStatusBarView.findViewById(R.id.notification_container_parent).setBackgroundColor(0);
++            mStatusBarView.findViewById(R.id.heads_up_scrim).setBackgroundColor(0);
+         }
++        mLpChanged.width = mContext.getResources().
++                                getDimensionPixelSize(R.dimen.notification_panel_width);
+     }
+ 
+     private boolean isExpanded(State state) {
+@@ -285,6 +324,11 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
+         }
+     }
+ 
++    public void setAddEntry(boolean addEntry) {
++        mCurrentState.addEntry = addEntry;
++        apply(mCurrentState);
++    }
++
+     public void setKeyguardShowing(boolean showing) {
+         mCurrentState.keyguardShowing = showing;
+         apply(mCurrentState);
+@@ -433,6 +477,7 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
+         boolean forceDozeBrightness;
+         boolean forceUserActivity;
+         boolean backdropShowing;
++        boolean addEntry;
+ 
+         /**
+          * The {@link StatusBar} state from the status bar.
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/policy/HeadsUpManager.java b/packages/SystemUI/src/com/android/systemui/statusbar/policy/HeadsUpManager.java
+index 53dfb24..0ce3e1e 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/policy/HeadsUpManager.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/policy/HeadsUpManager.java
+@@ -296,6 +296,13 @@ public class HeadsUpManager implements ViewTreeObserver.OnComputeInternalInsetsL
+         }
+     }
+ 
++    public void removeTopNotification() {
++        HeadsUpEntry top = getTopEntry();
++        if (top != null) {
++            removeHeadsUpEntry(top.entry);
++        }
++    }
++
+     private boolean wasShownLongEnough(String key) {
+         HeadsUpEntry headsUpEntry = getHeadsUpEntry(key);
+         HeadsUpEntry topEntry = getTopEntry();
+-- 
+2.7.4
+

@@ -1,0 +1,153 @@
+From 79c057f5c130895aaf1ea87664105b51040ae9c9 Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <18600956771@163.com>
+Date: Tue, 21 Nov 2017 02:23:50 +0000
+Subject: [PATCH 053/110] frameworks: base: Whether app ResizeMode matches the
+ requested orientation to set rotate button visible in DecorCaption
+
+Signed-off-by: Liu Xiaoxu <18600956771@163.com>
+---
+ core/java/android/app/Activity.java                | 11 +++++++
+ core/java/android/view/Window.java                 |  4 +++
+ .../android/internal/widget/DecorCaptionView.java  | 36 +++++++++++++++++++---
+ .../android/server/am/ActivityManagerService.java  |  1 +
+ 4 files changed, 47 insertions(+), 5 deletions(-)
+
+diff --git a/core/java/android/app/Activity.java b/core/java/android/app/Activity.java
+index f01bf0f..36b8cd6 100644
+--- a/core/java/android/app/Activity.java
++++ b/core/java/android/app/Activity.java
+@@ -3284,6 +3284,17 @@ public class Activity extends ContextThemeWrapper
+     }
+ 
+     /**
++     * Returns complete component name of this activity.
++     *
++     * @return Returns the complete component name for this activity
++     * @hide
++     */
++    @Override
++    public ComponentName getActivityComponentName() {
++        return mComponent;
++    }
++
++    /**
+      * Called to process key events.  You can override this to intercept all
+      * key events before they are dispatched to the window.  Be sure to call
+      * this implementation for key events that should be handled normally.
+diff --git a/core/java/android/view/Window.java b/core/java/android/view/Window.java
+index 373343b..bd98691 100644
+--- a/core/java/android/view/Window.java
++++ b/core/java/android/view/Window.java
+@@ -28,6 +28,7 @@ import android.annotation.StyleRes;
+ import android.annotation.SystemApi;
+ import android.content.Context;
+ import android.content.pm.ActivityInfo;
++import android.content.ComponentName;
+ import android.content.res.Configuration;
+ import android.content.res.Resources;
+ import android.content.res.TypedArray;
+@@ -639,6 +640,9 @@ public abstract class Window {
+ 
+         /** Returns whether the window belongs to the task root. */
+         boolean isTaskRoot();
++
++        /** Returns the Activity ComponentName. */
++        ComponentName getActivityComponentName();
+     }
+ 
+     /**
+diff --git a/core/java/com/android/internal/widget/DecorCaptionView.java b/core/java/com/android/internal/widget/DecorCaptionView.java
+index 4f1f84f6..13e565d 100644
+--- a/core/java/com/android/internal/widget/DecorCaptionView.java
++++ b/core/java/com/android/internal/widget/DecorCaptionView.java
+@@ -36,6 +36,9 @@ import android.widget.ImageView;
+ import android.widget.TextView;
+ import static android.app.ActivityManager.StackId.INVALID_STACK_ID;
+ import static android.app.ActivityManager.StackId.FULLSCREEN_WORKSPACE_STACK_ID;
++import static android.content.pm.ActivityInfo.RESIZE_MODE_FORCE_RESIZABLE_LANDSCAPE_ONLY;
++import static android.content.pm.ActivityInfo.RESIZE_MODE_FORCE_RESIZABLE_PORTRAIT_ONLY;
++import android.content.pm.ActivityInfo;
+ 
+ import com.android.internal.R;
+ import com.android.internal.policy.PhoneWindow;
+@@ -84,6 +87,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         GestureDetector.OnGestureListener {
+     private final static String TAG = "DecorCaptionView";
+     private PhoneWindow mOwner = null;
++    private PackageManager mPm;
+     private boolean mShow = false;
+ 
+     // True if the window is being dragged.
+@@ -169,15 +173,15 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         TextView appName = (TextView) findViewById(R.id.title_window);
+         ImageView appIcon = (ImageView) findViewById(R.id.icon_window);
+ 
+-        PackageManager pm = getContext().getPackageManager();
+-        appName.setText(pm.getApplicationLabel(getContext().getApplicationInfo()));
+-        appIcon.setImageDrawable(pm.getApplicationIcon(getContext().getApplicationInfo()));
++        mPm = getContext().getPackageManager();
++        appName.setText(mPm.getApplicationLabel(getContext().getApplicationInfo()));
++        appIcon.setImageDrawable(mPm.getApplicationIcon(getContext().getApplicationInfo()));
+ 
+         mRotate.getViewTreeObserver().addOnGlobalLayoutListener(
+                          new ViewTreeObserver.OnGlobalLayoutListener() {
+             @Override
+             public void onGlobalLayout() {
+-                mRotate.setVisibility(isTaskDocked() ? GONE : VISIBLE);
++                mRotate.setVisibility((isTaskDocked() || !canResizeOrientation()) ? GONE : VISIBLE);
+                 mRotate.getViewTreeObserver().removeGlobalOnLayoutListener(this);
+             }
+         });
+@@ -301,7 +305,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+      */
+     public void onConfigurationChanged(boolean show) {
+         mShow = show;
+-        mRotate.setVisibility(getStackId() > 1 ? VISIBLE : GONE);
++        mRotate.setVisibility((getStackId() == 1 || !canResizeOrientation()) ? GONE : VISIBLE);
+         updateCaptionVisibility();
+     }
+ 
+@@ -446,6 +450,28 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     }
+ 
+     /**
++     * Check that the requested orientation can resize.
++     *
++     * @return True if the current window can resize orientation.
++     */
++    private boolean canResizeOrientation() {
++        Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
++        boolean canResize = true;
++        if (callback != null) {
++            try {
++                ActivityInfo info = mPm.getActivityInfo(
++                                callback.getActivityComponentName(), PackageManager.GET_META_DATA);
++                canResize = info.resizeMode != RESIZE_MODE_FORCE_RESIZABLE_PORTRAIT_ONLY
++                                && info.resizeMode != RESIZE_MODE_FORCE_RESIZABLE_LANDSCAPE_ONLY;
++            } catch (PackageManager.NameNotFoundException e) {
++                e.printStackTrace();
++                canResize = false;
++            }
++        }
++        return canResize;
++    }
++
++    /**
+     * Returns the Id of the stack which contains this window.
+     * Note that if no stack can be determined - which usually means that it was not
+     * created for an activity - the fullscreen stack ID will be returned.
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index 9503930..1fcf5af 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -10692,6 +10692,7 @@ public class ActivityManagerService extends IActivityManager.Stub
+                 StatusBarManagerInternal statusBarManager =
+                                        LocalServices.getService(StatusBarManagerInternal.class);
+                 if (DEBUG_STACK) Slog.d(TAG_STACK, "switchTaskFreeformAndFullscreen: " + r);
++                r.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                 if (stack.mStackId == FREEFORM_WORKSPACE_STACK_ID) {
+                     if (statusBarManager != null) {
+                         statusBarManager.setStatusBarVisibility(View.GONE);
+-- 
+2.7.4
+

@@ -1,0 +1,804 @@
+From 3ea3a9d641145c8b28d886dff5f1176ecd1b3b28 Mon Sep 17 00:00:00 2001
+From: luojunhuan <forward_m@126.com>
+Date: Fri, 3 Nov 2017 08:38:23 +0000
+Subject: [PATCH 042/110] Oreo: frameworks: base: SystemUI: clean startupmenu's
+ code
+
+Signed-off-by: luojunhuan <forward_m@126.com>
+---
+ .../com/android/systemui/dialog/BaseDialog.java    |  22 +--
+ .../com/android/systemui/dialog/MenuDialog.java    |  19 ++-
+ .../android/systemui/dialog/StartupMenuDialog.java | 153 +++++++++++++--------
+ .../android/systemui/startupmenu/DialogType.java   |   2 +-
+ .../systemui/startupmenu/LaunchAppUtil.java        |  49 +++++++
+ .../com/android/systemui/startupmenu/ShowType.java |   2 +-
+ .../startupmenu/SortSelectPopupWindow.java         |   5 +-
+ .../systemui/startupmenu/StartMenuAdapter.java     |  57 +++++---
+ 8 files changed, 211 insertions(+), 98 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
+index 45b3574..a6f12b5 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
+@@ -23,7 +23,6 @@ import com.android.systemui.startupmenu.DialogType;
+ public class BaseDialog extends Dialog {
+     protected View mContentView;
+     protected static Point mPoint;
+-    private int mViewId;
+ 
+     public BaseDialog(@NonNull Context context) {
+         this(context, R.style.StartMenuDialogStyle);
+@@ -31,6 +30,7 @@ public class BaseDialog extends Dialog {
+ 
+     public BaseDialog(@NonNull Context context, @StyleRes int themeResId) {
+         super(context, themeResId);
++        //init screen's size
+         if (mPoint == null) {
+             Display defaultDisplay = ((WindowManager)
+                     getContext().getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
+@@ -59,6 +59,10 @@ public class BaseDialog extends Dialog {
+ 
+     }
+ 
++    /**
++     * show dialog at the grivate of view's center
++     * @param view
++     */
+     public void show(View view) {
+         int[] location = new int[2];
+         view.getLocationOnScreen(location);
+@@ -84,23 +88,7 @@ public class BaseDialog extends Dialog {
+             lp.x = location[0] + view.getMeasuredWidth() / 2 - mPoint.x / 2;
+         }
+         lp.y = 0;
+-
+-//        android.util.Log.i("ljh", "mContentView.getMeasuredWidth() " + mContentView.getMeasuredWidth());
+-//        android.util.Log.i("ljh", "mContentView.getMeasuredHeight() " + mContentView.getMeasuredHeight());
+-//        android.util.Log.i("ljh", "location[0] " + location[0]);
+-//        android.util.Log.i("ljh", "location[1] " + location[1]);
+-//        android.util.Log.i("ljh", "view.getMeasuredWidth() " + view.getMeasuredWidth());
+-//        android.util.Log.i("ljh", "mPoint.x " + mPoint.x);
+-//        android.util.Log.i("ljh", "--------------------------------------");
+-
+         dialogWindow.setAttributes(lp);
+         show();
+     }
+-
+-    @Override
+-    public void onWindowFocusChanged(boolean hasFocus) {
+-        if (!hasFocus) {
+-//            dismiss();
+-        }
+-    }
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
+index d8b996c..e60010a 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
+@@ -120,6 +120,10 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+         }
+     }
+ 
++    /**
++     * init dialog data by dialog type
++     * @param type
++     */
+     private void prepareData(DialogType type) {
+         mDatas.clear();
+         String[] sArr = null;
+@@ -149,6 +153,7 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+         }
+         mDatas.addAll(Arrays.asList(sArr));
+         mAdapter.notifyDataSetChanged();
++        //set listView's width and height
+         mWidth = 0;
+         mHeight = 0;
+         for (int i = 0; i < mAdapter.getCount(); i++) {
+@@ -161,6 +166,13 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+         mListView.setLayoutParams(new LinearLayout.LayoutParams(mWidth, mHeight));
+     }
+ 
++    /**
++     * init click event
++     * @param parent
++     * @param view
++     * @param position
++     * @param id
++     */
+     @Override
+     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+         dismiss();
+@@ -179,8 +191,8 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+         } else if (content.equals(getContext().getString(R.string.unlock_app))) {
+             mStatusBar.unlocked(mComponentName);
+         } else if (content.equals(getContext().getString(R.string.remove_out))) {
+-            StartupMenuDialog.getInstance(getContext()).mCommonDatas.remove(mAppEntry);
+-            StartupMenuDialog.getInstance(getContext()).mCommonAdapter.notifyDataSetChanged();
++            StartupMenuDialog.getInstance(getContext()).mListDatas.remove(mAppEntry);
++            StartupMenuDialog.getInstance(getContext()).mListAdapter.notifyDataSetChanged();
+             SqliteOperate.deleteDataStorage(getContext(), mAppEntry.getPackageName());
+         } else if (content.equals(getContext().getString(R.string.uninstall))) {
+             uninstallApp();
+@@ -197,6 +209,9 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+         dismiss();
+     }
+ 
++    /**
++     * uninstall app
++     */
+     private void uninstallApp() {
+         Uri uri = Uri.parse("package:" + mAppEntry.getPackageName());
+         Intent intent = new Intent(Intent.ACTION_DELETE, uri);
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/StartupMenuDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/StartupMenuDialog.java
+index 6c0fde1..27de102 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/StartupMenuDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/StartupMenuDialog.java
+@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver;
+ import android.content.ComponentName;
+ import android.content.Context;
+ import android.content.Intent;
++import android.content.IntentFilter;
+ import android.content.pm.PackageManager;
+ import android.content.pm.ResolveInfo;
+ import android.database.Cursor;
+@@ -41,13 +42,11 @@ import java.util.Collections;
+ import java.util.Comparator;
+ import java.util.List;
+ 
+-/**
+- * Created by ljh on 17-9-26.
+- */
+-
+ public class StartupMenuDialog extends BaseDialog
+         implements View.OnClickListener, View.OnHoverListener,
+         SortSelectPopupWindow.SortSelectListener, TextWatcher {
++
++    // sotr type
+     public static final int DEFAULT_SORT = 0;
+     public static final int NAME_SORT = 1;
+     public static final int NAME_SORT_REVERSE = -1;
+@@ -58,9 +57,9 @@ public class StartupMenuDialog extends BaseDialog
+ 
+     private static StartupMenuDialog mStartupMenuDialog;
+ 
+-    private GridView mStartMenu;
++    private GridView mGridView;
+     private EditText mSearchView;
+-    private ListView mCommonList;
++    private ListView mListView;
+     private LinearLayout mFileManager;
+     private LinearLayout mSetting;
+     private LinearLayout mPower;
+@@ -69,12 +68,12 @@ public class StartupMenuDialog extends BaseDialog
+     private TextView mSortText;
+ 
+     private ImageView mSortSelect;
+-    public List<AppEntry> mCommonDatas;
+-    private List<AppEntry> mShowAppData;
++    public List<AppEntry> mListDatas;
++    private List<AppEntry> mGridDatas;
+ 
+-    private List<AppEntry> mAppEntries;
+-    public StartMenuAdapter mCommonAdapter;
+-    private StartMenuAdapter mStartMenuAdapter;
++    private List<AppEntry> mAppDatas;
++    public StartMenuAdapter mListAdapter;
++    private StartMenuAdapter mGridAdapter;
+     private SortSelectPopupWindow mSortSelectPopupWindow;
+     private int mType;
+     private Handler mHandler;
+@@ -93,7 +92,7 @@ public class StartupMenuDialog extends BaseDialog
+         return mStartupMenuDialog;
+     }
+ 
+-    public static StartupMenuDialog reCreateStartupMenudialog(Context context){
++    public static StartupMenuDialog reCreateStartupMenudialog(Context context) {
+         mStartupMenuDialog = new StartupMenuDialog(context);
+         return mStartupMenuDialog;
+     }
+@@ -118,7 +117,7 @@ public class StartupMenuDialog extends BaseDialog
+     }
+ 
+     public void initView() {
+-        mCommonList = (ListView) findViewById(R.id.common_list);
++        mListView = (ListView) findViewById(R.id.common_list);
+         mFileManager = (LinearLayout) findViewById(R.id.file_manager);
+         mSetting = (LinearLayout) findViewById(R.id.system_setting);
+         mPower = (LinearLayout) findViewById(R.id.power_off);
+@@ -127,22 +126,28 @@ public class StartupMenuDialog extends BaseDialog
+         mSortDirection = (ImageView) findViewById(R.id.sort_image_direction);
+         mSortText = (TextView) findViewById(R.id.sort_text);
+         mSortSelect = (ImageView) findViewById(R.id.sort_select);
+-        mStartMenu = (GridView) findViewById(R.id.start_menu);
++        mGridView = (GridView) findViewById(R.id.start_menu);
+     }
+ 
+     public void initData() {
+-        mAppEntries = new ArrayList<>();
+-        mCommonDatas = new ArrayList<>();
+-        mShowAppData = new ArrayList<>();
+-        mCommonAdapter = new StartMenuAdapter(getContext(), ShowType.LIST, mCommonDatas);
+-        mStartMenuAdapter = new StartMenuAdapter(getContext(), ShowType.GRID, mShowAppData);
+-        mCommonList.setAdapter(mCommonAdapter);
+-        mStartMenu.setAdapter(mStartMenuAdapter);
++        mAppDatas = new ArrayList<>();
++        mListDatas = new ArrayList<>();
++        mGridDatas = new ArrayList<>();
++        mListAdapter = new StartMenuAdapter(getContext(), ShowType.LIST, mListDatas);
++        mGridAdapter = new StartMenuAdapter(getContext(), ShowType.GRID, mGridDatas);
++        mListView.setAdapter(mListAdapter);
++        mGridView.setAdapter(mGridAdapter);
+ 
+         mSearchView.addTextChangedListener(this);
+         mSortSelectPopupWindow = new SortSelectPopupWindow(getContext());
+         mType = LaunchAppUtil.getSharedPreferences(getContext()).getInt("sortType", DEFAULT_SORT);
+ 
++        IntentFilter filter = new IntentFilter();
++        filter.addAction(Intent.ACTION_PACKAGE_ADDED);
++        filter.addAction(Intent.ACTION_PACKAGE_REMOVED);
++        filter.addAction(Intent.ACTION_PACKAGE_REPLACED);
++        getContext().registerReceiver(mAppStateChangeReceiver, filter);
++
+         mHandler = new Handler();
+     }
+ 
+@@ -173,7 +178,6 @@ public class StartupMenuDialog extends BaseDialog
+                 dismiss();
+                 break;
+             case R.id.power_off:
+-                Toast.makeText(getContext(), "打开电源", Toast.LENGTH_SHORT).show();
+                 Intent intent = new Intent(getContext(), PowerSourceActivity.class);
+                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                         | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+@@ -184,7 +188,7 @@ public class StartupMenuDialog extends BaseDialog
+                 mType = mType * -1;
+                 sortOrder();
+                 refreshSortView();
+-                mStartMenuAdapter.notifyDataSetChanged();
++                mGridAdapter.notifyDataSetChanged();
+                 break;
+             case R.id.sort_select:
+                 mSortSelectPopupWindow.showAsDropDown(mSortLayout);
+@@ -209,13 +213,19 @@ public class StartupMenuDialog extends BaseDialog
+         refreshApps(null, firstDraw);
+     }
+ 
++    /**
++     * refresh App list
++     *
++     * @param query     search content
++     * @param firstDraw
++     */
+     private void refreshApps(final String query, final boolean firstDraw) {
+         new Thread() {
+             @Override
+             public void run() {
+                 super.run();
+                 if (firstDraw) {
+-                    mAppEntries.clear();
++                    mAppDatas.clear();
+                     PackageManager pm = getContext().getPackageManager();
+                     Intent mainIntent = new Intent(Intent.ACTION_MAIN, null);
+                     mainIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+@@ -230,18 +240,18 @@ public class StartupMenuDialog extends BaseDialog
+                         appInfo.setIcon(reInfo.loadIcon(pm));
+                         appInfo.setActivityName(reInfo.activityInfo.name);
+                         appInfo.setUseCounts(0);
+-                        mAppEntries.add(appInfo);
++                        mAppDatas.add(appInfo);
+                     }
+                     queryCommonAppInfo();
+                 }
+ 
+-                mShowAppData.clear();
++                mGridDatas.clear();
+                 if (TextUtils.isEmpty(query)) {
+-                    mShowAppData.addAll(mAppEntries);
++                    mGridDatas.addAll(mAppDatas);
+                 } else {
+-                    for (AppEntry appEntry : mAppEntries) {
++                    for (AppEntry appEntry : mAppDatas) {
+                         if (appEntry.getLabel().toLowerCase().contains(query.toLowerCase())) {
+-                            mShowAppData.add(appEntry);
++                            mGridDatas.add(appEntry);
+                         }
+                     }
+                 }
+@@ -251,19 +261,22 @@ public class StartupMenuDialog extends BaseDialog
+                     @Override
+                     public void run() {
+                         refreshSortView();
+-                        mStartMenuAdapter.notifyDataSetChanged();
+-                        mCommonAdapter.notifyDataSetChanged();
++                        mGridAdapter.notifyDataSetChanged();
++                        mListAdapter.notifyDataSetChanged();
+                     }
+                 });
+             }
+         }.start();
+     }
+ 
++    /**
++     * search common apps from sqliteDatabase
++     */
+     private void queryCommonAppInfo() {
+         SqliteOpenHelper sqliteOpenHelper = SqliteOpenHelper.getInstance(getContext());
+         SQLiteDatabase db = sqliteOpenHelper.getWritableDatabase();
+         List<AppEntry> tempAppInfo = new ArrayList<>();
+-        mCommonDatas.clear();
++        mListDatas.clear();
+         Cursor cs = db.rawQuery("select distinct * from " + StartMenuDatabaseField.TABLE_NAME
+                 + " order by " + StartMenuDatabaseField.COLUMN_USECOUNT + " desc", new String[]{});
+         int i = 0;
+@@ -271,7 +284,7 @@ public class StartupMenuDialog extends BaseDialog
+             String pkgName = cs.getString(cs.getColumnIndex(StartMenuDatabaseField.COLUMN_PACKAGENAME));
+             int number = cs.getInt(cs.getColumnIndex(StartMenuDatabaseField.COLUMN_USECOUNT));
+             if (number > 0) {
+-                for (AppEntry info : mAppEntries) {
++                for (AppEntry info : mAppDatas) {
+                     if (info.getPackageName().equals(pkgName)) {
+                         info.setUseCounts(number);
+                         tempAppInfo.add(info);
+@@ -292,10 +305,13 @@ public class StartupMenuDialog extends BaseDialog
+                 return rhs.getUseCounts() > lhs.getUseCounts() ? 1 : -1;
+             }
+         });
+-        mCommonDatas.addAll(
++        mListDatas.addAll(
+                 tempAppInfo.subList(0, Math.min(tempAppInfo.size(), 8)));
+     }
+ 
++    /**
++     * sort ways
++     */
+     private void sortOrder() {
+         switch (mType) {
+             case DEFAULT_SORT:
+@@ -306,21 +322,21 @@ public class StartupMenuDialog extends BaseDialog
+                 break;
+             case NAME_SORT_REVERSE:
+                 nameSort();
+-                Collections.reverse(mShowAppData);
++                Collections.reverse(mGridDatas);
+                 break;
+             case TIME_SORT:
+                 timeSort();
+                 break;
+             case TIME_SORT_REVERSE:
+                 timeSort();
+-                Collections.reverse(mShowAppData);
++                Collections.reverse(mGridDatas);
+                 break;
+             case CLICK_SORT:
+                 clickSort();
+                 break;
+             case CLICK_SORT_REVERSE:
+                 clickSort();
+-                Collections.reverse(mShowAppData);
++                Collections.reverse(mGridDatas);
+                 break;
+             default:
+                 break;
+@@ -328,6 +344,9 @@ public class StartupMenuDialog extends BaseDialog
+         saveSortTypeToSP(mType);
+     }
+ 
++    /**
++     * refresh view when notification layot
++     */
+     private void refreshSortView() {
+         mSortDirection.setVisibility(View.VISIBLE);
+         switch (mType) {
+@@ -368,11 +387,14 @@ public class StartupMenuDialog extends BaseDialog
+         nameSort();
+     }
+ 
++    /**
++     * sort data by name
++     */
+     private void nameSort() {
+         List<AppEntry> listEnglish = new ArrayList<>();
+         List<AppEntry> listChina = new ArrayList<>();
+         List<AppEntry> listNumber = new ArrayList<>();
+-        for (AppEntry appInfo : mShowAppData) {
++        for (AppEntry appInfo : mGridDatas) {
+             String appLabel = appInfo.getLabel();
+             char ch = appLabel.charAt(0);
+             if (ch >= '0' && ch <= '9') {
+@@ -406,14 +428,17 @@ public class StartupMenuDialog extends BaseDialog
+                         compareTo(collator.getCollationKey(o2.getLabel()));
+             }
+         });
+-        mShowAppData.clear();
+-        mShowAppData.addAll(listNumber);
+-        mShowAppData.addAll(listEnglish);
+-        mShowAppData.addAll(listChina);
++        mGridDatas.clear();
++        mGridDatas.addAll(listNumber);
++        mGridDatas.addAll(listEnglish);
++        mGridDatas.addAll(listChina);
+     }
+ 
++    /**
++     * sort data by time
++     */
+     private void timeSort() {
+-        Collections.sort(mShowAppData, new Comparator<AppEntry>() {
++        Collections.sort(mGridDatas, new Comparator<AppEntry>() {
+             public int compare(AppEntry lhs, AppEntry rhs) {
+                 if (rhs.getInstallTime() == lhs.getInstallTime()) {
+                     return rhs.getPackageName().compareTo(lhs.getPackageName());
+@@ -423,8 +448,11 @@ public class StartupMenuDialog extends BaseDialog
+         });
+     }
+ 
++    /**
++     * sort data by click count
++     */
+     private void clickSort() {
+-        Collections.sort(mShowAppData, new Comparator<AppEntry>() {
++        Collections.sort(mGridDatas, new Comparator<AppEntry>() {
+             public int compare(AppEntry lhs, AppEntry rhs) {
+                 if (rhs.getUseCounts() == lhs.getUseCounts()) {
+                     return rhs.getPackageName().compareTo(lhs.getPackageName());
+@@ -434,40 +462,61 @@ public class StartupMenuDialog extends BaseDialog
+         });
+     }
+ 
++    /**
++     * save sort type to Sharepreference
++     *
++     * @param type
++     */
+     private void saveSortTypeToSP(int type) {
+         LaunchAppUtil.getSharedPreferences(getContext()).edit().putInt("sortType", type).commit();
+     }
+ 
++    /**
++     * sort operate by default
++     * @param v
++     */
+     @Override
+     public void defaultSort(View v) {
+         mType = DEFAULT_SORT;
+         sortOrder();
+         refreshSortView();
+-        mStartMenuAdapter.notifyDataSetChanged();
++        mGridAdapter.notifyDataSetChanged();
+     }
+ 
++    /**
++     * sort operate by click count
++     * @param v
++     */
+     @Override
+     public void clickSort(View v) {
+         mType = CLICK_SORT;
+         sortOrder();
+         refreshSortView();
+-        mStartMenuAdapter.notifyDataSetChanged();
++        mGridAdapter.notifyDataSetChanged();
+     }
+ 
++    /**
++     * sort operate by time
++     * @param v
++     */
+     @Override
+     public void timeSort(View v) {
+         mType = TIME_SORT;
+         sortOrder();
+         refreshSortView();
+-        mStartMenuAdapter.notifyDataSetChanged();
++        mGridAdapter.notifyDataSetChanged();
+     }
+ 
++    /**
++     * sort operate by name
++     * @param v
++     */
+     @Override
+     public void nameSort(View v) {
+         mType = NAME_SORT;
+         sortOrder();
+         refreshSortView();
+-        mStartMenuAdapter.notifyDataSetChanged();
++        mGridAdapter.notifyDataSetChanged();
+     }
+ 
+     @Override
+@@ -484,12 +533,4 @@ public class StartupMenuDialog extends BaseDialog
+     public void afterTextChanged(Editable s) {
+         refreshApps(s.toString(), false);
+     }
+-
+-    public class AppStateChangeReceiver extends BroadcastReceiver {
+-
+-        @Override
+-        public void onReceive(Context context, Intent intent) {
+-            refreshApps(true);
+-        }
+-    }
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/DialogType.java b/packages/SystemUI/src/com/android/systemui/startupmenu/DialogType.java
+index a68ba3b..32a91f9 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/DialogType.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/DialogType.java
+@@ -1,7 +1,7 @@
+ package com.android.systemui.startupmenu;
+ 
+ /**
+- * Created by ljh on 17-9-14.
++ * dialog type
+  */
+ 
+ public enum DialogType {
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+index f2a5330..12a33b6 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+@@ -30,24 +30,51 @@ public class LaunchAppUtil {
+     public static final int PHONE_MODE = 2;
+     private static SharedPreferences pref;
+ 
++    /**
++     * get sharepreference entity
++     * @param context
++     * @return
++     */
+     public static SharedPreferences getSharedPreferences(Context context) {
+         if (pref == null) pref = context.getSharedPreferences("data", Context.MODE_PRIVATE);
+         return pref;
+     }
+ 
++    /**
++     * launche App by packageName, activityName
++     * @param context
++     * @param packageName
++     * @param activityName
++     */
+     public static void launchApp(Context context, String packageName, String activityName) {
+         launchApp(context, new ComponentName(packageName, activityName));
+     }
+ 
++    /**
++     * launch app by compententName
++     * @param context
++     * @param componentName
++     */
+     public static void launchApp(Context context, ComponentName componentName) {
+         launchApp(context, componentName, DESKTOP_MODE);
+     }
+ 
++    /**
++     * launch app by packageName
++     * @param context
++     * @param packageName
++     */
+     public static void launchApp(Context context, String packageName) {
+         launchApp(context,
+                 context.getPackageManager().getLaunchIntentForPackage(packageName), DESKTOP_MODE);
+     }
+ 
++    /**
++     * launch app by CompententName and select starting mode
++     * @param context
++     * @param componentName
++     * @param startMode
++     */
+     public static void launchApp(Context context, ComponentName componentName, int startMode) {
+         StartupMenuDialog.dismissDialog();
+         Intent intent = new Intent();
+@@ -55,10 +82,21 @@ public class LaunchAppUtil {
+         launchApp(context, intent, startMode);
+     }
+ 
++    /**
++     * launch app by intent
++     * @param context
++     * @param intent
++     */
+     public static void launchApp(Context context, Intent intent) {
+         launchApp(context, intent, DESKTOP_MODE);
+     }
+ 
++    /**
++     * launch app by intent and select starting mode
++     * @param context
++     * @param intent
++     * @param startMode
++     */
+     public static void launchApp(Context context, Intent intent, int startMode) {
+         intent.setAction(Intent.ACTION_MAIN);
+         intent.addCategory(Intent.CATEGORY_LAUNCHER);
+@@ -67,6 +105,12 @@ public class LaunchAppUtil {
+         context.startActivity(intent, getBundle(context, startMode));
+     }
+ 
++    /**
++     * get bundle by starting mode
++     * @param context
++     * @param startMode
++     * @return
++     */
+     private static Bundle getBundle(Context context, int startMode) {
+         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+             ActivityOptions options = ActivityOptions.makeBasic();
+@@ -106,6 +150,11 @@ public class LaunchAppUtil {
+         }
+     }
+ 
++    /**
++     * get display metrics
++     * @param context
++     * @return
++     */
+     public static DisplayMetrics getRealDisplayMetrics(Context context) {
+         DisplayMetrics metrics = new DisplayMetrics();
+         WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/ShowType.java b/packages/SystemUI/src/com/android/systemui/startupmenu/ShowType.java
+index 66941cf..ade84f6 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/ShowType.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/ShowType.java
+@@ -1,7 +1,7 @@
+ package com.android.systemui.startupmenu;
+ 
+ /**
+- * Created by ljh on 17-9-14.
++ * StartupMenu's list mode(list or grid)
+  */
+ 
+ public enum ShowType {
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/SortSelectPopupWindow.java b/packages/SystemUI/src/com/android/systemui/startupmenu/SortSelectPopupWindow.java
+index 9a18e14..320e5ff 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/SortSelectPopupWindow.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/SortSelectPopupWindow.java
+@@ -11,7 +11,7 @@ import android.widget.TextView;
+ import com.android.systemui.R;
+ 
+ /**
+- * Created by ljh on 17-9-19.
++ * pop up sort way
+  */
+ 
+ public class SortSelectPopupWindow extends PopupWindow implements View.OnClickListener {
+@@ -92,6 +92,9 @@ public class SortSelectPopupWindow extends PopupWindow implements View.OnClickLi
+         dismiss();
+     }
+ 
++    /**
++     * custom interface to operate when click item
++     */
+     public interface SortSelectListener{
+         void defaultSort(View v);
+         void clickSort(View v);
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java b/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
+index b9814cc..8e65ef9 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
+@@ -39,18 +39,16 @@ public class StartMenuAdapter extends BaseAdapter
+     private Context mContext;
+     private ShowType mType;
+     private View mTempView;
+-    private boolean mIsLongPress;
+-    private boolean mIsLeftKey;
+-    private boolean mIsRightKey;
+-    private boolean isGrid;
+-    private int mDownX;
+-    private int mDownY;
++    private boolean mHaveOperated; //is executed
++    private boolean mIsGrid;
++    private int mDownX;  // down position x
++    private int mDownY;  // down position y
+ 
+     public StartMenuAdapter(Context context, ShowType type, List<AppEntry> datas) {
+         mContext = context;
+         mType = type;
+         mDatas = datas;
+-        isGrid = mType == ShowType.GRID;
++        mIsGrid = mType == ShowType.GRID;
+         mMenuDialog = new MenuDialog(context);
+     }
+ 
+@@ -75,7 +73,7 @@ public class StartMenuAdapter extends BaseAdapter
+         ViewHolder holder;
+         if (convertView == null) {
+             convertView = LayoutInflater.from(mContext).
+-                    inflate(isGrid ? R.layout.row_alt : R.layout.row, parent, false);
++                    inflate(mIsGrid ? R.layout.row_alt : R.layout.row, parent, false);
+             holder = new ViewHolder(convertView);
+             convertView.setTag(holder);
+         } else {
+@@ -97,18 +95,16 @@ public class StartMenuAdapter extends BaseAdapter
+         AppEntry appInfo = (AppEntry) v.getTag();
+         switch (event.getAction()) {
+             case MotionEvent.ACTION_DOWN:
+-                mIsLongPress = false;
+-                mIsLeftKey = false;
+-                mIsRightKey = false;
++                mHaveOperated = false;
+                 mDownX = (int) event.getRawX();
+                 mDownY = (int) event.getRawY();
+                 switch (event.getButtonState()) {
+                     case MotionEvent.BUTTON_PRIMARY:
+-                        mIsLeftKey = true;
++                        mHaveOperated = true;
+                         openApplication(appInfo);
+                         break;
+                     case MotionEvent.BUTTON_SECONDARY:
+-                        mIsRightKey = true;
++                        mHaveOperated = true;
+                         showDialog(mDownX, mDownY, appInfo);
+                         break;
+                     default:
+@@ -116,7 +112,8 @@ public class StartMenuAdapter extends BaseAdapter
+                 }
+                 break;
+             case MotionEvent.ACTION_UP:
+-                if (!(mIsLeftKey || mIsRightKey || mIsLongPress)) {
++                if (!mHaveOperated) {
++                    mHaveOperated = true;
+                     openApplication(appInfo);
+                 }
+                 break;
+@@ -148,15 +145,21 @@ public class StartMenuAdapter extends BaseAdapter
+ 
+     @Override
+     public boolean onLongClick(View v) {
+-        mIsLongPress = true;
+-        showDialog(mDownX, mDownY, (AppEntry) v.getTag());
++        if (!mHaveOperated) {
++            mHaveOperated = true;
++            showDialog(mDownX, mDownY, (AppEntry) v.getTag());
++        }
+         return false;
+     }
+ 
++    /**
++     * open app
++     * @param appInfo
++     */
+     private void openApplication(AppEntry appInfo) {
+         LaunchAppUtil.launchApp(mContext, appInfo.getComponentName());
+         SqliteOperate.updateDataStorage(mContext, appInfo);
+-        if (mMenuDialog.isShowing()){
++        if (mMenuDialog.isShowing()) {
+             mMenuDialog.dismiss();
+         }
+     }
+@@ -176,15 +179,29 @@ public class StartMenuAdapter extends BaseAdapter
+         }
+     }
+ 
++    /**
++     * get unhover resource
++     * @return
++     */
+     private int getExitResource() {
+-        return isGrid ? R.color.grid_unhover_bg : R.color.common_hover_bg;
++        return mIsGrid ? R.color.grid_unhover_bg : R.color.common_hover_bg;
+     }
+ 
++    /**
++     * get hover resource
++     * @return
++     */
+     private int getEnterResource() {
+-        return isGrid ? R.color.grid_hover_bg : R.mipmap.common_bg;
++        return mIsGrid ? R.color.grid_hover_bg : R.mipmap.common_bg;
+     }
+ 
++    /**
++     * show dialog
++     * @param x
++     * @param y
++     * @param appInfo
++     */
+     private void showDialog(int x, int y, AppEntry appInfo) {
+-        mMenuDialog.show(mType == ShowType.GRID ? DialogType.GRID : DialogType.LIST, appInfo, x, y);
++        mMenuDialog.show(mIsGrid ? DialogType.GRID : DialogType.LIST, appInfo, x, y);
+     }
+ }
+-- 
+2.7.4
+

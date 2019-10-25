@@ -1,0 +1,125 @@
+From 734ebb176af16078fa32cfbbe8c586e37978c43d Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Fri, 12 Apr 2019 04:33:20 +0000
+Subject: [PATCH 086/110] oto8: frameworks: base: Fix some bugs about decor
+ caption, window bounds
+
+Decor caption show invisible on the free form workspace
+And window orientation change failed by decor caption button clicked.
+
+Modify the thickness of a window resize handle outside the window
+bounds to capture touch events in that area.
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ .../java/com/android/server/am/ActivityStarter.java |  1 +
+ .../core/java/com/android/server/am/TaskRecord.java | 21 ++++++++++++---------
+ .../java/com/android/server/wm/TaskPositioner.java  |  2 +-
+ .../java/com/android/server/wm/WindowState.java     |  2 +-
+ 4 files changed, 15 insertions(+), 11 deletions(-)
+
+diff --git a/services/core/java/com/android/server/am/ActivityStarter.java b/services/core/java/com/android/server/am/ActivityStarter.java
+index 98a4caa..8c186f7 100644
+--- a/services/core/java/com/android/server/am/ActivityStarter.java
++++ b/services/core/java/com/android/server/am/ActivityStarter.java
+@@ -1808,6 +1808,7 @@ class ActivityStarter {
+                 Rect bounds = new Rect();
+                 mTargetStack.getDisplay().mDisplay.getDefaultFreeformSize(
+                         bounds, mOptions.getFreeformBoundsMode());
++                task.setTaskBoundsMode(bounds, mOptions.getFreeformBoundsMode());
+                 task.resize(bounds, ActivityManager.RESIZE_MODE_FORCED, true, true);
+             }
+             if (!mStartActivity.fullscreen) {
+diff --git a/services/core/java/com/android/server/am/TaskRecord.java b/services/core/java/com/android/server/am/TaskRecord.java
+index 9bc88f3..c07478d 100644
+--- a/services/core/java/com/android/server/am/TaskRecord.java
++++ b/services/core/java/com/android/server/am/TaskRecord.java
+@@ -2236,7 +2236,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+             mService.mStackSupervisor.scheduleUpdateMultiWindowMode(this);
+         }
+ 
+-        if(mWindowContainerController != null && mTaskBoundsMode != Display.STANDARD_MODE) {
++        if(mWindowContainerController != null) {
+             mWindowContainerController.setTaskBoundsMode(mTmpNonMaximizeBounds, mTaskBoundsMode);
+         }
+ 
+@@ -2367,7 +2367,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     }
+ 
+     void toggleTaskMaximize() {
+-        if (Objects.equals(mMaximizeBounds, mBounds)) {
++        if (mTaskBoundsMode == Display.TOP_DOCKED_MODE) {
+             mTmpNonMaximizeBounds.set(mTmpNonMaximizeBounds.isEmpty()
+                     ? mDefaultPcBounds : mTmpNonMaximizeBounds);
+             mTaskBoundsMode = Display.STANDARD_MODE;
+@@ -2397,6 +2397,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+ 
+     void changeTaskOrientation() {
+         if (mBounds != null) {
++            mTaskBoundsMode = Display.STANDARD_MODE;
+             if (mBounds.width() > mBounds.height()) {
+                 mTmpLastPcRect.set(mBounds);
+                 prepareLastPhoneRect(mBounds);
+@@ -2410,24 +2411,26 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     }
+ 
+     void prepareLastPhoneRect(Rect bounds) {
++        Rect phoneRect = new Rect(bounds);
+         int defPhoneHeight = mMaximizeBounds.height() / 3 * 2;
+         int defPhoneWidth = defPhoneHeight / 16 * 9;
+-        bounds.left = bounds.left <= 0 ? 0 : bounds.left;
+-        bounds.right = bounds.left + (mTmpLastPhoneRect.width() == 0
++        phoneRect.left = phoneRect.left <= 0 ? 0 : phoneRect.left;
++        phoneRect.right = phoneRect.left + (mTmpLastPhoneRect.width() == 0
+                 ? defPhoneWidth : mTmpLastPhoneRect.width());
+-        bounds.bottom = bounds.top + (mTmpLastPhoneRect.width() == 0
++        phoneRect.bottom = phoneRect.top + (mTmpLastPhoneRect.width() == 0
+                 ? defPhoneHeight : mTmpLastPhoneRect.height());
+-        mTmpLastPhoneRect.set(bounds);
++        mTmpLastPhoneRect.set(phoneRect);
+     }
+ 
+     void prepareLastPcRect(Rect bounds) {
++        Rect pcRect = new Rect(bounds);
+         int defPcWidth = mMaximizeBounds.width() / 2;
+         int defPcHeight = defPcWidth / 16 * 9;
+-        bounds.right = bounds.left + (mTmpLastPcRect.width() == 0
++        pcRect.right = pcRect.left + (mTmpLastPcRect.width() == 0
+                 ? defPcWidth : mTmpLastPcRect.width());
+-        bounds.bottom = bounds.top + (mTmpLastPcRect.width() == 0
++        pcRect.bottom = pcRect.top + (mTmpLastPcRect.width() == 0
+                 ? defPcHeight : mTmpLastPcRect.height());
+-        mTmpLastPcRect.set(bounds);
++        mTmpLastPcRect.set(pcRect);
+     }
+ 
+     void addStartingWindowsForVisibleActivities(boolean taskSwitch) {
+diff --git a/services/core/java/com/android/server/wm/TaskPositioner.java b/services/core/java/com/android/server/wm/TaskPositioner.java
+index d29ef99..f8ccd8f 100644
+--- a/services/core/java/com/android/server/wm/TaskPositioner.java
++++ b/services/core/java/com/android/server/wm/TaskPositioner.java
+@@ -182,7 +182,7 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+                             if (!mResizing) {
+                                 try {
+                                     mService.mActivityManager.setTaskBoundsMode(
+-                                            mTask.mTaskId, mWindowDragBounds, mCurrentDimSide);
++                                            mTask.mTaskId, mWindowDragBounds, CTRL_NONE);
+                                     mService.mActivityManager.resizeTask(
+                                             mTask.mTaskId, mWindowDragBounds, RESIZE_MODE_USER);
+                                 } catch (RemoteException e) {
+diff --git a/services/core/java/com/android/server/wm/WindowState.java b/services/core/java/com/android/server/wm/WindowState.java
+index 77a8fec..52da72b 100644
+--- a/services/core/java/com/android/server/wm/WindowState.java
++++ b/services/core/java/com/android/server/wm/WindowState.java
+@@ -162,7 +162,7 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
+ 
+     // The thickness of a window resize handle outside the window bounds on the free form workspace
+     // to capture touch events in that area.
+-    static final int RESIZE_HANDLE_WIDTH_IN_DP = 30;
++    static final int RESIZE_HANDLE_WIDTH_IN_DP = 10;
+ 
+     private static final boolean DEBUG_DISABLE_SAVING_SURFACES = false ||
+             ENABLE_TASK_SNAPSHOTS;
+-- 
+2.7.4
+

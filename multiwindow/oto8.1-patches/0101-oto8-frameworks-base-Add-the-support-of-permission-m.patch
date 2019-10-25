@@ -1,0 +1,202 @@
+From b96f11d31b90bd2b11a22d5b2bd20eb4f445af70 Mon Sep 17 00:00:00 2001
+From: Midysen <miaodexing@openthos.org>
+Date: Thu, 29 Aug 2019 07:52:11 +0000
+Subject: [PATCH 101/110] oto8: frameworks: base Add the support of permission
+ management for permission dialog window
+
+Signed-off-by: Miao Dexing <miaodexing@openthos.org>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ .../android/app/ApplicationPackageManager.java     | 10 ++++
+ core/java/android/content/pm/IPackageManager.aidl  |  2 +
+ core/java/android/content/pm/PackageManager.java   |  5 ++
+ .../android/server/pm/PackageManagerService.java   | 60 +++++++++++-----------
+ .../src/android/test/mock/MockPackageManager.java  |  7 +++
+ 5 files changed, 55 insertions(+), 29 deletions(-)
+
+diff --git a/core/java/android/app/ApplicationPackageManager.java b/core/java/android/app/ApplicationPackageManager.java
+index 8c416c4..4ae45e4 100644
+--- a/core/java/android/app/ApplicationPackageManager.java
++++ b/core/java/android/app/ApplicationPackageManager.java
+@@ -640,6 +640,16 @@ public class ApplicationPackageManager extends PackageManager {
+     }
+ 
+     @Override
++    public void grantRuntimeVirPermission(String packageName, String permissionName,
++            UserHandle user) {
++        try {
++            mPM.grantRuntimeVirPermission(packageName, permissionName, user.getIdentifier());
++        } catch (RemoteException e) {
++            throw e.rethrowFromSystemServer();
++        }
++    }
++
++    @Override
+     public void revokeRuntimePermission(String packageName, String permissionName,
+             UserHandle user) {
+         try {
+diff --git a/core/java/android/content/pm/IPackageManager.aidl b/core/java/android/content/pm/IPackageManager.aidl
+index 00f9ab3..1c4b3c6 100644
+--- a/core/java/android/content/pm/IPackageManager.aidl
++++ b/core/java/android/content/pm/IPackageManager.aidl
+@@ -105,6 +105,8 @@ interface IPackageManager {
+ 
+     void grantRuntimePermission(String packageName, String permissionName, int userId);
+ 
++    void grantRuntimeVirPermission(String packageName, String permissionName, int userId);
++
+     void revokeRuntimePermission(String packageName, String permissionName, int userId);
+ 
+     void resetRuntimePermissions();
+diff --git a/core/java/android/content/pm/PackageManager.java b/core/java/android/content/pm/PackageManager.java
+index 4288268..90862de 100644
+--- a/core/java/android/content/pm/PackageManager.java
++++ b/core/java/android/content/pm/PackageManager.java
+@@ -3456,6 +3456,11 @@ public abstract class PackageManager {
+     public abstract void grantRuntimePermission(@NonNull String packageName,
+             @NonNull String permissionName, @NonNull UserHandle user);
+ 
++    @SystemApi
++    @RequiresPermission(android.Manifest.permission.GRANT_RUNTIME_PERMISSIONS)
++    public abstract void grantRuntimeVirPermission(@NonNull String packageName,
++            @NonNull String permissionName, @NonNull UserHandle user);
++
+     /**
+      * Revoke a runtime permission that was previously granted by {@link
+      * #grantRuntimePermission(String, String, android.os.UserHandle)}. The
+diff --git a/services/core/java/com/android/server/pm/PackageManagerService.java b/services/core/java/com/android/server/pm/PackageManagerService.java
+index 3cde257..662fe0e 100644
+--- a/services/core/java/com/android/server/pm/PackageManagerService.java
++++ b/services/core/java/com/android/server/pm/PackageManagerService.java
+@@ -433,7 +433,7 @@ public class PackageManagerService extends IPackageManager.Stub
+ 
+     private static final int MESSAGE_TYPE_AUDIO = 0;
+     private static final int MESSAGE_TYPE_CAMERA = 1;
+-    private static final int MESSAGE_TYPE_LOCATION =2;
++    private static final int MESSAGE_TYPE_LOCATION = 2;
+ 
+     // Suffix used during package installation when copying/moving
+     // package apks to install directory.
+@@ -5702,7 +5702,8 @@ public class PackageManagerService extends IPackageManager.Stub
+ 
+     @Override
+     public void grantRuntimePermission(String packageName, String name, final int userId) {
+-        grantRuntimePermission(packageName, name, userId, false /* Only if not fixed by policy */);
++        grantRuntimePermission(packageName, name, userId,
++                false /* Only if not fixed by policy */, false);
+     }
+ 
+     @Override
+@@ -5723,7 +5724,7 @@ public class PackageManagerService extends IPackageManager.Stub
+     }
+ 
+     private void grantRuntimePermission(String packageName, String name, final int userId,
+-            boolean overridePolicy) {
++            boolean overridePolicy, boolean isVirPermission) {
+         if (!sUserManager.exists(userId)) {
+             Log.e(TAG, "No such user:" + userId);
+             return;
+@@ -5755,17 +5756,28 @@ public class PackageManagerService extends IPackageManager.Stub
+                     || filterAppAccessLPr(ps, callingUid, userId)) {
+                 throw new IllegalArgumentException("Unknown package: " + packageName);
+             }
++
++            int permIndex = -1, msgType = -1;
++            String permType;
+             if (name.contains(Manifest.permission.CAMERA)) {
+-                handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(0).get("permission"),
+-                        PERMISSION_LIST.get(0).get("phy"), MESSAGE_TYPE_CAMERA);
+-            }
+-            if (name.contains(Manifest.permission.RECORD_AUDIO)) {
+-                handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(1).get("permission"),
+-                        PERMISSION_LIST.get(1).get("phy"), MESSAGE_TYPE_AUDIO);
++                permIndex = 0;
++                msgType = MESSAGE_TYPE_CAMERA;
++            } else if (name.contains(Manifest.permission.RECORD_AUDIO)) {
++                permIndex = 1;
++                msgType = MESSAGE_TYPE_AUDIO;
++            } else if (name.contains(Manifest.permission.ACCESS_FINE_LOCATION)) {
++                permIndex = 2;
++                msgType = MESSAGE_TYPE_LOCATION;
++            }
++            if (isVirPermission) {
++                permType = "vir";
++            } else {
++                permType = "phy";
+             }
+-            if (name.contains(Manifest.permission.ACCESS_FINE_LOCATION)) {
+-                handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(2).get("permission"),
+-                        PERMISSION_LIST.get(2).get("phy"), MESSAGE_TYPE_LOCATION);
++            if (permIndex != -1) {
++                handlerPermissionOfPhyOrVir(packageName
++                        + PERMISSION_LIST.get(permIndex).get("permission"),
++                        PERMISSION_LIST.get(permIndex).get(permType), msgType);
+             }
+ 
+             enforceDeclaredAsUsedAndRuntimeOrDevelopmentPermission(pkg, bp);
+@@ -5861,6 +5873,12 @@ public class PackageManagerService extends IPackageManager.Stub
+     }
+ 
+     @Override
++    public void grantRuntimeVirPermission(String packageName, String name, int userId) {
++        grantRuntimePermission(packageName, name, userId,
++                false /* Only if not fixed by policy */, true);
++    }
++
++    @Override
+     public void revokeRuntimePermission(String packageName, String name, int userId) {
+         revokeRuntimePermission(packageName, name, userId, false /* Only if not fixed by policy */);
+     }
+@@ -5897,22 +5915,6 @@ public class PackageManagerService extends IPackageManager.Stub
+                 throw new IllegalArgumentException("Unknown permission: " + name);
+             }
+ 
+-            if (name.contains(Manifest.permission.CAMERA)) {
+-                handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(0).get("permission"),
+-                        PERMISSION_LIST.get(0).get("vir"), MESSAGE_TYPE_CAMERA);
+-                return;
+-            }
+-            if (name.contains(Manifest.permission.RECORD_AUDIO)) {
+-                handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(1).get("permission"),
+-                        PERMISSION_LIST.get(1).get("vir"), MESSAGE_TYPE_AUDIO);
+-                return;
+-            }
+-            if (name.contains(Manifest.permission.ACCESS_FINE_LOCATION)) {
+-                handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(2).get("permission"),
+-                        PERMISSION_LIST.get(2).get("vir"), MESSAGE_TYPE_LOCATION);
+-                return;
+-            }
+-
+             enforceDeclaredAsUsedAndRuntimeOrDevelopmentPermission(pkg, bp);
+ 
+             // If a permission review is required for legacy apps we represent
+@@ -25653,7 +25655,7 @@ Slog.v(TAG, ":: stepped forward, applying functor at tag " + parser.getName());
+         public void grantRuntimePermission(String packageName, String name, int userId,
+                 boolean overridePolicy) {
+             PackageManagerService.this.grantRuntimePermission(packageName, name, userId,
+-                    overridePolicy);
++                    overridePolicy, false);
+         }
+ 
+         @Override
+diff --git a/test-runner/src/android/test/mock/MockPackageManager.java b/test-runner/src/android/test/mock/MockPackageManager.java
+index 7e08f51..83874f7 100644
+--- a/test-runner/src/android/test/mock/MockPackageManager.java
++++ b/test-runner/src/android/test/mock/MockPackageManager.java
+@@ -265,6 +265,13 @@ public class MockPackageManager extends PackageManager {
+ 
+     /** @hide */
+     @Override
++    public void grantRuntimeVirPermission(String packageName, String permissionName,
++            UserHandle user) {
++        throw new UnsupportedOperationException();
++    }
++
++    /** @hide */
++    @Override
+     public void revokeRuntimePermission(String packageName, String permissionName,
+             UserHandle user) {
+         throw new UnsupportedOperationException();
+-- 
+2.7.4
+

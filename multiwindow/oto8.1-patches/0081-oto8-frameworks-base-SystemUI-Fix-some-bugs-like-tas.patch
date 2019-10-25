@@ -1,0 +1,160 @@
+From bc4471540a45ffe2e483eaa3fe8110d7ec47a6c9 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Fri, 22 Mar 2019 02:23:01 +0000
+Subject: [PATCH 081/110] oto8: frameworks: base: SystemUI: Fix some bugs like
+ taskbar icon may show with highlight or
+
+could not added before open start up menu first time.
+
+Change taskbar icon container to scrollView to keep its size when contain too many icons.
+
+Also create a new Thread to serialize the docked appinfo.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ .../SystemUI/res/layout/openthos_status_bar.xml    | 24 ++++++++++++++--------
+ .../systemui/startupmenu/SqliteOpenHelper.java     |  6 +++++-
+ .../statusbar/phone/OpenthosStatusBarView.java     |  2 ++
+ .../systemui/statusbar/phone/StatusBar.java        | 23 +++++++++++++--------
+ .../systemui/statusbar/view/TaskBarIcon.java       |  5 ++++-
+ 5 files changed, 42 insertions(+), 18 deletions(-)
+
+diff --git a/packages/SystemUI/res/layout/openthos_status_bar.xml b/packages/SystemUI/res/layout/openthos_status_bar.xml
+index 7f38ce9..e571441 100644
+--- a/packages/SystemUI/res/layout/openthos_status_bar.xml
++++ b/packages/SystemUI/res/layout/openthos_status_bar.xml
+@@ -30,20 +30,28 @@
+             android:layout_marginTop="@dimen/padding_ten"
+             android:background="@color/white" />
+ 
+-        <LinearLayout
+-            android:id="@+id/ll_scroll_icon_contents"
+-            android:layout_width="wrap_content"
++        <HorizontalScrollView
++            android:id="@+id/ll_scroll_icon_container"
++            android:layout_width="1dp"
+             android:layout_height="match_parent"
+-            android:orientation="horizontal">
++            android:scrollbars="horizontal"
++            android:layout_weight="1">
+ 
+-        </LinearLayout>
++            <LinearLayout
++                android:id="@+id/ll_scroll_icon_contents"
++                android:layout_width="wrap_content"
++                android:layout_height="match_parent"
++                android:orientation="horizontal">
++
++            </LinearLayout>
++
++        </HorizontalScrollView>
+ 
+         <View
+             android:id="@+id/empty_statusbar"
+-            android:layout_width="0dp"
++            android:layout_width="1dp"
+             android:layout_height="match_parent"
+-            android:layout_marginRight="@dimen/padding_five"
+-            android:layout_weight="1" />
++            android:layout_marginRight="@dimen/padding_five" />
+ 
+         <!-- input/battery/wifi/volume/notification/date/home -->
+         <LinearLayout
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/SqliteOpenHelper.java b/packages/SystemUI/src/com/android/systemui/startupmenu/SqliteOpenHelper.java
+index 76e80c6..795b3d1 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/SqliteOpenHelper.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/SqliteOpenHelper.java
+@@ -20,6 +20,9 @@ import java.util.Map;
+ import java.util.concurrent.ExecutorService;
+ import java.util.concurrent.Executors;
+ 
++import static android.content.pm.PackageManager.MATCH_DIRECT_BOOT_AWARE;
++import static android.content.pm.PackageManager.MATCH_DIRECT_BOOT_UNAWARE;
++
+ public class SqliteOpenHelper extends SQLiteOpenHelper {
+     private static final int SQL_VERSION_CODE = 1;
+     private static final String SQL_NAME = "startupMenu_database.db";
+@@ -195,7 +198,8 @@ public class SqliteOpenHelper extends SQLiteOpenHelper {
+                 PackageManager pm = mContext.getPackageManager();
+                 Intent mainIntent = new Intent(Intent.ACTION_MAIN, null);
+                 mainIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+-                List<ResolveInfo> resolveInfos = pm.queryIntentActivities(mainIntent, 0);
++                int queryFlags = MATCH_DIRECT_BOOT_AWARE | MATCH_DIRECT_BOOT_UNAWARE;
++                List<ResolveInfo> resolveInfos = pm.queryIntentActivities(mainIntent, queryFlags);
+                 for (ResolveInfo reInfo : resolveInfos) {
+                     String packageName = reInfo.activityInfo.packageName;
+                     appInfo = new AppInfo();
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+index 1ad7c7f..f9e737f 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+@@ -96,6 +96,8 @@ public class OpenthosStatusBarView extends PanelBar {
+         mHomeView = (ImageView) findViewById(R.id.iv_home_status_bar);
+         mEmptyStatusBar = (View) findViewById(R.id.empty_statusbar);
+         mLlScrollContents = (LinearLayout) findViewById(R.id.ll_scroll_icon_contents);
++        findViewById(R.id.ll_scroll_icon_container).setFocusable(false);
++        findViewById(R.id.ll_scroll_icon_container).setDefaultFocusHighlightEnabled(false);
+     }
+ 
+     private void initData() {
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index ff4c6fa..f4fedb1 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -3553,14 +3553,21 @@ public class StatusBar extends SystemUI implements DemoMode,
+     }
+ 
+     private void updateLockedList() {
+-        LinkedList<AppInfo> dockedList = new LinkedList<>();
+-        for (int i = 0; i < mActivityLayout.getChildCount(); i++) {
+-            TaskBarIcon button = (TaskBarIcon) mActivityLayout.getChildAt(i);
+-            AppInfo info = button.getAppInfo();
+-            if (info.isLocked())
+-                dockedList.add(info);
+-        }
+-        saveObject(serialize(dockedList));
++        new Thread () {
++            @Override
++            public void run() {
++                synchronized (mActivityLayout) {
++                    LinkedList<AppInfo> dockedList = new LinkedList<>();
++                    for (int i = 0; i < mActivityLayout.getChildCount(); i++) {
++                        TaskBarIcon button = (TaskBarIcon) mActivityLayout.getChildAt(i);
++                        AppInfo info = button.getAppInfo();
++                        if (info.isLocked())
++                            dockedList.add(info);
++                    }
++                    saveObject(serialize(dockedList));
++                }
++            }
++        }.start();
+     }
+ 
+     public void addToTaskbar(int taskId, AppInfo appInfo) {
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java b/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java
+index 253fb3d0..df3c893 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java
+@@ -70,6 +70,8 @@ public class TaskBarIcon extends FrameLayout implements View.OnTouchListener, Se
+         mIconView = (ImageView) findViewById(R.id.icon_view);
+         mFocuseView = findViewById(R.id.focuse_view);
+         mRunView = findViewById(R.id.run_view);
++        setFocusable(false);
++        setDefaultFocusHighlightEnabled(false);
+     }
+ 
+     private void initData() {
+@@ -107,7 +109,8 @@ public class TaskBarIcon extends FrameLayout implements View.OnTouchListener, Se
+ 
+     @Override
+     public void onClick(View v) {
+-        startRun();
++        if (!mMenuDialog.isShowing())
++            startRun();
+     }
+ 
+     @Override
+-- 
+2.7.4
+

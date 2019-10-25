@@ -1,0 +1,54 @@
+From e40744e3bef4ded12573c02c2f29dddea025f595 Mon Sep 17 00:00:00 2001
+From: luojunhuan <forward_m@126.com>
+Date: Mon, 30 Oct 2017 06:53:18 +0000
+Subject: [PATCH 036/110] Oreo: frameworks: base: SystemUI: Fix a bug that it
+ will add more duplicate icons
+
+Signed-off-by: luojunhuan <forward_m@126.com>
+---
+ .../com/android/systemui/statusbar/phone/StatusBar.java   | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 55f41bf..1c5b380 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -271,6 +271,7 @@ import java.util.Locale;
+ import java.util.Map;
+ import java.util.Set;
+ import java.util.Stack;
++
+ import android.view.Gravity;
+ 
+ public class StatusBar extends SystemUI implements DemoMode,
+@@ -1099,7 +1100,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+             if (DEBUG) Log.v(TAG, "hasNavigationBar=" + showNav);
+             if (showNav) {
+                 //createNavigationBar();
+-	        addOpenthosStatusBarLayout();
++                addOpenthosStatusBarLayout();
+             }
+         } catch (RemoteException ex) {
+             // no window manager? good luck with that
+@@ -3495,8 +3496,16 @@ public class StatusBar extends SystemUI implements DemoMode,
+         }
+         TaskbarIcon taskbarIcon = mShowIcons.get(cmp);
+         if (taskbarIcon == null) {
+-            taskbarIcon = new TaskbarIcon(cmp, createIconLayout(cmp));
+-            mShowIcons.put(cmp, taskbarIcon);
++            for (ComponentName componentName : mShowIcons.keySet()) {
++                if (mShowIcons.get(componentName).getTaskId() == taskId) {
++                    taskbarIcon = mShowIcons.get(componentName);
++                    break;
++                }
++            }
++            if (taskbarIcon == null) {
++                taskbarIcon = new TaskbarIcon(cmp, createIconLayout(cmp));
++                mShowIcons.put(cmp, taskbarIcon);
++            }
+         }
+         taskbarIcon.setFocus(true);
+         taskbarIcon.setRun(true);
+-- 
+2.7.4
+

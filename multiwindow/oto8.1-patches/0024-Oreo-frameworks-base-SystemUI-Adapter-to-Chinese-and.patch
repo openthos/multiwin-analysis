@@ -1,0 +1,245 @@
+From 1d8bb4fd72e34c85b46c99204cc3c3fb09498451 Mon Sep 17 00:00:00 2001
+From: luojunhuan <forward_m@126.com>
+Date: Fri, 20 Oct 2017 07:53:07 +0000
+Subject: [PATCH 024/110] Oreo: frameworks: base: SystemUI: Adapter to Chinese
+ and fix a bug that it will show blank menu when you click startupmenu firstly
+
+Signed-off-by: luojunhuan <forward_m@126.com>
+---
+ packages/SystemUI/res/values-zh-rCN/strings.xml    | 132 ++++++++++++++++-----
+ packages/SystemUI/res/values/strings.xml           |   2 +-
+ .../com/android/systemui/dialog/MenuDialog.java    |   1 +
+ 3 files changed, 103 insertions(+), 32 deletions(-)
+
+diff --git a/packages/SystemUI/res/values-zh-rCN/strings.xml b/packages/SystemUI/res/values-zh-rCN/strings.xml
+index 38c501b..1a84933 100644
+--- a/packages/SystemUI/res/values-zh-rCN/strings.xml
++++ b/packages/SystemUI/res/values-zh-rCN/strings.xml
+@@ -18,7 +18,7 @@
+  -->
+ 
+ <resources xmlns:android="http://schemas.android.com/apk/res/android"
+-    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
++           xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+     <string name="app_label" msgid="7164937344850004466">"系统界面"</string>
+     <string name="status_bar_clear_all_button" msgid="7774721344716731603">"清除"</string>
+     <string name="status_bar_recent_remove_item_title" msgid="6026395868129852968">"从列表中删除"</string>
+@@ -26,8 +26,8 @@
+     <string name="status_bar_no_recent_apps" msgid="7374907845131203189">"您最近浏览过的屏幕会显示在此处"</string>
+     <string name="status_bar_accessibility_dismiss_recents" msgid="4576076075226540105">"关闭最近运行的应用"</string>
+     <plurals name="status_bar_accessibility_recent_apps" formatted="false" msgid="9138535907802238759">
+-      <item quantity="other">概览中有 %d 个屏幕</item>
+-      <item quantity="one">概览中有 1 个屏幕</item>
++        <item quantity="other">概览中有 %d 个屏幕</item>
++        <item quantity="one">概览中有 1 个屏幕</item>
+     </plurals>
+     <string name="status_bar_no_notifications_title" msgid="4755261167193833213">"无通知"</string>
+     <string name="status_bar_ongoing_events_title" msgid="1682504513316879202">"正在进行的"</string>
+@@ -173,7 +173,7 @@
+     <string name="accessibility_ringer_vibrate" msgid="666585363364155055">"振铃器振动。"</string>
+     <string name="accessibility_ringer_silent" msgid="9061243307939135383">"振铃器静音。"</string>
+     <!-- no translation found for accessibility_casting (6887382141726543668) -->
+-    <skip />
++    <skip/>
+     <string name="accessibility_work_mode" msgid="2478631941714607225">"工作模式"</string>
+     <string name="accessibility_recents_item_will_be_dismissed" msgid="395770242498031481">"移除<xliff:g id="APP">%s</xliff:g>。"</string>
+     <string name="accessibility_recents_item_dismissed" msgid="6803574935084867070">"已删除<xliff:g id="APP">%s</xliff:g>"</string>
+@@ -252,8 +252,8 @@
+     <string name="accessibility_clear_all" msgid="5235938559247164925">"清除所有通知。"</string>
+     <string name="notification_group_overflow_indicator" msgid="1863231301642314183">"+ <xliff:g id="NUMBER">%s</xliff:g>"</string>
+     <plurals name="notification_group_overflow_description" formatted="false" msgid="4579313201268495404">
+-      <item quantity="other">此群组内还有 <xliff:g id="NUMBER_1">%s</xliff:g> 条通知。</item>
+-      <item quantity="one">此群组内还有 <xliff:g id="NUMBER_0">%s</xliff:g> 条通知。</item>
++        <item quantity="other">此群组内还有 <xliff:g id="NUMBER_1">%s</xliff:g> 条通知。</item>
++        <item quantity="one">此群组内还有 <xliff:g id="NUMBER_0">%s</xliff:g> 条通知。</item>
+     </plurals>
+     <string name="status_bar_notification_inspect_item_title" msgid="5668348142410115323">"通知设置"</string>
+     <string name="status_bar_notification_app_settings_title" msgid="5525260160341558869">"<xliff:g id="APP_NAME">%s</xliff:g>设置"</string>
+@@ -343,8 +343,8 @@
+     <string name="recents_accessibility_split_screen_top" msgid="9056056469282256287">"将屏幕分隔线移到上方"</string>
+     <string name="recents_accessibility_split_screen_left" msgid="8987144699630620019">"将屏幕分隔线移到左侧"</string>
+     <string name="recents_accessibility_split_screen_right" msgid="275069779299592867">"将屏幕分隔线移到右侧"</string>
+-  <string-array name="recents_blacklist_array">
+-  </string-array>
++    <string-array name="recents_blacklist_array">
++    </string-array>
+     <string name="expanded_header_battery_charged" msgid="5945855970267657951">"已充满"</string>
+     <string name="expanded_header_battery_charging" msgid="205623198487189724">"正在充电"</string>
+     <string name="expanded_header_battery_charging_with_time" msgid="457559884275395376">"还需<xliff:g id="CHARGING_TIME">%s</xliff:g>充满"</string>
+@@ -513,7 +513,7 @@
+     <string name="demo_mode" msgid="2532177350215638026">"系统界面演示模式"</string>
+     <string name="enable_demo_mode" msgid="4844205668718636518">"启用演示模式"</string>
+     <string name="show_demo_mode" msgid="2018336697782464029">"显示演示模式"</string>
+-    <string name="status_bar_ethernet" msgid="5044290963549500128">"以太网"</string>
++    <!--<string name="status_bar_ethernet" msgid="5044290963549500128">"以太网"</string>-->
+     <string name="status_bar_alarm" msgid="8536256753575881818">"闹钟"</string>
+     <string name="status_bar_work" msgid="6022553324802866373">"工作资料"</string>
+     <string name="status_bar_airplane" msgid="7057575501472249002">"飞行模式"</string>
+@@ -649,18 +649,18 @@
+     <string name="left_nav_bar_button_type" msgid="8555981238887546528">"其他向左按钮类型"</string>
+     <string name="right_nav_bar_button_type" msgid="2481056627065649656">"其他向右按钮类型"</string>
+     <string name="nav_bar_default" msgid="8587114043070993007">"（默认）"</string>
+-  <string-array name="nav_bar_buttons">
+-    <item msgid="1545641631806817203">"剪贴板"</item>
+-    <item msgid="5742013440802239414">"键码"</item>
+-    <item msgid="8802889973626281575">"键盘切换器"</item>
+-    <item msgid="8175437057325747277">"无"</item>
+-  </string-array>
+-  <string-array name="nav_bar_layouts">
+-    <item msgid="8077901629964902399">"一般"</item>
+-    <item msgid="8256205964297588988">"紧凑"</item>
+-    <item msgid="8719936228094005878">"靠左"</item>
+-    <item msgid="586019486955594690">"靠右"</item>
+-  </string-array>
++    <string-array name="nav_bar_buttons">
++        <item msgid="1545641631806817203">"剪贴板"</item>
++        <item msgid="5742013440802239414">"键码"</item>
++        <item msgid="8802889973626281575">"键盘切换器"</item>
++        <item msgid="8175437057325747277">"无"</item>
++    </string-array>
++    <string-array name="nav_bar_layouts">
++        <item msgid="8077901629964902399">"一般"</item>
++        <item msgid="8256205964297588988">"紧凑"</item>
++        <item msgid="8719936228094005878">"靠左"</item>
++        <item msgid="586019486955594690">"靠右"</item>
++    </string-array>
+     <string name="menu_ime" msgid="4998010205321292416">"键盘切换器"</string>
+     <string name="save" msgid="2311877285724540644">"保存"</string>
+     <string name="reset" msgid="2448168080964209908">"重置"</string>
+@@ -675,16 +675,16 @@
+     <string name="drag_to_remove_tiles" msgid="3361212377437088062">"拖动到此处即可移除"</string>
+     <string name="qs_edit" msgid="2232596095725105230">"修改"</string>
+     <string name="tuner_time" msgid="6572217313285536011">"时间"</string>
+-  <string-array name="clock_options">
+-    <item msgid="5965318737560463480">"显示小时、分钟和秒"</item>
+-    <item msgid="1427801730816895300">"显示小时和分钟（默认）"</item>
+-    <item msgid="3830170141562534721">"不显示此图标"</item>
+-  </string-array>
+-  <string-array name="battery_options">
+-    <item msgid="3160236755818672034">"一律显示百分比"</item>
+-    <item msgid="2139628951880142927">"充电时显示百分比（默认）"</item>
+-    <item msgid="3327323682209964956">"不显示此图标"</item>
+-  </string-array>
++    <string-array name="clock_options">
++        <item msgid="5965318737560463480">"显示小时、分钟和秒"</item>
++        <item msgid="1427801730816895300">"显示小时和分钟（默认）"</item>
++        <item msgid="3830170141562534721">"不显示此图标"</item>
++    </string-array>
++    <string-array name="battery_options">
++        <item msgid="3160236755818672034">"一律显示百分比"</item>
++        <item msgid="2139628951880142927">"充电时显示百分比（默认）"</item>
++        <item msgid="3327323682209964956">"不显示此图标"</item>
++    </string-array>
+     <string name="other" msgid="4060683095962566764">"其他"</string>
+     <string name="accessibility_divider" msgid="5903423481953635044">"分屏分隔线"</string>
+     <string name="accessibility_action_divider_left_full" msgid="2801570521881574972">"左侧全屏"</string>
+@@ -776,4 +776,74 @@
+     <string name="running_foreground_services_msg" msgid="6326247670075574355">"点按即可详细了解电量和流量消耗情况"</string>
+     <string name="data_usage_disable_mobile" msgid="5116269981510015864">"要关闭移动数据网络吗？"</string>
+     <string name="touch_filtered_warning" msgid="8671693809204767551">"由于某个应用遮挡了权限请求界面，因此“设置”应用无法验证您的回应。"</string>
++
++    <!--startupmenu-->
++    <string name="common_application">常用软件</string>
++    <string name="system_setting">设置</string>
++    <string name="power_source">电源</string>
++    <string name="file_manager">文件管理器</string>
++    <string name="software_search">软件搜索</string>
++    <string name="click_sort">使用频率</string>
++    <string name="name_sort">A - Z</string>
++    <string name="time_sort">安装时间</string>
++    <string name="default_sort">默认</string>
++    <string name="open">打开</string>
++    <string name="phone_mode">手机模式</string>
++    <string name="desktop_mode">桌面模式</string>
++    <string name="lock_app">固定到任务栏</string>
++    <string name="unlock_app">接触固定</string>
++    <string name="uninstall">卸载</string>
++    <string name="remove_out">移除</string>
++
++    <!--calendar-->
++    <string name="year">年</string>
++    <string name="month">月</string>
++    <string name="day">日</string>
++    <string name="text_month">月</string>
++    <string name="morning">上午</string>
++    <string name="afternoon">下午</string>
++    <string name="status_bar_info_hide">隐藏任务栏</string>
++    <string name="status_bar_info_show">显示任务栏</string>
++    <string name="monday">一</string>
++    <string name="tuesday">二</string>
++    <string name="wednesday">三</string>
++    <string name="thursday">四</string>
++    <string name="friday">五</string>
++    <string name="saturday">六</string>
++    <string name="sunday">日</string>
++    <string name="set_date_and_time">"设置日期与时间"</string>
++
++    <!--wifi-->
++    <string name="wifi_cnt">网络可用</string>
++    <string name="wifi_not_cnt">网络无法连接</string>
++    <string name="wifi_cancel">取消</string>
++    <string name="wifi_ok">连接成功</string>
++    <string name="wifi_try_cnt">尝试连接</string>
++    <string name="wifi_discnt">断开连接</string>
++    <string name="wifi_cnting">连接中...</string>
++    <string name="wifi_enable">无线网已开启</string>
++    <string name="wifi_unable">无线网已关闭</string>
++    <string name="status_bar_ethernet">配置以太网</string>
++
++    <!--battery-->
++    <string name="battery_percent_full">"电池已充满"</string>
++    <string name="battery_remaining">"剩余时间<xliff:g id="HOUR">%1$d</xliff:g>小时<xliff:g id="MINUTE">%2$d</xliff:g>分钟"</string>
++    <string name="charge_remaining">"剩余<xliff:g id="HOUR">%1d</xliff:g>小时<xliff:g id="MINUTE">%2$d</xliff:g>分钟充满"</string>
++    <string name="battery_remaining_string">"剩余时间<xliff:g id="TIME">%1$s</xliff:g>"</string>
++    <string name="charge_remaining_string">"剩余<xliff:g id="TIME">%1$s</xliff:g>充满"</string>
++    <string name="battery_percent">"电池<xliff:g id="TIME">%1$d</xliff:g>"</string>
++    <string name="button_com">仅电脑</string>
++    <string name="battery_saver_settings">设置节能模式</string>
++
++    <!-- notification  -->
++    <string name="notification_info">通知中心</string>
++    <string name="clear_all">清除所有</string>
++    <string name="notification_manager">通知管理</string>
++    <string name="print_manager">打印任务管理器</string>
++    <string name="print_message">打印信息</string>
++    <string name="notification_shot_screen">截屏</string>
++    <string name="notification_settings">设置</string>
++    <string name="notification_isolation">隔离模式</string>
++    <string name="notification_projection">投影</string>
++    <string name="notification_isolation_on">隔离模式</string>
+ </resources>
+diff --git a/packages/SystemUI/res/values/strings.xml b/packages/SystemUI/res/values/strings.xml
+index 5c47f71..771f798 100644
+--- a/packages/SystemUI/res/values/strings.xml
++++ b/packages/SystemUI/res/values/strings.xml
+@@ -2087,7 +2087,6 @@
+     <string name="afternoon">PM</string>
+     <string name="status_bar_info_hide">Auto hide</string>
+     <string name="status_bar_info_show">Always show</string>
+-    <string name="status_bar_ethernet">Configure Ethernet</string>
+     <string name="monday">Mon</string>
+     <string name="tuesday">Tue</string>
+     <string name="wednesday">Wed</string>
+@@ -2108,6 +2107,7 @@
+     <string name="wifi_cnting">Connecting</string>
+     <string name="wifi_enable">WLAN Switched On</string>
+     <string name="wifi_unable">WLAN Switched Off</string>
++    <string name="status_bar_ethernet">Configure Ethernet</string>
+ 
+     <!--battery-->
+     <string name="battery_percent_full">"Full Battery"</string>
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
+index 3be8e80..a0da95d 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
+@@ -62,6 +62,7 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+         setContentView(mContentView);
+         initView();
+         initData();
++        create();
+     }
+ 
+     public void initListener() {
+-- 
+2.7.4
+

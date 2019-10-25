@@ -1,0 +1,1847 @@
+From ccba5cfa399b8de046145e9d1d0d1f2ebda1c9a4 Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Tue, 20 Aug 2019 06:22:48 +0000
+Subject: [PATCH 094/110] oto8: frameworks: base: Initialize commit for
+ compatible mode[2/3].
+
+Design Implement applications compatible running modes.
+
+* provide four running modes for application changing, and
+  application must force stop for changing current mode to other.
+  Modes: STANDARD MODE, FULLSCREEN MODE, PHONE MODE, DESKTOP MODE.
+
+* applications neither resize bounds nor maximize, move only,
+  and do scaling, rendering in PHONE MODE, DESKTOP MODE.
+
+* design CompatContextImpl extends ContextImpl to manage compatible APIs
+  the compatible APIs involve DisplayMetrics, Display, Configuration.
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ core/java/android/app/Activity.java                |  14 +-
+ core/java/android/app/ActivityThread.java          |  70 ++-
+ core/java/android/app/CompatContextImpl.java       | 513 +++++++++++++++++++++
+ core/java/android/app/ContextImpl.java             |  25 +-
+ core/java/android/app/IActivityManager.aidl        |   6 +-
+ core/java/android/app/LoadedApk.java               |  11 +-
+ core/java/android/content/Context.java             |   2 +
+ core/java/android/content/ContextWrapper.java      |   5 +
+ core/java/android/content/res/Resources.java       |   9 +
+ core/java/android/content/res/ResourcesImpl.java   |   5 +
+ .../android/hardware/display/DisplayManager.java   |   6 +-
+ core/java/android/util/DisplayMetrics.java         |  28 +-
+ core/java/android/view/Display.java                |  41 +-
+ core/java/android/view/View.java                   |   6 +-
+ core/java/android/view/Window.java                 |   7 +-
+ .../android/internal/policy/NewPhoneWindow.java    |  31 +-
+ .../android/internal/view/FloatingActionMode.java  |   6 +-
+ .../android/internal/widget/DecorCaptionView.java  |  24 +
+ .../android/server/am/ActivityManagerService.java  | 123 ++++-
+ .../com/android/server/am/ActivityStarter.java     |  15 +-
+ .../android/server/am/LaunchingTaskPositioner.java |   4 +-
+ .../java/com/android/server/am/TaskRecord.java     |  82 +++-
+ services/core/java/com/android/server/wm/Task.java |   5 +
+ .../java/com/android/server/wm/TaskPositioner.java |   2 +-
+ .../core/java/com/android/server/wm/TaskStack.java |   5 +-
+ .../server/wm/TaskWindowContainerController.java   |   8 +
+ test-runner/src/android/test/mock/MockContext.java |   5 +
+ 27 files changed, 976 insertions(+), 82 deletions(-)
+ create mode 100644 core/java/android/app/CompatContextImpl.java
+
+diff --git a/core/java/android/app/Activity.java b/core/java/android/app/Activity.java
+index 4ee77a4..4c0126d 100644
+--- a/core/java/android/app/Activity.java
++++ b/core/java/android/app/Activity.java
+@@ -3265,9 +3265,9 @@ public class Activity extends ContextThemeWrapper
+     }
+ 
+     @Override
+-    public int getWindowSizeMode() {
++    public int getWindowRunMode() {
+         try {
+-            return ActivityManager.getService().getTaskBoundsMode(mToken);
++            return ActivityManager.getService().getTaskRunMode(getTaskId(), getPackageName());
+         } catch (Exception e) {
+             return Display.STANDARD_MODE;
+         }
+@@ -5932,6 +5932,16 @@ public class Activity extends ContextThemeWrapper
+         ActivityManager.getService().moveTaskMaximize(mToken);
+     }
+ 
++    /** Update the task of current Activity run mode */
++    public void setWindowRunMode(int windowRunMode) {
++        try {
++            finish(FINISH_TASK_WITH_ACTIVITY);
++            ActivityManager.getService().setTaskRunMode(getTaskId(), windowRunMode);
++        } catch (RemoteException e) {
++            // Empty
++        }
++    }
++
+     /**
+      * Returns class name for this activity with the package prefix removed.
+      * This is the default name used to read and write settings.
+diff --git a/core/java/android/app/ActivityThread.java b/core/java/android/app/ActivityThread.java
+index 3511549..63bc01b 100644
+--- a/core/java/android/app/ActivityThread.java
++++ b/core/java/android/app/ActivityThread.java
+@@ -2815,8 +2815,15 @@ public final class ActivityThread {
+             throw e.rethrowFromSystemServer();
+         }
+ 
+-        ContextImpl appContext = ContextImpl.createActivityContext(
++        ContextImpl appContext = null;
++        if ((getActivityRunMode(r.token, r.packageInfo.mPackageName)
++                & (Display.PHONE_MODE|Display.DESKTOP_MODE)) != 0) {
++            appContext = CompatContextImpl.createActivityContext(
+                 this, r.packageInfo, r.activityInfo, r.token, displayId, r.overrideConfig);
++        } else {
++            appContext = ContextImpl.createActivityContext(
++                this, r.packageInfo, r.activityInfo, r.token, displayId, r.overrideConfig);
++        }
+ 
+         final DisplayManagerGlobal dm = DisplayManagerGlobal.getInstance();
+         // For debugging purposes, if the activity's package name contains the value of
+@@ -3263,7 +3270,13 @@ public final class ActivityThread {
+                     agent = (BackupAgent) cl.loadClass(classname).newInstance();
+ 
+                     // set up the agent's context
+-                    ContextImpl context = ContextImpl.createAppContext(this, packageInfo);
++                    ContextImpl context = null;
++                    if ((getServiceRunMode(packageName)
++                            & (Display.PHONE_MODE|Display.DESKTOP_MODE)) != 0) {
++                        context = CompatContextImpl.createAppContext(this, packageInfo);
++                    } else {
++                        context = ContextImpl.createAppContext(this, packageInfo);
++                    }
+                     context.setOuterContext(agent);
+                     agent.attach(context);
+ 
+@@ -3337,7 +3350,13 @@ public final class ActivityThread {
+         try {
+             if (localLOGV) Slog.v(TAG, "Creating service " + data.info.name);
+ 
+-            ContextImpl context = ContextImpl.createAppContext(this, packageInfo);
++            ContextImpl context = null;
++            if ((getServiceRunMode(packageInfo.mPackageName)
++                    & (Display.PHONE_MODE|Display.DESKTOP_MODE)) != 0) {
++                context = CompatContextImpl.createAppContext(this, packageInfo);
++            } else {
++                context = ContextImpl.createAppContext(this, packageInfo);
++            }
+             context.setOuterContext(service);
+ 
+             Application app = packageInfo.makeApplication(false, mInstrumentation);
+@@ -3360,6 +3379,25 @@ public final class ActivityThread {
+         }
+     }
+ 
++    private int getActivityRunMode(IBinder token, String packageName) {
++        try {
++            return ActivityManager.getService().getTaskRunMode(
++                    ActivityManager.getService().getTaskForActivity(token, false), packageName);
++        } catch (Exception e) {
++            Log.e(TAG, "Error during getActivityRunMode", e);
++        }
++        return Display.STANDARD_MODE;
++    }
++
++    private int getServiceRunMode(String packageName) {
++        try {
++            return ActivityManager.getService().getTaskRunModeForPackageName(packageName);
++        } catch (Exception e) {
++            Log.e(TAG, "Error during getServiceRunMode", e);
++        }
++        return Display.STANDARD_MODE;
++    }
++
+     private void handleBindService(BindServiceData data) {
+         Service s = mServices.get(data.token);
+         if (DEBUG_SERVICE)
+@@ -5643,7 +5681,13 @@ public final class ActivityThread {
+             ii = null;
+         }
+ 
+-        final ContextImpl appContext = ContextImpl.createAppContext(this, data.info);
++        ContextImpl appContext = null;
++        if ((getServiceRunMode(data.info.mPackageName) &
++                    (Display.PHONE_MODE|Display.DESKTOP_MODE)) != 0) {
++            appContext = CompatContextImpl.createAppContext(this, data.info);
++        } else {
++            appContext = ContextImpl.createAppContext(this, data.info);
++        }
+         updateLocaleListFromAppContext(appContext,
+                 mResourcesManager.getConfiguration().getLocales());
+ 
+@@ -5675,7 +5719,13 @@ public final class ActivityThread {
+             instrApp.initForUser(UserHandle.myUserId());
+             final LoadedApk pi = getPackageInfo(instrApp, data.compatInfo,
+                     appContext.getClassLoader(), false, true, false);
+-            final ContextImpl instrContext = ContextImpl.createAppContext(this, pi);
++            ContextImpl instrContext = null;
++            if ((getServiceRunMode(pi.mPackageName) &
++                        (Display.PHONE_MODE|Display.DESKTOP_MODE)) != 0) {
++                instrContext = CompatContextImpl.createAppContext(this, pi);
++            } else {
++                instrContext = ContextImpl.createAppContext(this, pi);
++            }
+ 
+             try {
+                 final ClassLoader cl = instrContext.getClassLoader();
+@@ -6367,8 +6417,14 @@ public final class ActivityThread {
+                     UserHandle.myUserId());
+             try {
+                 mInstrumentation = new Instrumentation();
+-                ContextImpl context = ContextImpl.createAppContext(
+-                        this, getSystemContext().mPackageInfo);
++                ContextImpl context = null;
++                if ((getServiceRunMode(getSystemContext().mPackageInfo.mPackageName) &
++                            (Display.PHONE_MODE|Display.DESKTOP_MODE)) != 0) {
++                    context = CompatContextImpl.createAppContext(this,
++                            getSystemContext().mPackageInfo);
++                } else {
++                    context = ContextImpl.createAppContext(this, getSystemContext().mPackageInfo);
++                }
+                 mInitialApplication = context.mPackageInfo.makeApplication(true, null);
+                 mInitialApplication.onCreate();
+             } catch (Exception e) {
+diff --git a/core/java/android/app/CompatContextImpl.java b/core/java/android/app/CompatContextImpl.java
+new file mode 100644
+index 0000000..ff6f179
+--- /dev/null
++++ b/core/java/android/app/CompatContextImpl.java
+@@ -0,0 +1,513 @@
++/*
++ * Copyright (C) 2006 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package android.app;
++
++import android.annotation.NonNull;
++import android.annotation.Nullable;
++import android.content.ContentProvider;
++import android.content.ContentResolver;
++import android.content.IContentProvider;
++import android.content.Context;
++import android.content.ContextWrapper;
++import android.content.pm.ActivityInfo;
++import android.content.pm.ApplicationInfo;
++import android.content.pm.PackageManager;
++import android.content.pm.PackageManager.NameNotFoundException;
++import android.content.res.CompatibilityInfo;
++import android.content.res.Configuration;
++import android.content.res.Resources;
++import android.os.FileUtils;
++import android.os.IBinder;
++import android.os.Process;
++import android.os.Trace;
++import android.os.UserHandle;
++import android.system.ErrnoException;
++import android.system.Os;
++import android.system.OsConstants;
++import android.system.StructStat;
++import android.util.ArrayMap;
++import android.util.DisplayMetrics;
++import android.util.Log;
++import android.view.Display;
++import android.view.WindowManager;
++
++import com.android.internal.annotations.GuardedBy;
++import com.android.internal.util.Preconditions;
++
++import libcore.io.Memory;
++
++import java.io.File;
++import java.io.FilenameFilter;
++import java.io.IOException;
++import java.nio.ByteOrder;
++
++class CompatContextImpl extends ContextImpl {
++    private final static String TAG = "CompatContextImpl";
++    private final static boolean DEBUG = false;
++
++    private static final String XATTR_INODE_CACHE = "user.inode_cache";
++    private static final String XATTR_INODE_CODE_CACHE = "user.inode_code_cache";
++
++    final @NonNull LoadedApk mPackageInfo;
++    /**
++     * Map from package name, to preference name, to cached preferences.
++     */
++    @GuardedBy("ContextImpl.class")
++    private static ArrayMap<String, ArrayMap<File, SharedPreferencesImpl>> sSharedPrefsCache;
++
++    static ContextImpl getImpl(Context context) {
++        Context nextContext;
++        while ((context instanceof ContextWrapper) &&
++                (nextContext=((ContextWrapper)context).getBaseContext()) != null) {
++            context = nextContext;
++        }
++        return (ContextImpl)context;
++    }
++
++    /**
++     * Try our best to migrate all files from source to target that match
++     * requested prefix.
++     *
++     * @return the number of files moved, or -1 if there was trouble.
++     */
++    private static int moveFiles(File sourceDir, File targetDir, final String prefix) {
++        final File[] sourceFiles = FileUtils.listFilesOrEmpty(sourceDir, new FilenameFilter() {
++            @Override
++            public boolean accept(File dir, String name) {
++                return name.startsWith(prefix);
++            }
++        });
++
++        int res = 0;
++        for (File sourceFile : sourceFiles) {
++            final File targetFile = new File(targetDir, sourceFile.getName());
++            Log.d(TAG, "Migrating " + sourceFile + " to " + targetFile);
++            try {
++                FileUtils.copyFileOrThrow(sourceFile, targetFile);
++                FileUtils.copyPermissions(sourceFile, targetFile);
++                if (!sourceFile.delete()) {
++                    throw new IOException("Failed to clean up " + sourceFile);
++                }
++                if (res != -1) {
++                    res++;
++                }
++            } catch (IOException e) {
++                Log.w(TAG, "Failed to migrate " + sourceFile + ": " + e);
++                res = -1;
++            }
++        }
++        return res;
++    }
++
++    /**
++     * Common-path handling of app data dir creation
++     */
++    private static File ensurePrivateDirExists(File file) {
++        return ensurePrivateDirExists(file, 0771, -1, null);
++    }
++
++    private static File ensurePrivateCacheDirExists(File file, String xattr) {
++        final int gid = UserHandle.getCacheAppGid(Process.myUid());
++        return ensurePrivateDirExists(file, 02771, gid, xattr);
++    }
++
++    private static File ensurePrivateDirExists(File file, int mode, int gid, String xattr) {
++        if (!file.exists()) {
++            final String path = file.getAbsolutePath();
++            try {
++                Os.mkdir(path, mode);
++                Os.chmod(path, mode);
++                if (gid != -1) {
++                    Os.chown(path, -1, gid);
++                }
++            } catch (ErrnoException e) {
++                if (e.errno == OsConstants.EEXIST) {
++                    // We must have raced with someone; that's okay
++                } else {
++                    Log.w(TAG, "Failed to ensure " + file + ": " + e.getMessage());
++                }
++            }
++
++            if (xattr != null) {
++                try {
++                    final StructStat stat = Os.stat(file.getAbsolutePath());
++                    final byte[] value = new byte[8];
++                    Memory.pokeLong(value, 0, stat.st_ino, ByteOrder.nativeOrder());
++                    Os.setxattr(file.getParentFile().getAbsolutePath(), xattr, value, 0);
++                } catch (ErrnoException e) {
++                    Log.w(TAG, "Failed to update " + xattr + ": " + e.getMessage());
++                }
++            }
++        }
++        return file;
++    }
++
++    private static Resources createResources(IBinder activityToken, LoadedApk pi, String splitName,
++            int displayId, Configuration overrideConfig, CompatibilityInfo compatInfo) {
++        final String[] splitResDirs;
++        final ClassLoader classLoader;
++        try {
++            splitResDirs = pi.getSplitPaths(splitName);
++            classLoader = pi.getSplitClassLoader(splitName);
++        } catch (NameNotFoundException e) {
++            throw new RuntimeException(e);
++        }
++        return ResourcesManager.getInstance().getResources(activityToken,
++                pi.getResDir(),
++                splitResDirs,
++                pi.getOverlayDirs(),
++                pi.getApplicationInfo().sharedLibraryFiles,
++                displayId,
++                overrideConfig,
++                compatInfo,
++                classLoader);
++    }
++
++    static ContextImpl createSystemContext(ActivityThread mainThread) {
++        LoadedApk packageInfo = new LoadedApk(mainThread);
++        ContextImpl context = new CompatContextImpl(null, mainThread, packageInfo, null, null, null, 0,
++                null);
++        context.setResources(packageInfo.getResources());
++        context.mResources.updateConfiguration(context.mResourcesManager.getConfiguration(),
++                context.mResourcesManager.getDisplayMetrics());
++        return context;
++    }
++
++    /**
++     * System Context to be used for UI. This Context has resources that can be themed.
++     * Make sure that the created system UI context shares the same LoadedApk as the system context.
++     */
++    static ContextImpl createSystemUiContext(ContextImpl systemContext) {
++        final LoadedApk packageInfo = systemContext.mPackageInfo;
++        ContextImpl context = new CompatContextImpl(null, systemContext.mMainThread, packageInfo, null,
++                null, null, 0, null);
++        context.setResources(createResources(null, packageInfo, null, Display.DEFAULT_DISPLAY, null,
++                packageInfo.getCompatibilityInfo()));
++        return context;
++    }
++
++    static ContextImpl createAppContext(ActivityThread mainThread, LoadedApk packageInfo) {
++        if (packageInfo == null) throw new IllegalArgumentException("packageInfo");
++        ContextImpl context = new CompatContextImpl(null, mainThread, packageInfo, null, null, null, 0,
++                null);
++        context.setResources(packageInfo.getResources());
++        setCompatDisplayMetrics(context.getResources());
++        return context;
++    }
++
++    static ContextImpl createActivityContext(ActivityThread mainThread,
++            LoadedApk packageInfo, ActivityInfo activityInfo, IBinder activityToken, int displayId,
++            Configuration overrideConfiguration) {
++        if (packageInfo == null) throw new IllegalArgumentException("packageInfo");
++
++        String[] splitDirs = packageInfo.getSplitResDirs();
++        ClassLoader classLoader = packageInfo.getClassLoader();
++
++        if (packageInfo.getApplicationInfo().requestsIsolatedSplitLoading()) {
++            Trace.traceBegin(Trace.TRACE_TAG_RESOURCES, "SplitDependencies");
++            try {
++                classLoader = packageInfo.getSplitClassLoader(activityInfo.splitName);
++                splitDirs = packageInfo.getSplitPaths(activityInfo.splitName);
++            } catch (NameNotFoundException e) {
++                // Nothing above us can handle a NameNotFoundException, better crash.
++                throw new RuntimeException(e);
++            } finally {
++                Trace.traceEnd(Trace.TRACE_TAG_RESOURCES);
++            }
++        }
++
++        ContextImpl context = new CompatContextImpl(null, mainThread, packageInfo, activityInfo.splitName,
++                activityToken, null, 0, classLoader);
++
++        // Clamp display ID to DEFAULT_DISPLAY if it is INVALID_DISPLAY.
++        displayId = (displayId != Display.INVALID_DISPLAY) ? displayId : Display.DEFAULT_DISPLAY;
++
++        final CompatibilityInfo compatInfo = (displayId == Display.DEFAULT_DISPLAY)
++                ? packageInfo.getCompatibilityInfo()
++                : CompatibilityInfo.DEFAULT_COMPATIBILITY_INFO;
++
++        final ResourcesManager resourcesManager = ResourcesManager.getInstance();
++
++        // Create the base resources for which all configuration contexts for this Activity
++        // will be rebased upon.
++        Resources res = resourcesManager.createBaseActivityResources(activityToken,
++                packageInfo.getResDir(),
++                splitDirs,
++                packageInfo.getOverlayDirs(),
++                packageInfo.getApplicationInfo().sharedLibraryFiles,
++                displayId,
++                overrideConfiguration,
++                compatInfo,
++                classLoader);
++        context.setResources(res);
++        context.mDisplay = resourcesManager.getAdjustedDisplay(displayId,
++                context.getResources());
++        setCompatDisplayMetrics(context.getResources());
++        return context;
++    }
++
++    @SuppressWarnings("deprecation")
++    static void setFilePermissionsFromMode(String name, int mode,
++            int extraPermissions) {
++        int perms = FileUtils.S_IRUSR|FileUtils.S_IWUSR
++            |FileUtils.S_IRGRP|FileUtils.S_IWGRP
++            |extraPermissions;
++        if ((mode&MODE_WORLD_READABLE) != 0) {
++            perms |= FileUtils.S_IROTH;
++        }
++        if ((mode&MODE_WORLD_WRITEABLE) != 0) {
++            perms |= FileUtils.S_IWOTH;
++        }
++        if (DEBUG) {
++            Log.i(TAG, "File " + name + ": mode=0x" + Integer.toHexString(mode)
++                  + ", perms=0x" + Integer.toHexString(perms));
++        }
++        FileUtils.setPermissions(name, perms, -1, -1);
++    }
++
++    public CompatContextImpl(@Nullable CompatContextImpl container, @NonNull ActivityThread mainThread,
++            @NonNull LoadedApk packageInfo, @Nullable String splitName,
++            @Nullable IBinder activityToken, @Nullable UserHandle user, int flags,
++            @Nullable ClassLoader classLoader) {
++        super(container, mainThread, packageInfo, splitName, activityToken, user, flags, classLoader);
++        mPackageInfo = packageInfo;
++    }
++
++    @Override
++    public Context createApplicationContext(ApplicationInfo application, int flags)
++            throws NameNotFoundException {
++        LoadedApk pi = mMainThread.getPackageInfo(application, mResources.getCompatibilityInfo(),
++                flags | CONTEXT_REGISTER_PACKAGE);
++        if (pi != null) {
++            ContextImpl c = new CompatContextImpl(this, mMainThread, pi, null, mActivityToken,
++                    new UserHandle(UserHandle.getUserId(application.uid)), flags, null);
++
++            final int displayId = mDisplay != null
++                    ? mDisplay.getDisplayId() : Display.DEFAULT_DISPLAY;
++
++            Resources res = createResources(mActivityToken, pi, null, displayId, null,
++                    getDisplayAdjustments(displayId).getCompatibilityInfo());
++            c.setResources(res);
++            if (c.mResources != null) {
++                c.mResources.getDisplayMetrics().setCompatMetrics();
++                return c;
++            }
++        }
++
++        throw new PackageManager.NameNotFoundException(
++                "Application package " + application.packageName + " not found");
++    }
++
++    @Override
++    public Context createPackageContextAsUser(String packageName, int flags, UserHandle user)
++            throws NameNotFoundException {
++        if (packageName.equals("system") || packageName.equals("android")) {
++            // The system resources are loaded in every application, so we can safely copy
++            // the context without reloading Resources.
++            return new CompatContextImpl(this, mMainThread, mPackageInfo, null, mActivityToken, user,
++                    flags, null);
++        }
++
++        LoadedApk pi = mMainThread.getPackageInfo(packageName, mResources.getCompatibilityInfo(),
++                flags | CONTEXT_REGISTER_PACKAGE, user.getIdentifier());
++        if (pi != null) {
++            ContextImpl c = new CompatContextImpl(this, mMainThread, pi, null, mActivityToken, user,
++                    flags, null);
++
++            final int displayId = mDisplay != null
++                    ? mDisplay.getDisplayId() : Display.DEFAULT_DISPLAY;
++
++            Resources res = createResources(mActivityToken, pi, null, displayId, null,
++                    getDisplayAdjustments(displayId).getCompatibilityInfo());
++            c.setResources(res);
++            if (c.mResources != null) {
++                return c;
++            }
++        }
++
++        // Should be a better exception.
++        throw new PackageManager.NameNotFoundException(
++                "Application package " + packageName + " not found");
++    }
++
++    @Override
++    public Context createContextForSplit(String splitName) throws NameNotFoundException {
++        if (!mPackageInfo.getApplicationInfo().requestsIsolatedSplitLoading()) {
++            // All Splits are always loaded.
++            return this;
++        }
++
++        final ClassLoader classLoader = mPackageInfo.getSplitClassLoader(splitName);
++        final String[] paths = mPackageInfo.getSplitPaths(splitName);
++
++        final ContextImpl context = new CompatContextImpl(this, mMainThread, mPackageInfo, splitName,
++                mActivityToken, mUser, mFlags, classLoader);
++
++        final int displayId = mDisplay != null
++                ? mDisplay.getDisplayId() : Display.DEFAULT_DISPLAY;
++
++        context.setResources(ResourcesManager.getInstance().getResources(
++                mActivityToken,
++                mPackageInfo.getResDir(),
++                paths,
++                mPackageInfo.getOverlayDirs(),
++                mPackageInfo.getApplicationInfo().sharedLibraryFiles,
++                displayId,
++                null,
++                mPackageInfo.getCompatibilityInfo(),
++                classLoader));
++        return context;
++    }
++
++    @Override
++    public Context createConfigurationContext(Configuration overrideConfiguration) {
++        if (overrideConfiguration == null) {
++            throw new IllegalArgumentException("overrideConfiguration must not be null");
++        }
++
++        ContextImpl context = new CompatContextImpl(this, mMainThread, mPackageInfo, mSplitName,
++                mActivityToken, mUser, mFlags, mClassLoader);
++
++        final int displayId = mDisplay != null ? mDisplay.getDisplayId() : Display.DEFAULT_DISPLAY;
++        context.setResources(createResources(mActivityToken, mPackageInfo, mSplitName, displayId,
++                overrideConfiguration, getDisplayAdjustments(displayId).getCompatibilityInfo()));
++        return context;
++    }
++
++    @Override
++    public Context createDisplayContext(Display display) {
++        if (display == null) {
++            throw new IllegalArgumentException("display must not be null");
++        }
++
++        ContextImpl context = new CompatContextImpl(this, mMainThread, mPackageInfo, mSplitName,
++                mActivityToken, mUser, mFlags, mClassLoader);
++
++        final int displayId = display.getDisplayId();
++        context.setResources(createResources(mActivityToken, mPackageInfo, mSplitName, displayId,
++                null, getDisplayAdjustments(displayId).getCompatibilityInfo()));
++        context.mDisplay = display;
++        return context;
++    }
++
++    @Override
++    public Context createDeviceProtectedStorageContext() {
++        final int flags = (mFlags & ~Context.CONTEXT_CREDENTIAL_PROTECTED_STORAGE)
++                | Context.CONTEXT_DEVICE_PROTECTED_STORAGE;
++        return new CompatContextImpl(this, mMainThread, mPackageInfo, mSplitName, mActivityToken, mUser,
++                flags, mClassLoader);
++    }
++
++    @Override
++    public Context createCredentialProtectedStorageContext() {
++        final int flags = (mFlags & ~Context.CONTEXT_DEVICE_PROTECTED_STORAGE)
++                | Context.CONTEXT_CREDENTIAL_PROTECTED_STORAGE;
++        return new CompatContextImpl(this, mMainThread, mPackageInfo, mSplitName, mActivityToken, mUser,
++                flags, mClassLoader);
++    }
++
++    @Override
++    public Resources getResources() {
++        setCompatDisplayMetrics(mResources);
++        return mResources;
++    }
++
++    @Override
++    public Display getDisplay() {
++        if (mDisplay == null) {
++            Display display = mResourcesManager.
++                    getAdjustedDisplay(Display.DEFAULT_DISPLAY, mResources);
++            display.setCompatDisplayInfo(true);
++            return display;
++        }
++        mDisplay.setCompatDisplayInfo(true);
++        return mDisplay;
++    }
++
++    @Override
++    public boolean isCompatContext() {
++        return true;
++    }
++
++    static void setCompatDisplayMetrics(Resources res) {
++        DisplayMetrics dm = res.getDisplayMetrics();
++        dm.setCompatMetrics();
++        res.getDisplayMetrics().setTo(dm);
++    }
++
++    // ----------------------------------------------------------------------
++    // ----------------------------------------------------------------------
++    // ----------------------------------------------------------------------
++
++    private static final class ApplicationContentResolver extends ContentResolver {
++        private final ActivityThread mMainThread;
++        private final UserHandle mUser;
++
++        public ApplicationContentResolver(
++                Context context, ActivityThread mainThread, UserHandle user) {
++            super(context);
++            mMainThread = Preconditions.checkNotNull(mainThread);
++            mUser = Preconditions.checkNotNull(user);
++        }
++
++        @Override
++        protected IContentProvider acquireProvider(Context context, String auth) {
++            return mMainThread.acquireProvider(context,
++                    ContentProvider.getAuthorityWithoutUserId(auth),
++                    resolveUserIdFromAuthority(auth), true);
++        }
++
++        @Override
++        protected IContentProvider acquireExistingProvider(Context context, String auth) {
++            return mMainThread.acquireExistingProvider(context,
++                    ContentProvider.getAuthorityWithoutUserId(auth),
++                    resolveUserIdFromAuthority(auth), true);
++        }
++
++        @Override
++        public boolean releaseProvider(IContentProvider provider) {
++            return mMainThread.releaseProvider(provider, true);
++        }
++
++        @Override
++        protected IContentProvider acquireUnstableProvider(Context c, String auth) {
++            return mMainThread.acquireProvider(c,
++                    ContentProvider.getAuthorityWithoutUserId(auth),
++                    resolveUserIdFromAuthority(auth), false);
++        }
++
++        @Override
++        public boolean releaseUnstableProvider(IContentProvider icp) {
++            return mMainThread.releaseProvider(icp, false);
++        }
++
++        @Override
++        public void unstableProviderDied(IContentProvider icp) {
++            mMainThread.handleUnstableProviderDied(icp.asBinder(), true);
++        }
++
++        @Override
++        public void appNotRespondingViaProvider(IContentProvider icp) {
++            mMainThread.appNotRespondingViaProvider(icp.asBinder());
++        }
++
++        /** @hide */
++        protected int resolveUserIdFromAuthority(String auth) {
++            return ContentProvider.getUserIdFromAuthority(auth, mUser.getIdentifier());
++        }
++    }
++}
+diff --git a/core/java/android/app/ContextImpl.java b/core/java/android/app/ContextImpl.java
+index 5f34322..48d8496 100644
+--- a/core/java/android/app/ContextImpl.java
++++ b/core/java/android/app/ContextImpl.java
+@@ -160,31 +160,31 @@ class ContextImpl extends Context {
+ 
+     final @NonNull ActivityThread mMainThread;
+     final @NonNull LoadedApk mPackageInfo;
+-    private @Nullable ClassLoader mClassLoader;
++    protected @Nullable ClassLoader mClassLoader;
+ 
+-    private final @Nullable IBinder mActivityToken;
++    protected final @Nullable IBinder mActivityToken;
+ 
+-    private final @Nullable UserHandle mUser;
++    protected final @Nullable UserHandle mUser;
+ 
+     private final ApplicationContentResolver mContentResolver;
+ 
+     private final String mBasePackageName;
+     private final String mOpPackageName;
+ 
+-    private final @NonNull ResourcesManager mResourcesManager;
+-    private @NonNull Resources mResources;
+-    private @Nullable Display mDisplay; // may be null if default display
++    protected final @NonNull ResourcesManager mResourcesManager;
++    protected @NonNull Resources mResources;
++    protected @Nullable Display mDisplay; // may be null if default display
+ 
+-    private final int mFlags;
++    protected final int mFlags;
+ 
+     private Context mOuterContext;
+     private int mThemeResource = 0;
+     private Resources.Theme mTheme = null;
+-    private PackageManager mPackageManager;
++    protected PackageManager mPackageManager;
+     private Context mReceiverRestrictedContext = null;
+ 
+     // The name of the split this Context is representing. May be null.
+-    private @Nullable String mSplitName = null;
++    protected @Nullable String mSplitName = null;
+ 
+     private AutofillClient mAutofillClient = null;
+ 
+@@ -2222,6 +2222,11 @@ class ContextImpl extends Context {
+         return file;
+     }
+ 
++    @Override
++    public boolean isCompatContext() {
++        return false;
++    }
++
+     /** {@hide} */
+     @Override
+     public int getUserId() {
+@@ -2320,7 +2325,7 @@ class ContextImpl extends Context {
+         return context;
+     }
+ 
+-    private ContextImpl(@Nullable ContextImpl container, @NonNull ActivityThread mainThread,
++    protected ContextImpl(@Nullable ContextImpl container, @NonNull ActivityThread mainThread,
+             @NonNull LoadedApk packageInfo, @Nullable String splitName,
+             @Nullable IBinder activityToken, @Nullable UserHandle user, int flags,
+             @Nullable ClassLoader classLoader) {
+diff --git a/core/java/android/app/IActivityManager.aidl b/core/java/android/app/IActivityManager.aidl
+index bb0eeb6..de10237 100644
+--- a/core/java/android/app/IActivityManager.aidl
++++ b/core/java/android/app/IActivityManager.aidl
+@@ -443,8 +443,10 @@ interface IActivityManager {
+     void notifyCleartextNetwork(int uid, in byte[] firstPacket);
+     int createStackOnDisplay(int displayId);
+     int getFocusedStackId();
+-    int getTaskBoundsMode(in IBinder token);
+-    void setTaskBoundsMode(int taskId, in Rect bounds, int taskMode);
++    int getTaskRunMode(int taskId, String packageName);
++    int getTaskRunModeForPackageName(String packageName);
++    void setTaskBoundsMode(int taskId, in Rect bounds, int taskBoundsMode);
++    void setTaskRunMode(int taskId, int taskRunMode);
+     void setTaskResizeable(int taskId, int resizeableMode);
+     boolean requestAssistContextExtras(int requestType, in IResultReceiver receiver,
+             in Bundle receiverExtras, in IBinder activityToken,
+diff --git a/core/java/android/app/LoadedApk.java b/core/java/android/app/LoadedApk.java
+index f6d9710..e826d03 100644
+--- a/core/java/android/app/LoadedApk.java
++++ b/core/java/android/app/LoadedApk.java
+@@ -979,7 +979,16 @@ public final class LoadedApk {
+                 initializeJavaContextClassLoader();
+                 Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
+             }
+-            ContextImpl appContext = ContextImpl.createAppContext(mActivityThread, this);
++            ContextImpl appContext = null;
++            int runMode = Display.STANDARD_MODE;
++            if (ActivityManager.getService() != null) {
++                runMode = ActivityManager.getService().getTaskRunModeForPackageName(mPackageName);
++            }
++            if ((runMode & (Display.PHONE_MODE | Display.DESKTOP_MODE)) != 0) {
++                appContext = CompatContextImpl.createAppContext(mActivityThread, this);
++            } else {
++                appContext = ContextImpl.createAppContext(mActivityThread, this);
++            }
+             app = mActivityThread.mInstrumentation.newApplication(
+                     cl, appClass, appContext);
+             appContext.setOuterContext(app);
+diff --git a/core/java/android/content/Context.java b/core/java/android/content/Context.java
+index 792e8f3..2c19508 100644
+--- a/core/java/android/content/Context.java
++++ b/core/java/android/content/Context.java
+@@ -803,6 +803,8 @@ public abstract class Context {
+      */
+     public abstract boolean moveSharedPreferencesFrom(Context sourceContext, String name);
+ 
++    public abstract boolean isCompatContext();
++
+     /**
+      * Delete an existing shared preferences file.
+      *
+diff --git a/core/java/android/content/ContextWrapper.java b/core/java/android/content/ContextWrapper.java
+index 85acdc6..ce5d297 100644
+--- a/core/java/android/content/ContextWrapper.java
++++ b/core/java/android/content/ContextWrapper.java
+@@ -80,6 +80,11 @@ public class ContextWrapper extends Context {
+     }
+ 
+     @Override
++    public boolean isCompatContext() {
++        return mBase.isCompatContext();
++    }
++
++    @Override
+     public AssetManager getAssets() {
+         return mBase.getAssets();
+     }
+diff --git a/core/java/android/content/res/Resources.java b/core/java/android/content/res/Resources.java
+index e173653c..6138065 100644
+--- a/core/java/android/content/res/Resources.java
++++ b/core/java/android/content/res/Resources.java
+@@ -258,7 +258,16 @@ public class Resources {
+             return;
+         }
+ 
++        DisplayMetrics dm = null;
++        if (mResourcesImpl != null) {
++            dm = mResourcesImpl.getDisplayMetrics();
++        }
++
+         mResourcesImpl = impl;
++        if (dm != null && dm.compatDisplayMetricsFlag == DisplayMetrics.COMPAT_METRICS_FLAG
++                    && mResourcesImpl != null && mResourcesImpl.getDisplayMetrics() != null) {
++            mResourcesImpl.getDisplayMetrics().setTo(dm);
++        }
+ 
+         // Create new ThemeImpls that are identical to the ones we have.
+         synchronized (mThemeRefs) {
+diff --git a/core/java/android/content/res/ResourcesImpl.java b/core/java/android/content/res/ResourcesImpl.java
+index 3239212..b761f32 100644
+--- a/core/java/android/content/res/ResourcesImpl.java
++++ b/core/java/android/content/res/ResourcesImpl.java
+@@ -413,6 +413,11 @@ public class ResourcesImpl {
+                 mMetrics.scaledDensity = mMetrics.density *
+                         (mConfiguration.fontScale != 0 ? mConfiguration.fontScale : 1.0f);
+ 
++                if (mMetrics != null && mMetrics.compatDisplayMetricsFlag
++                        == DisplayMetrics.COMPAT_METRICS_FLAG) {
++                    mMetrics.setCompatMetrics();
++                }
++
+                 final int width, height;
+                 if (mMetrics.widthPixels >= mMetrics.heightPixels) {
+                     width = mMetrics.widthPixels;
+diff --git a/core/java/android/hardware/display/DisplayManager.java b/core/java/android/hardware/display/DisplayManager.java
+index b2af44e..cd1b6d7 100644
+--- a/core/java/android/hardware/display/DisplayManager.java
++++ b/core/java/android/hardware/display/DisplayManager.java
+@@ -308,7 +308,11 @@ public final class DisplayManager {
+      */
+     public Display getDisplay(int displayId) {
+         synchronized (mLock) {
+-            return getOrCreateDisplayLocked(displayId, false /*assumeValid*/);
++            Display dp = getOrCreateDisplayLocked(displayId, false /*assumeValid*/);
++            if (mContext != null && mContext.isCompatContext()) {
++                dp.setCompatDisplayInfo(true);
++            }
++            return dp;
+         }
+     }
+ 
+diff --git a/core/java/android/util/DisplayMetrics.java b/core/java/android/util/DisplayMetrics.java
+index b7099b6..0a7d505 100644
+--- a/core/java/android/util/DisplayMetrics.java
++++ b/core/java/android/util/DisplayMetrics.java
+@@ -176,6 +176,11 @@ public class DisplayMetrics {
+     public static final int DENSITY_DEVICE_STABLE = getDeviceDensity();
+ 
+     /**
++     * The compat metrics flag to obtain the compat DisplayMetrics for specific window.
++     */
++    public static final int COMPAT_METRICS_FLAG = 1;
++
++    /**
+      * The absolute width of the available display size in pixels.
+      */
+     public int widthPixels;
+@@ -264,6 +269,12 @@ public class DisplayMetrics {
+      */
+     public float noncompatYdpi;
+ 
++    /**
++     * The reported metrics flag to any compatibility mode being applied.
++     * @hide
++     */
++    public int compatDisplayMetricsFlag;
++
+     public DisplayMetrics() {
+     }
+     
+@@ -286,6 +297,10 @@ public class DisplayMetrics {
+         noncompatScaledDensity = o.noncompatScaledDensity;
+         noncompatXdpi = o.noncompatXdpi;
+         noncompatYdpi = o.noncompatYdpi;
++        if (compatDisplayMetricsFlag == COMPAT_METRICS_FLAG
++                || o.compatDisplayMetricsFlag == COMPAT_METRICS_FLAG) {
++            setCompatMetrics();
++        }
+     }
+     
+     public void setToDefaults() {
+@@ -303,6 +318,16 @@ public class DisplayMetrics {
+         noncompatScaledDensity = scaledDensity;
+         noncompatXdpi = xdpi;
+         noncompatYdpi = ydpi;
++        compatDisplayMetricsFlag = 0;
++    }
++
++    public void setCompatMetrics() {
++        density = 1.0f;
++        scaledDensity = 1.0f;
++        densityDpi = 160;
++        heightPixels = noncompatHeightPixels =  740;
++        widthPixels = noncompatWidthPixels = 440;
++        compatDisplayMetricsFlag = COMPAT_METRICS_FLAG;
+     }
+ 
+     @Override
+@@ -356,7 +381,8 @@ public class DisplayMetrics {
+     public String toString() {
+         return "DisplayMetrics{density=" + density + ", width=" + widthPixels +
+             ", height=" + heightPixels + ", scaledDensity=" + scaledDensity +
+-            ", xdpi=" + xdpi + ", ydpi=" + ydpi + "}";
++            ", xdpi=" + xdpi + ", ydpi=" + ydpi +
++            ", compatDisplayMetricsFlag=" + compatDisplayMetricsFlag + "}";
+     }
+ 
+     private static int getDeviceDensity() {
+diff --git a/core/java/android/view/Display.java b/core/java/android/view/Display.java
+index da3498a..4e36577 100644
+--- a/core/java/android/view/Display.java
++++ b/core/java/android/view/Display.java
+@@ -374,6 +374,8 @@ public final class Display {
+     public static final int DESKTOP_MODE = 16;
+     public static final int FULLSCREEN_MODE = 32;
+ 
++    private boolean mIsCompatDisplayInfo = false;
++
+     /**
+      * Internal method to create a display.
+      * The display created with this method will have a static {@link DisplayAdjustments} applied.
+@@ -462,6 +464,10 @@ public final class Display {
+         synchronized (this) {
+             updateDisplayInfoLocked();
+             outDisplayInfo.copyFrom(mDisplayInfo);
++            if (mIsCompatDisplayInfo) {
++                outDisplayInfo.logicalWidth = getWidth();
++                outDisplayInfo.logicalHeight = getHeight();
++            }
+             return mIsValid;
+         }
+     }
+@@ -615,6 +621,10 @@ public final class Display {
+             //outSize.y = mTempMetrics.heightPixels;
+             outSize.x = mUseFakeDisplaySize ? mFakeWidth : mTempMetrics.widthPixels;
+             outSize.y = mUseFakeDisplaySize ? mFakeHeight : mTempMetrics.heightPixels;
++            if (mIsCompatDisplayInfo) {
++                outSize.x = getWidth();
++                outSize.y = getHeight();
++            }
+         }
+     }
+ 
+@@ -636,6 +646,10 @@ public final class Display {
+         }
+     }
+ 
++    public void setCompatDisplayInfo(boolean isCompatDisplayInfo) {
++        mIsCompatDisplayInfo = isCompatDisplayInfo;
++    }
++
+     /**
+      * Gets the size of the display as a rectangle, in pixels.
+      *
+@@ -646,6 +660,9 @@ public final class Display {
+         synchronized (this) {
+             updateDisplayInfoLocked();
+             mDisplayInfo.getAppMetrics(mTempMetrics, getDisplayAdjustments());
++            if (mIsCompatDisplayInfo) {
++                mTempMetrics.setCompatMetrics();
++            }
+             outSize.set(0, 0, mTempMetrics.widthPixels, mTempMetrics.heightPixels);
+         }
+     }
+@@ -743,6 +760,9 @@ public final class Display {
+     public int getWidth() {
+         synchronized (this) {
+             updateCachedAppSizeIfNeededLocked();
++            if (mIsCompatDisplayInfo) {
++                return mCachedAppWidthCompat < mCachedAppHeightCompat ? 440 : 960;
++            }
+             return mCachedAppWidthCompat;
+         }
+     }
+@@ -754,6 +774,9 @@ public final class Display {
+     public int getHeight() {
+         synchronized (this) {
+             updateCachedAppSizeIfNeededLocked();
++            if (mIsCompatDisplayInfo) {
++                return mCachedAppWidthCompat < mCachedAppHeightCompat ? 740 : 540;
++            }
+             return mCachedAppHeightCompat;
+         }
+     }
+@@ -1015,6 +1038,9 @@ public final class Display {
+             updateDisplayInfoLocked();
+             mDisplayInfo.getAppMetrics(outMetrics, getDisplayAdjustments());
+             adjustFakeSize(outMetrics);
++            if (mIsCompatDisplayInfo) {
++                outMetrics.setCompatMetrics();
++            }
+         }
+     }
+ 
+@@ -1033,10 +1059,14 @@ public final class Display {
+     public void getRealSize(Point outSize) {
+         synchronized (this) {
+             updateDisplayInfoLocked();
+-            //outSize.x = mDisplayInfo.logicalWidth;
+-            //outSize.y = mDisplayInfo.logicalHeight;
+-            outSize.x = mUseFakeDisplaySize ? mFakeWidth : mDisplayInfo.logicalWidth;
+-            outSize.y = mUseFakeDisplaySize ? mFakeHeight : mDisplayInfo.logicalHeight;
++            outSize.x = mDisplayInfo.logicalWidth;
++            outSize.y = mDisplayInfo.logicalHeight;
++            //outSize.x = mUseFakeDisplaySize ? mFakeWidth : mDisplayInfo.logicalWidth;
++            //outSize.y = mUseFakeDisplaySize ? mFakeHeight : mDisplayInfo.logicalHeight;
++            if (mIsCompatDisplayInfo) {
++                outSize.x = getWidth();
++                outSize.y = getHeight();
++            }
+         }
+     }
+ 
+@@ -1056,6 +1086,9 @@ public final class Display {
+             updateDisplayInfoLocked();
+             mDisplayInfo.getLogicalMetrics(outMetrics,
+                     CompatibilityInfo.DEFAULT_COMPATIBILITY_INFO, null);
++            if (mIsCompatDisplayInfo) {
++                outMetrics.setCompatMetrics();
++            }
+         }
+     }
+ 
+diff --git a/core/java/android/view/View.java b/core/java/android/view/View.java
+index a9afab5..5b5d4e3 100644
+--- a/core/java/android/view/View.java
++++ b/core/java/android/view/View.java
+@@ -17394,7 +17394,11 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
+      * @return The logical display, or null if the view is not currently attached to a window.
+      */
+     public Display getDisplay() {
+-        return mAttachInfo != null ? mAttachInfo.mDisplay : null;
++        Display dp = mAttachInfo != null ? mAttachInfo.mDisplay : null;
++        if (dp != null && mContext.isCompatContext()) {
++            dp.setCompatDisplayInfo(true);
++        }
++        return dp;
+     }
+ 
+     /**
+diff --git a/core/java/android/view/Window.java b/core/java/android/view/Window.java
+index b9231cd..998c989 100644
+--- a/core/java/android/view/Window.java
++++ b/core/java/android/view/Window.java
+@@ -626,8 +626,8 @@ public abstract class Window {
+         /** Returns whether the window belongs to the home task. */
+         boolean getIsHome();
+ 
+-        /** Returns current window size mode. */
+-        int getWindowSizeMode();
++        /** Returns current window run mode. */
++        int getWindowRunMode();
+ 
+         /** Returns the current stack Id for the window. */
+         int getWindowStackId() throws RemoteException;
+@@ -652,6 +652,9 @@ public abstract class Window {
+ 
+         /** Returns the Activity ComponentName. */
+         ComponentName getActivityComponentName();
++
++        /** Update current window run mode. */
++        void setWindowRunMode(int windowRunMode);
+     }
+ 
+     /**
+diff --git a/core/java/com/android/internal/policy/NewPhoneWindow.java b/core/java/com/android/internal/policy/NewPhoneWindow.java
+index 942d6ff..fa6e123 100644
+--- a/core/java/com/android/internal/policy/NewPhoneWindow.java
++++ b/core/java/com/android/internal/policy/NewPhoneWindow.java
+@@ -79,17 +79,17 @@ public class NewPhoneWindow extends PhoneWindow {
+                                 newDecor.mDecorCaptionView.getCaption().getMeasuredHeight() : 0;
+         }
+ 
+-        @Override
+-        public void transformParent(float[] position) {
+-        }
++        //@Override
++        //public void transformParent(float[] position) {
++        //}
+ 
+         @Override
+         public void getWindowVisibleDisplayFrame(Rect outRect) {
+             super.getWindowVisibleDisplayFrame(outRect);
+-            DisplayMetrics dp = getContext().getResources().getDisplayMetrics();
+             int width = outRect.width();
+             int height = outRect.height();
+             outRect.left = 0;
++            outRect.top = 0;
+             outRect.right = width;
+             outRect.bottom = height;
+         }
+@@ -156,9 +156,14 @@ public class NewPhoneWindow extends PhoneWindow {
+         protected void onConfigurationChanged(Configuration newConfig) {
+             setRootToFakeDecorIfHasCaption();
+             mContext.getResources().getConfiguration().setTo(newConfig);
+-            Rect out = new Rect();
+-            mFakeDecor.getWindowVisibleDisplayFrame(out);
+             super.onConfigurationChanged(newConfig);
++            if (mContext.isCompatContext()) {
++                Configuration appConfig = mAppContext.getResources().getConfiguration();
++                DisplayMetrics dp = mAppContext.getResources().getDisplayMetrics();
++                appConfig.densityDpi = 160;
++                appConfig.setLocales(null);
++                mContext.getResources().updateConfiguration(appConfig, dp);
++            }
+             WindowManager windowManager = (WindowManager) mContext.getSystemService("window");
+             windowManager.getDefaultDisplay().setUseFake(true);
+             mFakeWidth = newConfig.appBounds.width();
+@@ -176,12 +181,14 @@ public class NewPhoneWindow extends PhoneWindow {
+ 
+         public View getSpecialDecor() {
+             if (mDecorCaptionView != null) {
+-                DisplayMetrics dp = mAppContext.getResources().getDisplayMetrics();
+-                Rect out = new Rect();
+-                mFakeDecor.getWindowVisibleDisplayFrame(out);
+-                dp.widthPixels = out.width();
+-                dp.heightPixels = out.height();
+-                mContext.getResources().getDisplayMetrics().setTo(dp);
++                if (!mContext.isCompatContext()) {
++                    DisplayMetrics dp = mAppContext.getResources().getDisplayMetrics();
++                    Rect out = new Rect();
++                    mFakeDecor.getWindowVisibleDisplayFrame(out);
++                    dp.widthPixels = out.width();
++                    dp.heightPixels = out.height();
++                    mContext.getResources().getDisplayMetrics().setTo(dp);
++                }
+                 return mFakeDecor;
+             }
+             return this;
+diff --git a/core/java/com/android/internal/view/FloatingActionMode.java b/core/java/com/android/internal/view/FloatingActionMode.java
+index 497e7b0..3533990 100644
+--- a/core/java/com/android/internal/view/FloatingActionMode.java
++++ b/core/java/com/android/internal/view/FloatingActionMode.java
+@@ -21,6 +21,7 @@ import android.content.Context;
+ import android.graphics.Point;
+ import android.graphics.Rect;
+ import android.view.ActionMode;
++import android.view.Display;
+ import android.view.Menu;
+ import android.view.MenuInflater;
+ import android.view.MenuItem;
+@@ -209,8 +210,9 @@ public final class FloatingActionMode extends ActionMode {
+     }
+ 
+     private boolean isContentRectWithinBounds() {
+-        mContext.getSystemService(WindowManager.class)
+-            .getDefaultDisplay().getRealSize(mDisplaySize);
++        Display dp = mContext.getSystemService(WindowManager.class).getDefaultDisplay();
++        dp.setCompatDisplayInfo(false);
++        dp.getRealSize(mDisplaySize);
+         mScreenRect.set(0, 0, mDisplaySize.x, mDisplaySize.y);
+ 
+         return intersectsClosed(mContentRectOnScreen, mScreenRect)
+diff --git a/core/java/com/android/internal/widget/DecorCaptionView.java b/core/java/com/android/internal/widget/DecorCaptionView.java
+index 48631ca..356b4a3 100644
+--- a/core/java/com/android/internal/widget/DecorCaptionView.java
++++ b/core/java/com/android/internal/widget/DecorCaptionView.java
+@@ -180,6 +180,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         // By changing the outline provider to BOUNDS, the window can remove its
+         // background without removing the shadow.
+         mOwner.getDecorView().setOutlineProvider(ViewOutlineProvider.BOUNDS);
++        mWindowRunMode = getWindowRunMode();
+         mBack = findViewById(R.id.back_window);
+         mSetting = findViewById(R.id.setting_window);
+         mMinimize = findViewById(R.id.minimize_window);
+@@ -301,6 +302,9 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+                     mTouchDownX = x;
+                     mTouchDownY = y;
+                 }
++                if (getWindowRunMode() == Display.STANDARD_MODE) {
++                    doubleClick();
++                }
+                 setSettingPopupItemSelect(v);
+                 break;
+ 
+@@ -342,8 +346,12 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+                 mWindowRunMode = Display.DESKTOP_MODE;
+                 break;
+             default:
++                mWindowRunMode = getWindowRunMode();
+                 break;
+         }
++        if (mWindowRunMode == getWindowRunMode()) {
++            return;
++        }
+         AlertDialog.Builder builder = new AlertDialog.Builder(view.getContext(),
+                 R.style.CaptionAlertDialogStyle);
+         builder.setMessage(getContext().getString(R.string.caption_setting_msg));
+@@ -353,6 +361,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+             public void onClick(DialogInterface dialogInterface, int i) {
+                 dialogInterface.dismiss();
+                 mPopWindow.dismiss();
++                setWindowRunMode(mWindowRunMode);
+             }
+         });
+         builder.setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
+@@ -559,6 +568,13 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         }
+     }
+ 
++    private void setWindowRunMode(int windowRunMode) {
++        Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
++        if (callback != null) {
++            callback.setWindowRunMode(windowRunMode);
++        }
++    }
++
+     private int[] calculatePopWindowPos(final View anchorView, final View popContentView) {
+         final int popPos[] = new int[2];
+         final int anchorLoc[] = new int[2];
+@@ -577,6 +593,14 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         return getStackId() != FULLSCREEN_WORKSPACE_STACK_ID;
+     }
+ 
++    public int getWindowRunMode() {
++        Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
++        if (callback != null) {
++            return callback.getWindowRunMode();
++        }
++        return Display.STANDARD_MODE;
++    }
++
+     /**
+      * Check that the requested orientation can resize.
+      *
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index b0cdb24..a2dd00e 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -422,6 +422,8 @@ import org.xmlpull.v1.XmlPullParser;
+ import org.xmlpull.v1.XmlPullParserException;
+ import org.xmlpull.v1.XmlSerializer;
+ 
++import java.io.ByteArrayInputStream;
++import java.io.ByteArrayOutputStream;
+ import java.io.File;
+ import java.io.FileDescriptor;
+ import java.io.FileInputStream;
+@@ -429,6 +431,8 @@ import java.io.FileNotFoundException;
+ import java.io.FileOutputStream;
+ import java.io.IOException;
+ import java.io.InputStreamReader;
++import java.io.ObjectInputStream;
++import java.io.ObjectOutputStream;
+ import java.io.PrintWriter;
+ import java.io.StringWriter;
+ import java.io.UnsupportedEncodingException;
+@@ -448,6 +452,7 @@ import java.util.Locale;
+ import java.util.Map;
+ import java.util.Objects;
+ import java.util.Set;
++import java.util.StringTokenizer;
+ import java.util.concurrent.CountDownLatch;
+ import java.util.concurrent.atomic.AtomicBoolean;
+ import java.util.concurrent.atomic.AtomicLong;
+@@ -975,6 +980,8 @@ public class ActivityManagerService extends IActivityManager.Stub
+      */
+     final HashMap<IBinder, ReceiverList> mRegisteredReceivers = new HashMap<>();
+ 
++    final HashMap<String, Integer> mCompatMode = new HashMap<>();
++
+     /**
+      * Resolver for broadcast intents to registered receivers.
+      * Holds BroadcastFilter (subclass of IntentFilter).
+@@ -1696,6 +1703,7 @@ public class ActivityManagerService extends IActivityManager.Stub
+     static final int DISPATCH_OOM_ADJ_OBSERVER_MSG = 70;
+     static final int START_USER_SWITCH_FG_MSG = 712;
+     static final int NOTIFY_VR_KEYGUARD_MSG = 74;
++    static final int PERSIST_COMPAT_MODE_MSG = 75;
+ 
+     static final int FIRST_ACTIVITY_STACK_MSG = 100;
+     static final int FIRST_BROADCAST_QUEUE_MSG = 200;
+@@ -2177,6 +2185,13 @@ public class ActivityManagerService extends IActivityManager.Stub
+                 writeGrantedUriPermissions();
+                 break;
+             }
++            case PERSIST_COMPAT_MODE_MSG: {
++                Settings.Global.putString(mContext.getContentResolver(),
++                        "compat_mode", serialize(mCompatMode));
++                TaskRecord task = (TaskRecord) msg.obj;
++                forceStopPackage(task.realActivity.getPackageName(), task.userId);
++                break;
++            }
+             case REQUEST_ALL_PSS_MSG: {
+                 synchronized (ActivityManagerService.this) {
+                     requestPssAllProcsLocked(SystemClock.uptimeMillis(), true, false);
+@@ -9491,6 +9506,12 @@ public class ActivityManagerService extends IActivityManager.Stub
+         }
+     }
+ 
++    private void schedulePackagesCompatMode(TaskRecord task) {
++        if (!mHandler.hasMessages(PERSIST_COMPAT_MODE_MSG)) {
++            mHandler.sendMessageDelayed(mHandler.obtainMessage(PERSIST_COMPAT_MODE_MSG, task), 0);
++        }
++    }
++
+     private void writeGrantedUriPermissions() {
+         if (DEBUG_URI_PERMISSION) Slog.v(TAG_URI_PERMISSION, "writeGrantedUriPermissions()");
+ 
+@@ -10253,6 +10274,83 @@ public class ActivityManagerService extends IActivityManager.Stub
+         }
+     }
+ 
++    public void setTaskRunMode(int taskId, int taskRunMode) {
++        synchronized (this) {
++            TaskRecord task = mStackSupervisor.anyTaskForIdLocked(taskId);
++            if (task == null) {
++                Slog.w(TAG, "setTaskRunMode: taskId=" + taskId + " not found");
++                return;
++            }
++            mCompatMode.put(task.realActivity.getPackageName(), taskRunMode);
++            schedulePackagesCompatMode(task);
++        }
++    }
++
++    private String serialize(HashMap<String, Integer> compatModes) {
++        ByteArrayOutputStream byteArrayOutputStream = null;
++        ObjectOutputStream objectOutputStream = null;
++        String serStr = null;
++        try {
++            byteArrayOutputStream = new ByteArrayOutputStream();
++            objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
++            objectOutputStream.writeObject(compatModes);
++            serStr = byteArrayOutputStream.toString("ISO-8859-1");
++            serStr = java.net.URLEncoder.encode(serStr, "UTF-8");
++            objectOutputStream.close();
++            byteArrayOutputStream.close();
++        } catch (Exception e) {
++            Log.e(TAG, "Error during serialize", e);
++        } finally {
++            if (objectOutputStream != null) {
++                try {
++                    objectOutputStream.close();
++                } catch (Exception e) {
++                    Log.e(TAG, "Error during serialize", e);
++                }
++            }
++            if (byteArrayOutputStream != null) {
++                try {
++                    byteArrayOutputStream.close();
++                } catch (Exception e) {
++                    Log.e(TAG, "Error during serialize", e);
++                }
++            }
++            return serStr;
++        }
++    }
++
++    private HashMap<String, Integer> deSerialization(String str) {
++        ByteArrayInputStream byteArrayInputStream = null;
++        ObjectInputStream objectInputStream = null;
++        HashMap<String, Integer> compatModes= null;
++        try {
++            String redStr = java.net.URLDecoder.decode(str, "UTF-8");
++            byteArrayInputStream = new ByteArrayInputStream(redStr.getBytes("ISO-8859-1"));
++            objectInputStream = new ObjectInputStream(byteArrayInputStream);
++            compatModes = (HashMap<String, Integer>) objectInputStream.readObject();
++            objectInputStream.close();
++            byteArrayInputStream.close();
++        } catch (Exception e) {
++            Log.e(TAG, "Error during serialize", e);
++        } finally {
++            if (objectInputStream != null) {
++                try {
++                    objectInputStream.close();
++                } catch (Exception e) {
++                    Log.e(TAG, "Error during serialize", e);
++                }
++            }
++            if (byteArrayInputStream != null) {
++                try {
++                    byteArrayInputStream.close();
++                } catch (Exception e) {
++                    Log.e(TAG, "Error during serialize", e);
++                }
++            }
++            return compatModes;
++        }
++    }
++
+     @Override
+     public int getDefaultMinSizeOfResizeableTask() {
+         if (mStackSupervisor != null) {
+@@ -10688,10 +10786,23 @@ public class ActivityManagerService extends IActivityManager.Stub
+     }
+ 
+     @Override
+-    public int getTaskBoundsMode(IBinder token) throws RemoteException {
++    public int getTaskRunMode(int taskId, String packageName) throws RemoteException {
+         synchronized (this) {
+-            final ActivityRecord r = ActivityRecord.forTokenLocked(token);
+-            return r != null ? r.getTask().getTaskBoundsMode() : STANDARD_MODE;
++            TaskRecord task = mStackSupervisor.anyTaskForIdLocked(taskId);
++            if (task == null) {
++                Slog.w(TAG, "getTaskRunMode: taskId=" + taskId + " not found");
++                return getTaskRunModeForPackageName(packageName);
++
++            }
++            return task.getTaskRunMode();
++        }
++    }
++
++    @Override
++    public int getTaskRunModeForPackageName(String packageName) throws RemoteException {
++        synchronized (this) {
++            return mCompatMode.get(packageName) == null ?
++                    STANDARD_MODE : mCompatMode.get(packageName);
+         }
+     }
+ 
+@@ -14393,6 +14504,12 @@ public class ActivityManagerService extends IActivityManager.Stub
+                     .getSerial();
+         } catch (RemoteException e) {}
+ 
++        HashMap map = deSerialization(
++                Settings.Global.getString(mContext.getContentResolver(), "compat_mode"));
++        if (map != null) {
++            mCompatMode.putAll(map);
++        }
++
+         ArrayList<ProcessRecord> procsToKill = null;
+         synchronized(mPidsSelfLocked) {
+             for (int i=mPidsSelfLocked.size()-1; i>=0; i--) {
+diff --git a/services/core/java/com/android/server/am/ActivityStarter.java b/services/core/java/com/android/server/am/ActivityStarter.java
+index 8c186f7..1acb934 100644
+--- a/services/core/java/com/android/server/am/ActivityStarter.java
++++ b/services/core/java/com/android/server/am/ActivityStarter.java
+@@ -59,6 +59,7 @@ import static android.content.pm.ActivityInfo.LAUNCH_SINGLE_TOP;
+ import static android.view.Display.DEFAULT_DISPLAY;
+ import static android.view.Display.INVALID_DISPLAY;
+ import static android.view.Display.STANDARD_MODE;
++import static android.view.Display.FULLSCREEN_MODE;
+ import static com.android.server.am.ActivityManagerDebugConfig.DEBUG_CONFIGURATION;
+ import static com.android.server.am.ActivityManagerDebugConfig.DEBUG_FOCUS;
+ import static com.android.server.am.ActivityManagerDebugConfig.DEBUG_PERMISSIONS_REVIEW;
+@@ -1036,6 +1037,7 @@ class ActivityStarter {
+                 (mOptions != null) ? mOptions.getLaunchStackId() :
+                 (sourceRecord != null ? sourceRecord.getTask().getStackId() :
+                                           FREEFORM_WORKSPACE_STACK_ID);
++
+         final int preferredLaunchDisplayId =
+                 (mOptions != null) ? mOptions.getLaunchDisplayId() : DEFAULT_DISPLAY;
+ 
+@@ -1280,6 +1282,12 @@ class ActivityStarter {
+         mLaunchTaskBehind = r.mLaunchTaskBehind
+                 && !mLaunchSingleTask && !mLaunchSingleInstance
+                 && (mLaunchFlags & FLAG_ACTIVITY_NEW_DOCUMENT) != 0;
++        int launchRunMode = mService.mCompatMode.get(r.info.packageName) == null ?
++                STANDARD_MODE : mService.mCompatMode.get(r.info.packageName);
++        if (mOptions == null)
++            mOptions = ActivityOptions.makeBasic();
++        mOptions.setLaunchStackId(launchRunMode == FULLSCREEN_MODE ?
++                FULLSCREEN_WORKSPACE_STACK_ID : FREEFORM_WORKSPACE_STACK_ID);
+ 
+         sendNewTaskResultRequestIfNeeded();
+ 
+@@ -1804,13 +1812,6 @@ class ActivityStarter {
+                     mNewTaskIntent != null ? mNewTaskIntent : mIntent, mVoiceSession,
+                     mVoiceInteractor, !mLaunchTaskBehind /* toTop */, mStartActivity.mActivityType);
+             addOrReparentStartingActivity(task, "setTaskFromReuseOrCreateNewTask - mReuseTask");
+-            if (mOptions != null && mOptions.getFreeformBoundsMode() != STANDARD_MODE) {
+-                Rect bounds = new Rect();
+-                mTargetStack.getDisplay().mDisplay.getDefaultFreeformSize(
+-                        bounds, mOptions.getFreeformBoundsMode());
+-                task.setTaskBoundsMode(bounds, mOptions.getFreeformBoundsMode());
+-                task.resize(bounds, ActivityManager.RESIZE_MODE_FORCED, true, true);
+-            }
+             if (!mStartActivity.fullscreen) {
+                 Rect bounds = new Rect();
+                 mTargetStack.getDisplay().mDisplay.getRectSize(bounds);
+diff --git a/services/core/java/com/android/server/am/LaunchingTaskPositioner.java b/services/core/java/com/android/server/am/LaunchingTaskPositioner.java
+index 570266a..c117a51 100644
+--- a/services/core/java/com/android/server/am/LaunchingTaskPositioner.java
++++ b/services/core/java/com/android/server/am/LaunchingTaskPositioner.java
+@@ -118,7 +118,9 @@ class LaunchingTaskPositioner {
+             return;
+         }
+         if (windowLayout == null) {
+-            positionCenter(task, tasks, mDefaultFreeformWidth, mDefaultFreeformHeight);
++            int width = task.isSystemTask() ? mDefaultFreeformWidth : 440;
++            int height = task.isSystemTask() ? mDefaultFreeformHeight : 740;
++            positionCenter(task, tasks, width, height);
+             return;
+         }
+         int width = getFinalWidth(windowLayout);
+diff --git a/services/core/java/com/android/server/am/TaskRecord.java b/services/core/java/com/android/server/am/TaskRecord.java
+index c07478d..55702aa 100644
+--- a/services/core/java/com/android/server/am/TaskRecord.java
++++ b/services/core/java/com/android/server/am/TaskRecord.java
+@@ -230,6 +230,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     int mResizeMode;        // The resize mode of this task and its activities.
+                             // Based on the {@link ActivityInfo#resizeMode} of the root activity.
+     int mTaskBoundsMode;    // Task bounds mode.
++    int mTaskRunMode;       // Task run mode.
+     private boolean mSupportsPictureInPicture;  // Whether or not this task and its activities
+             // support PiP. Based on the {@link ActivityInfo#FLAG_SUPPORTS_PICTURE_IN_PICTURE} flag
+             // of the root activity.
+@@ -307,6 +308,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     String mCallingPackage;
+ 
+     final ActivityManagerService mService;
++    private ApplicationInfo mApplicationInfo;
+ 
+     // Whether or not this task covers the entire screen; by default tasks are fullscreen.
+     boolean mFullscreen = true;
+@@ -326,7 +328,8 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     Rect mLastNonFullscreenBounds = null;
+ 
+     Rect mMaximizeBounds = new Rect();
+-    Rect mDefaultPcBounds = new Rect();
++    Rect mDefaultDesktopBounds = new Rect();
++    Rect mDefaultPhoneBounds = new Rect();
+     // Minimal width and height of this task when it's resizeable. -1 means it should use the
+     // default minimal width/height.
+     int mMinWidth;
+@@ -357,6 +360,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+         mActivities = new ArrayList<>();
+         mCallingUid = info.applicationInfo.uid;
+         mCallingPackage = info.packageName;
++        mApplicationInfo = info.applicationInfo;
+         taskType = type;
+         setIntent(_intent, info);
+         setMinDimensions(info);
+@@ -380,6 +384,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+         mActivities = new ArrayList<>();
+         mCallingUid = info.applicationInfo.uid;
+         mCallingPackage = info.packageName;
++        mApplicationInfo = info.applicationInfo;
+         setIntent(_intent, info);
+         setMinDimensions(info);
+ 
+@@ -469,6 +474,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+                 mResizeMode, mSupportsPictureInPicture, isHomeTask(), onTop, showForAllUsers,
+                 lastTaskDescription));
+         mWindowContainerController.setTaskBoundsMode(mTmpNonMaximizeBounds, mTaskBoundsMode);
++        mWindowContainerController.setTaskRunMode(mTaskRunMode);
+     }
+ 
+     Rect getTaskMemoryBounds() {
+@@ -479,12 +485,11 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+                 final TaskRecord tk = mService.mRecentTasks.get(taskNdx);
+                 if (affinity.equals(tk.affinity)) {
+                     if (tk.mBounds != null)
+-                    bounds.set(new Rect(tk.mBounds));
++                        bounds.set(new Rect(tk.mBounds));
+                     break;
+                 }
+             }
+         }
+-
+         if (mStack != null && bounds.isEmpty()) {
+             switch (mTaskBoundsMode) {
+                 case Display.LEFT_DOCKED_MODE:
+@@ -501,6 +506,22 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+                     break;
+             }
+         }
++        switch (mTaskRunMode) {
++            case Display.PHONE_MODE:
++                mTmpNonMaximizeBounds.set(new Rect(mTmpNonMaximizeBounds.left,
++                    mTmpNonMaximizeBounds.top,
++                    mTmpNonMaximizeBounds.left + 440,
++                    mTmpNonMaximizeBounds.top + 740));
++                bounds.set(mTmpNonMaximizeBounds);
++                break;
++            case Display.DESKTOP_MODE:
++                mTmpNonMaximizeBounds.set(new Rect(mTmpNonMaximizeBounds.left,
++                    mTmpNonMaximizeBounds.top,
++                    mTmpNonMaximizeBounds.left + mDefaultDesktopBounds.width(),
++                    mTmpNonMaximizeBounds.top + mDefaultDesktopBounds.height()));
++                bounds.set(mTmpNonMaximizeBounds);
++                break;
++        }
+         return bounds.isEmpty() ? null : bounds;
+     }
+ 
+@@ -933,6 +954,10 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+         mLockTaskMode = info.lockTaskLaunchMode;
+         mPrivileged = (info.applicationInfo.privateFlags & PRIVATE_FLAG_PRIVILEGED) != 0;
+         setLockTaskAuth();
++        mTaskRunMode = mService.mCompatMode.get(realActivity.getPackageName()) == null ?
++                Display.STANDARD_MODE : mService.mCompatMode.get(realActivity.getPackageName());
++        mTaskBoundsMode = Settings.Global.getInt(mService.mContext.getContentResolver(),
++                realActivity.getPackageName() + ATTR_BOUNDS_MODE, Display.STANDARD_MODE);
+     }
+ 
+     /** Sets the original minimal width and height. */
+@@ -1603,6 +1628,10 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+         return taskType == HOME_ACTIVITY_TYPE;
+     }
+ 
++    boolean isSystemTask() {
++        return mApplicationInfo.isSystemApp();
++    }
++
+     boolean isRecentsTask() {
+         return taskType == RECENTS_ACTIVITY_TYPE;
+     }
+@@ -1793,18 +1822,23 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     }
+ 
+     void storeTaskBounds() {
+-        if (mStack != null && !isHomeTask() && StackId.persistTaskBounds(mStack.mStackId)) {
+-            Settings.Global.putInt(mService.mContext.getContentResolver(),
+-                    realActivity.getPackageName() + ATTR_BOUNDS_MODE, mTaskBoundsMode);
+-            Settings.Global.putRect(mService.mContext.getContentResolver(),
+-                    realActivity.getPackageName(), formatTaskBounds(mTmpNonMaximizeBounds, true));
++        if (mStack != null && !isHomeTask()) {
++            if (StackId.persistTaskBounds(mStack.mStackId)) {
++                if ((mTaskRunMode & (Display.PHONE_MODE|Display.DESKTOP_MODE)) != 0) {
++                    mTaskBoundsMode = Display.STANDARD_MODE;
++                }
++                Settings.Global.putInt(mService.mContext.getContentResolver(),
++                        realActivity.getPackageName() + ATTR_BOUNDS_MODE, mTaskBoundsMode);
++                Settings.Global.putRect(mService.mContext.getContentResolver(),
++                        realActivity.getPackageName(), formatTaskBounds(mTmpNonMaximizeBounds, true));
++            }
+         }
+     }
+ 
+     private Rect formatTaskBounds(Rect bounds, boolean isStored) {
+         Rect storeBounds = null;
+         Rect restoreBounds = null;
+-        if (!bounds.isEmpty()) {
++        if (mStack != null && !bounds.isEmpty()) {
+             final Point displaySize = new Point();
+             mStack.getDisplaySize(displaySize);
+             int displayWidth = displaySize.x;
+@@ -2117,7 +2151,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+                     || mTaskBoundsMode == Display.TOP_DOCKED_MODE
+                     || mTaskBoundsMode == Display.LEFT_DOCKED_MODE
+                     || mTaskBoundsMode == Display.RIGHT_DOCKED_MODE);
+-            mTmpNonMaximizeBounds.set(taskLaunchMode ? mDefaultPcBounds : bounds);
++            mTmpNonMaximizeBounds.set(taskLaunchMode ? mDefaultDesktopBounds : bounds);
+         }
+     }
+ 
+@@ -2369,30 +2403,32 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     void toggleTaskMaximize() {
+         if (mTaskBoundsMode == Display.TOP_DOCKED_MODE) {
+             mTmpNonMaximizeBounds.set(mTmpNonMaximizeBounds.isEmpty()
+-                    ? mDefaultPcBounds : mTmpNonMaximizeBounds);
++                    ? mDefaultDesktopBounds : mTmpNonMaximizeBounds);
+             mTaskBoundsMode = Display.STANDARD_MODE;
+             resize(mTmpNonMaximizeBounds, RESIZE_MODE_FORCED, true, true);
+         } else {
+-            mTmpNonMaximizeBounds.set(mBounds == null ? mDefaultPcBounds : mBounds);
++            mTmpNonMaximizeBounds.set(mBounds == null ? mDefaultDesktopBounds : mBounds);
+             mTaskBoundsMode = Display.TOP_DOCKED_MODE;
+             resize(mMaximizeBounds, RESIZE_MODE_FORCED, true, true);
+         }
+     }
+ 
+     void setUniqueTaskBounds() {
+-        mStack.getDisplay().mDisplay.getRectSize(mMaximizeBounds);
+-        mStack.getDisplay().mDisplay.getDefaultFreeformSize(
+-                mDefaultPcBounds, Display.DESKTOP_MODE);
+-        mTaskBoundsMode = Settings.Global.getInt(mService.mContext.getContentResolver(),
+-                realActivity.getPackageName() + ATTR_BOUNDS_MODE, Display.STANDARD_MODE);
+-        Rect bounds = Settings.Global.getRect(mService.mContext.getContentResolver(),
+-                realActivity.getPackageName(), null);
+-        if (bounds != null)
+-        mTmpNonMaximizeBounds.set(formatTaskBounds(bounds, false));
++        if (mStack != null && !isHomeTask()) {
++            mStack.getDisplay().mDisplay.getRectSize(mMaximizeBounds);
++            mStack.getDisplay().mDisplay.getDefaultFreeformSize(
++                    mDefaultDesktopBounds, Display.DESKTOP_MODE);
++            mStack.getDisplay().mDisplay.getDefaultFreeformSize(
++                    mDefaultPhoneBounds, Display.PHONE_MODE);
++            Rect bounds = Settings.Global.getRect(mService.mContext.getContentResolver(),
++                    realActivity.getPackageName(), null);
++            if (bounds != null)
++                mTmpNonMaximizeBounds.set(formatTaskBounds(bounds, false));
++        }
+     }
+ 
+-    int getTaskBoundsMode() {
+-        return mTaskBoundsMode;
++    int getTaskRunMode() {
++        return mTaskRunMode;
+     }
+ 
+     void changeTaskOrientation() {
+diff --git a/services/core/java/com/android/server/wm/Task.java b/services/core/java/com/android/server/wm/Task.java
+index 8f3d359a..d1457db 100644
+--- a/services/core/java/com/android/server/wm/Task.java
++++ b/services/core/java/com/android/server/wm/Task.java
+@@ -62,6 +62,7 @@ class Task extends WindowContainer<AppWindowToken> implements DimLayer.DimLayerU
+     final int mUserId;
+     private boolean mDeferRemoval = false;
+     boolean mIsDocked = false;
++    boolean mIsCompatibleRunMode = false;
+     int mDockedDimSide = -1;
+     final Rect mDockedTmpRect = new Rect();
+     final WindowManagerService mService;
+@@ -363,6 +364,10 @@ class Task extends WindowContainer<AppWindowToken> implements DimLayer.DimLayerU
+         mDockedTmpRect.set(bounds);
+     }
+ 
++    void setTaskRunMode(int taskRunMode) {
++        mIsCompatibleRunMode = (taskRunMode & (Display.PHONE_MODE|Display.DESKTOP_MODE)) != 0;
++    }
++
+     boolean isResizeable() {
+         return ActivityInfo.isResizeableMode(mResizeMode) || mSupportsPictureInPicture
+                 || mService.mForceResizableTasks;
+diff --git a/services/core/java/com/android/server/wm/TaskPositioner.java b/services/core/java/com/android/server/wm/TaskPositioner.java
+index f8ccd8f..05bd4e60 100644
+--- a/services/core/java/com/android/server/wm/TaskPositioner.java
++++ b/services/core/java/com/android/server/wm/TaskPositioner.java
+@@ -715,7 +715,7 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+     private void updateDimLayerVisibility(int x, int y) {
+         @CtrlType
+         int dimSide = getDimSide(x, y);
+-        if (dimSide == mCurrentDimSide) {
++        if (mTask.mIsCompatibleRunMode || dimSide == mCurrentDimSide) {
+             return;
+         }
+ 
+diff --git a/services/core/java/com/android/server/wm/TaskStack.java b/services/core/java/com/android/server/wm/TaskStack.java
+index 55151a1..0455737 100644
+--- a/services/core/java/com/android/server/wm/TaskStack.java
++++ b/services/core/java/com/android/server/wm/TaskStack.java
+@@ -1404,9 +1404,10 @@ public class TaskStack extends WindowContainer<Task> implements DimLayer.DimLaye
+             // the task is put to top-left quadrant, the actual visible area would not start at
+             // (0,0) after it's adjusted for the status bar.
+             task.getDimBounds(mTmpRect);
+-            mTmpRect.inset(-delta, -delta);
++            int compatibleDelta = task.mIsCompatibleRunMode ? 0 : delta;
++            mTmpRect.inset(-compatibleDelta, -compatibleDelta);
+             if (mTmpRect.contains(x, y)) {
+-                mTmpRect.inset(delta, delta);
++                mTmpRect.inset(compatibleDelta, compatibleDelta);
+ 
+                 results.searchDone = true;
+ 
+diff --git a/services/core/java/com/android/server/wm/TaskWindowContainerController.java b/services/core/java/com/android/server/wm/TaskWindowContainerController.java
+index 85965ee..b10a191 100644
+--- a/services/core/java/com/android/server/wm/TaskWindowContainerController.java
++++ b/services/core/java/com/android/server/wm/TaskWindowContainerController.java
+@@ -158,6 +158,14 @@ public class TaskWindowContainerController
+         }
+     }
+ 
++    public void setTaskRunMode(int taskRunMode) {
++        synchronized (mWindowMap) {
++            if (mContainer != null) {
++                mContainer.setTaskRunMode(taskRunMode);
++            }
++        }
++    }
++
+     public void resize(Rect bounds, Configuration overrideConfig, boolean relayout,
+             boolean forced) {
+         synchronized (mWindowMap) {
+diff --git a/test-runner/src/android/test/mock/MockContext.java b/test-runner/src/android/test/mock/MockContext.java
+index 5e5ba46..050d24b 100644
+--- a/test-runner/src/android/test/mock/MockContext.java
++++ b/test-runner/src/android/test/mock/MockContext.java
+@@ -82,6 +82,11 @@ public class MockContext extends Context {
+     }
+ 
+     @Override
++    public boolean isCompatContext() {
++       return false;
++    }
++
++    @Override
+     public Looper getMainLooper() {
+         throw new UnsupportedOperationException();
+     }
+-- 
+2.7.4
+

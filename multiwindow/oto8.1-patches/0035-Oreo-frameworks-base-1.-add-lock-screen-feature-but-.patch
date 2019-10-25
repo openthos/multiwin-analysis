@@ -1,0 +1,162 @@
+From e96a53ca49aa083b52e5df9117eb0b6b23bda83a Mon Sep 17 00:00:00 2001
+From: CaoYongren <m18410261910@163.com>
+Date: Fri, 27 Oct 2017 02:36:10 +0000
+Subject: [PATCH 035/110] Oreo: frameworks: base: 1. add lock screen feature
+ but lock screen after is black screen.
+
+Change-Id: Ib99cea69bd5ed7c39524c06f95d83d53f22380cd
+Signed-off-by: CaoYongren <m18410261910@163.com>
+---
+ packages/SystemUI/AndroidManifest.xml              | 12 ++++++++++
+ packages/SystemUI/res/xml/lock_screen.xml          | 11 +++++++++
+ .../src/com/android/systemui/LockReceiver.java     | 28 ++++++++++++++++++++++
+ .../systemui/power/PowerSourceActivity.java        | 25 ++++++++++++-------
+ .../phone/StatusBarKeyguardViewManager.java        |  4 +++-
+ 5 files changed, 71 insertions(+), 9 deletions(-)
+ create mode 100644 packages/SystemUI/res/xml/lock_screen.xml
+ create mode 100644 packages/SystemUI/src/com/android/systemui/LockReceiver.java
+
+diff --git a/packages/SystemUI/AndroidManifest.xml b/packages/SystemUI/AndroidManifest.xml
+index 72274cf..1cd2ae3 100644
+--- a/packages/SystemUI/AndroidManifest.xml
++++ b/packages/SystemUI/AndroidManifest.xml
+@@ -582,5 +582,17 @@
+                 <action android:name="com.android.intent.action.SHOW_KEYBOARD_SHORTCUTS"/>
+             </intent-filter>
+         </receiver>
++
++        <!-- lock screen  -->
++        <receiver
++            android:name=".LockReceiver"
++            android:permission="android.permission.BIND_DEVICE_ADMIN">
++            <meta-data
++                android:name="android.app.device_admin"
++                android:resource="@xml/lock_screen" />
++                <intent-filter>
++                    <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
++                </intent-filter>
++        </receiver>
+     </application>
+ </manifest>
+diff --git a/packages/SystemUI/res/xml/lock_screen.xml b/packages/SystemUI/res/xml/lock_screen.xml
+new file mode 100644
+index 0000000..9be5956
+--- /dev/null
++++ b/packages/SystemUI/res/xml/lock_screen.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<device-admin
++    xmlns:android="http://schemas.android.com/apk/res/android">
++    <uses-policies>
++        <force-lock />
++        <wipe-data />
++        <reset-password />
++        <limit-password />
++        <watch-login />
++    </uses-policies>
++</device-admin>
+diff --git a/packages/SystemUI/src/com/android/systemui/LockReceiver.java b/packages/SystemUI/src/com/android/systemui/LockReceiver.java
+new file mode 100644
+index 0000000..c937109
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/LockReceiver.java
+@@ -0,0 +1,28 @@
++package com.android.systemui;
++
++import android.app.admin.DeviceAdminReceiver;
++import android.content.Context;
++import android.content.Intent;
++import android.content.ComponentName;
++
++public class LockReceiver extends DeviceAdminReceiver {
++
++    public static ComponentName getCn(Context context){
++        return new ComponentName(context, LockReceiver.class);
++    }
++
++    @Override
++    public void onReceive(Context context, Intent intent) {
++        super.onReceive(context, intent);
++    }
++
++    @Override
++    public void onEnabled(Context context, Intent intent) {
++        super.onEnabled(context, intent);
++    }
++
++    @Override
++    public void onDisabled(Context context, Intent intent) {
++        super.onDisabled(context, intent);
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java b/packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java
+index 305f19b..92b20d5 100644
+--- a/packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java
++++ b/packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java
+@@ -1,19 +1,23 @@
+ package com.android.systemui.power;
+ 
+ import android.app.Activity;
++import android.app.admin.DevicePolicyManager;
+ import android.content.Context;
+ import android.content.Intent;
++import android.content.ComponentName;
+ import android.os.Bundle;
++import android.os.SystemClock;
+ import android.os.PowerManager;
+ import android.view.MotionEvent;
+ import android.view.View;
+ import android.widget.ImageView;
+ import android.widget.LinearLayout;
+-import android.os.SystemClock;
+-import com.android.systemui.R;
+-
++import android.util.Log;
+ import java.lang.reflect.Method;
+ 
++import com.android.systemui.LockReceiver;
++import com.android.systemui.R;
++
+ public class PowerSourceActivity extends Activity implements View.OnClickListener {
+ 
+     private static final int WAIT_INTERVAL = 1000; // wait for 1 second.
+@@ -148,11 +152,16 @@ public class PowerSourceActivity extends Activity implements View.OnClickListene
+                 //Runtime.getRuntime().exec("su -c \"/system/bin/reboot\"");
+                 break;
+             case R.id.power_lock:
+-//                closeButtonShowStatusBar();
+-//                Intent intentLock = new Intent("android.intent.action.LOCKNOW");
+-//                intentLock.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+-//                        | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+-//                startActivity(intentLock);
++                DevicePolicyManager mDevicePolicyManager = (DevicePolicyManager)
++			                getSystemService(Context.DEVICE_POLICY_SERVICE);
++                if (mDevicePolicyManager.isAdminActive(LockReceiver.getCn(this))) {
++                    mDevicePolicyManager.lockNow();
++                } else {
++                    Intent intentLock = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
++                    intentLock.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, LockReceiver.getCn(this));
++                    intentLock.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "lock screen");
++                    startActivity(intentLock);
++                }
+                 finish();
+                 break;
+             case R.id.power_sleep:
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarKeyguardViewManager.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarKeyguardViewManager.java
+index bbce751..f4e47dd 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarKeyguardViewManager.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarKeyguardViewManager.java
+@@ -550,7 +550,9 @@ public class StatusBarKeyguardViewManager implements RemoteInputController.Callb
+     private Runnable mMakeNavigationBarVisibleRunnable = new Runnable() {
+         @Override
+         public void run() {
+-            mStatusBar.getNavigationBarView().getRootView().setVisibility(View.VISIBLE);
++            if (mStatusBar.getNavigationBarView() != null) {
++                mStatusBar.getNavigationBarView().getRootView().setVisibility(View.VISIBLE);
++            }
+         }
+     };
+ 
+-- 
+2.7.4
+

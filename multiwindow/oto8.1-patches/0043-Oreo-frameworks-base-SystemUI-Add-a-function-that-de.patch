@@ -1,0 +1,85 @@
+From 1318764563b3026d2a1c0d1fd8a09b7559533d0f Mon Sep 17 00:00:00 2001
+From: luojunhuan <forward_m@126.com>
+Date: Tue, 7 Nov 2017 09:00:22 +0000
+Subject: [PATCH 043/110] Oreo: frameworks: base: SystemUI: Add a function that
+ delete each notification
+
+Signed-off-by: luojunhuan <forward_m@126.com>
+---
+ .../SystemUI/res/layout/status_bar_notification_row.xml |  9 +++++++++
+ .../com/android/systemui/statusbar/phone/StatusBar.java | 17 ++++++++++++++++-
+ 2 files changed, 25 insertions(+), 1 deletion(-)
+
+diff --git a/packages/SystemUI/res/layout/status_bar_notification_row.xml b/packages/SystemUI/res/layout/status_bar_notification_row.xml
+index 7f37087..f89d546 100644
+--- a/packages/SystemUI/res/layout/status_bar_notification_row.xml
++++ b/packages/SystemUI/res/layout/status_bar_notification_row.xml
+@@ -75,4 +75,13 @@
+         android:layout_width="match_parent"
+         android:layout_height="match_parent" />
+ 
++    <ImageButton
++        android:layout_width="16dp"
++        android:layout_height="16dp"
++        android:id="@+id/delete_notification"
++        android:layout_marginRight="10dp"
++        android:layout_marginBottom="10dp"
++        android:layout_gravity="bottom|end"
++        android:background="@android:drawable/ic_menu_delete" />
++
+ </com.android.systemui.statusbar.ExpandableNotificationRow>
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index e7b0895..dfb526b 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -136,6 +136,7 @@ import android.view.accessibility.AccessibilityManager;
+ import android.view.animation.AccelerateInterpolator;
+ import android.view.animation.Interpolator;
+ import android.widget.DateTimeView;
++import android.widget.ImageButton;
+ import android.widget.ImageView;
+ import android.widget.LinearLayout;
+ import android.widget.FrameLayout;
+@@ -814,6 +815,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     private NavigationBarFragment mNavigationBar;
+     private View mNavigationBarView;
+     public MenuDialog mShowTaskbarDialog;
++    private RankingMap mRankingMap;
+ 
+     @Override
+     public void start() {
+@@ -6441,6 +6443,9 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 mHandler.post(new Runnable() {
+                     @Override
+                     public void run() {
++                        if (sbn.getNotification().contentView != null) {
++                            mRankingMap = rankingMap;
++                        }
+                         processForRemoteInput(sbn.getNotification());
+                         String key = sbn.getKey();
+                         mKeysKeptForRemoteInput.remove(key);
+@@ -7496,10 +7501,20 @@ public class StatusBar extends SystemUI implements DemoMode,
+         return entry;
+     }
+ 
+-    protected void addNotificationViews(Entry entry) {
++    protected void addNotificationViews(final Entry entry) {
+         if (entry == null) {
+             return;
+         }
++        ImageButton notificationItemDelete =
++                (ImageButton) entry.row.findViewById(R.id.delete_notification);
++        notificationItemDelete.setOnClickListener(new View.OnClickListener() {
++            @Override
++            public void onClick(View v) {
++                removeNotification(entry.key, mRankingMap);
++                updateNotificationRanking(mRankingMap);
++            }
++        });
++
+         // Add the expanded view and icon.
+         mNotificationData.add(entry);
+         updateNotifications();
+-- 
+2.7.4
+

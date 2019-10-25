@@ -1,0 +1,44 @@
+From d6a76f55198d48ae4244aa5e6d9e12a44dd62a8e Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Mon, 18 Mar 2019 01:44:20 +0000
+Subject: [PATCH 078/110] oto8: frameworks: base: Fix bug about minimization of
+ FullScreen windows.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ services/core/java/com/android/server/am/ActivityStackSupervisor.java | 3 ---
+ services/core/java/com/android/server/am/TaskRecord.java              | 2 +-
+ 2 files changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/services/core/java/com/android/server/am/ActivityStackSupervisor.java b/services/core/java/com/android/server/am/ActivityStackSupervisor.java
+index 1b61e7e..be85d6f 100644
+--- a/services/core/java/com/android/server/am/ActivityStackSupervisor.java
++++ b/services/core/java/com/android/server/am/ActivityStackSupervisor.java
+@@ -3319,9 +3319,6 @@ public class ActivityStackSupervisor extends ConfigurationContainer implements D
+             mService.updateUsageStats(r, true);
+         }
+         if (allResumedActivitiesComplete()) {
+-            if (r.isHomeActivity()) {
+-                return true;
+-            }
+             ensureActivitiesVisibleLocked(null, 0, !PRESERVE_WINDOWS);
+             mWindowManager.executeAppTransition();
+             return true;
+diff --git a/services/core/java/com/android/server/am/TaskRecord.java b/services/core/java/com/android/server/am/TaskRecord.java
+index 491f5f2..9e221fc 100644
+--- a/services/core/java/com/android/server/am/TaskRecord.java
++++ b/services/core/java/com/android/server/am/TaskRecord.java
+@@ -1603,7 +1603,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     }
+ 
+     private boolean isResizeable(boolean checkSupportsPip) {
+-        return getStackId() == FREEFORM_WORKSPACE_STACK_ID;
++        return getStackId() == FREEFORM_WORKSPACE_STACK_ID || checkSupportsPip;
+         //return (mService.mForceResizableActivities || ActivityInfo.isResizeableMode(mResizeMode)
+         //        || (checkSupportsPip && mSupportsPictureInPicture)) && !mTemporarilyUnresizable;
+     }
+-- 
+2.7.4
+

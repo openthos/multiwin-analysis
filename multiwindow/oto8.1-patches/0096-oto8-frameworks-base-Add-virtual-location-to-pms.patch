@@ -1,0 +1,178 @@
+From 44fd823cff2408abb9f5277a8c860f52d288d24e Mon Sep 17 00:00:00 2001
+From: Midysen <miaodexing@openthos.org>
+Date: Tue, 20 Aug 2019 09:41:17 +0000
+Subject: [PATCH 096/110] oto8: frameworks: base: Add virtual location to pms
+
+Signed-off-by: Miao Dexing <miaodexing@openthos.org>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ .../android/server/pm/PackageManagerService.java   | 68 ++++++++++++++++------
+ 1 file changed, 49 insertions(+), 19 deletions(-)
+
+diff --git a/services/core/java/com/android/server/pm/PackageManagerService.java b/services/core/java/com/android/server/pm/PackageManagerService.java
+index 5f92901..3cde257 100644
+--- a/services/core/java/com/android/server/pm/PackageManagerService.java
++++ b/services/core/java/com/android/server/pm/PackageManagerService.java
+@@ -431,6 +431,10 @@ public class PackageManagerService extends IPackageManager.Stub
+     // Cap the size of permission trees that 3rd party apps can define
+     private static final int MAX_PERMISSION_TREE_FOOTPRINT = 32768;     // characters of text
+ 
++    private static final int MESSAGE_TYPE_AUDIO = 0;
++    private static final int MESSAGE_TYPE_CAMERA = 1;
++    private static final int MESSAGE_TYPE_LOCATION =2;
++
+     // Suffix used during package installation when copying/moving
+     // package apks to install directory.
+     private static final String INSTALL_PACKAGE_SUFFIX = "-";
+@@ -551,9 +555,10 @@ public class PackageManagerService extends IPackageManager.Stub
+     /** Permission grant: grant as runtime a permission that was granted as an install time one. */
+     private static final int GRANT_UPGRADE = 4;
+ 
+-    private static final String[] PHY = {"phy_camera", "phy_audio"};
+-    private static final String[] VIR = {"vir_camera", "vir_audio"};
+-    private static final String[] PERMISSION = {".permission.camera", ".permission.audio"};
++    private static final String[] PHY = {"phy_camera", "phy_audio", "phy_location"};
++    private static final String[] VIR = {"vir_camera", "vir_audio", "vir_location"};
++    private static final String[] PERMISSION = {".permission.camera", ".permission.audio",
++                                                ".permission.location"};
+     private static final List<Map<String,String>> PERMISSION_LIST = new ArrayList<Map<String,String>>();
+ 
+     static {
+@@ -1345,6 +1350,7 @@ public class PackageManagerService extends IPackageManager.Stub
+     static final int INSTANT_APP_RESOLUTION_PHASE_TWO = 20;
+     static final int ACCESS_MANAGE_CAMERA = 21;
+     static final int ACCESS_MANAGE_AUDIO = 22;
++    static final int ACCESS_MANAGE_LOCATION = 23;
+ 
+     static final int WRITE_SETTINGS_DELAY = 10*1000;  // 10 seconds
+ 
+@@ -1921,18 +1927,20 @@ public class PackageManagerService extends IPackageManager.Stub
+ 
+                     break;
+                 }
+-                case ACCESS_MANAGE_CAMERA:
+-                case ACCESS_MANAGE_AUDIO:{
+-                    Global.putString(mContext.getContentResolver(),
+-                            bundle.getString("permission"), bundle.getString("msg"));
+-                    break;
+-                }
++
+                 case INSTANT_APP_RESOLUTION_PHASE_TWO: {
+                     InstantAppResolver.doInstantAppResolutionPhaseTwo(mContext,
+                             mInstantAppResolverConnection,
+                             (InstantAppRequest) msg.obj,
+                             mInstantAppInstallerActivity,
+                             mHandler);
++                    break;
++                }
++                case ACCESS_MANAGE_AUDIO:
++                case ACCESS_MANAGE_CAMERA:
++                case ACCESS_MANAGE_LOCATION: {
++                    Global.putString(mContext.getContentResolver(),
++                                     bundle.getString("permission"), bundle.getString("msg"));
+                 }
+             }
+         }
+@@ -3900,12 +3908,16 @@ public class PackageManagerService extends IPackageManager.Stub
+                             packageInfo.packageName + PERMISSION_LIST.get(0).get("permission")))) {
+                 permissions.remove(Manifest.permission.CAMERA);
+             }
+-
+             if (!permissions.isEmpty()
+                     && PERMISSION_LIST.get(1).get("vir").equals(Global.getString(resolver,
+                             packageInfo.packageName + PERMISSION_LIST.get(1).get("permission")))) {
+                 permissions.remove(Manifest.permission.RECORD_AUDIO);
+             }
++            if (!permissions.isEmpty()
++                    && PERMISSION_LIST.get(2).get("vir").equals(Global.getString(resolver,
++                            packageInfo.packageName + PERMISSION_LIST.get(2).get("permission")))) {
++                permissions.remove(Manifest.permission.ACCESS_FINE_LOCATION);
++            }
+         }
+ 
+         return packageInfo;
+@@ -5662,12 +5674,14 @@ public class PackageManagerService extends IPackageManager.Stub
+         data.putString("msg", message);
+         Message msg = null;
+         switch (type) {
+-            case 0:
+-                msg = mHandler.obtainMessage(ACCESS_MANAGE_CAMERA);
+-                break;
+-            case 1:
++            case MESSAGE_TYPE_AUDIO:
+                 msg = mHandler.obtainMessage(ACCESS_MANAGE_AUDIO);
+                 break;
++            case MESSAGE_TYPE_CAMERA:
++                msg = mHandler.obtainMessage(ACCESS_MANAGE_CAMERA);
++                break;
++            case MESSAGE_TYPE_LOCATION:
++                msg = mHandler.obtainMessage(ACCESS_MANAGE_LOCATION);
+         }
+         msg.setData(data);
+         mHandler.sendMessage(msg);
+@@ -5699,6 +5713,8 @@ public class PackageManagerService extends IPackageManager.Stub
+                     && PERMISSION_LIST.get(0).get("vir").equals(result))
+                 || (name.contains(Manifest.permission.RECORD_AUDIO)
+                     && PERMISSION_LIST.get(1).get("vir").equals(result))
++                || (name.contains(Manifest.permission.ACCESS_FINE_LOCATION)
++                    && PERMISSION_LIST.get(2).get("vir").equals(result))
+                 ) {
+             return true;
+         } else {
+@@ -5739,14 +5755,17 @@ public class PackageManagerService extends IPackageManager.Stub
+                     || filterAppAccessLPr(ps, callingUid, userId)) {
+                 throw new IllegalArgumentException("Unknown package: " + packageName);
+             }
+-
+             if (name.contains(Manifest.permission.CAMERA)) {
+                 handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(0).get("permission"),
+-                        PERMISSION_LIST.get(0).get("phy"), 0);
++                        PERMISSION_LIST.get(0).get("phy"), MESSAGE_TYPE_CAMERA);
+             }
+             if (name.contains(Manifest.permission.RECORD_AUDIO)) {
+                 handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(1).get("permission"),
+-                        PERMISSION_LIST.get(1).get("phy"), 1);
++                        PERMISSION_LIST.get(1).get("phy"), MESSAGE_TYPE_AUDIO);
++            }
++            if (name.contains(Manifest.permission.ACCESS_FINE_LOCATION)) {
++                handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(2).get("permission"),
++                        PERMISSION_LIST.get(2).get("phy"), MESSAGE_TYPE_LOCATION);
+             }
+ 
+             enforceDeclaredAsUsedAndRuntimeOrDevelopmentPermission(pkg, bp);
+@@ -5880,12 +5899,17 @@ public class PackageManagerService extends IPackageManager.Stub
+ 
+             if (name.contains(Manifest.permission.CAMERA)) {
+                 handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(0).get("permission"),
+-                        PERMISSION_LIST.get(0).get("vir"), 0);
++                        PERMISSION_LIST.get(0).get("vir"), MESSAGE_TYPE_CAMERA);
+                 return;
+             }
+             if (name.contains(Manifest.permission.RECORD_AUDIO)) {
+                 handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(1).get("permission"),
+-                        PERMISSION_LIST.get(1).get("vir"), 1);
++                        PERMISSION_LIST.get(1).get("vir"), MESSAGE_TYPE_AUDIO);
++                return;
++            }
++            if (name.contains(Manifest.permission.ACCESS_FINE_LOCATION)) {
++                handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(2).get("permission"),
++                        PERMISSION_LIST.get(2).get("vir"), MESSAGE_TYPE_LOCATION);
+                 return;
+             }
+ 
+@@ -6193,6 +6217,12 @@ public class PackageManagerService extends IPackageManager.Stub
+                 return;
+             }
+ 
++            if (name.contains(Manifest.permission.ACCESS_FINE_LOCATION)
++                    && PERMISSION_LIST.get(2).get("vir").equals(Global.getString(resolver,
++                            packageName + PERMISSION_LIST.get(2).get("permission")))) {
++                return;
++            }
++
+             PermissionsState permissionsState = ps.getPermissionsState();
+ 
+             boolean hadState = permissionsState.getRuntimePermissionState(name, userId) != null;
+-- 
+2.7.4
+

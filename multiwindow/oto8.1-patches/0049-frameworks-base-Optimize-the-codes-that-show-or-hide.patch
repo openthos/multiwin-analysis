@@ -1,0 +1,75 @@
+From 4993022ddd60ddc0907359150f331fdaa9591668 Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <18600956771@163.com>
+Date: Fri, 20 Oct 2017 06:13:37 +0000
+Subject: [PATCH 049/110] frameworks: base: Optimize the codes that show or
+ hide DecorCaption by mouse hover
+
+Signed-off-by: Liu Xiaoxu <18600956771@163.com>
+---
+ core/java/android/view/ViewRootImpl.java             |  4 ++++
+ core/java/com/android/internal/policy/DecorView.java | 13 ++++++++++++-
+ 2 files changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/core/java/android/view/ViewRootImpl.java b/core/java/android/view/ViewRootImpl.java
+index 8f250a9..50c7730 100644
+--- a/core/java/android/view/ViewRootImpl.java
++++ b/core/java/android/view/ViewRootImpl.java
+@@ -7695,6 +7695,10 @@ public final class ViewRootImpl implements ViewParent,
+         }
+     }
+ 
++    public Rect getWinFrame() {
++        return mWinFrame;
++    }
++
+     /**
+      * Tells this instance that its corresponding activity has just relaunched. In this case, we
+      * need to force a relayout of the window to make sure we get the correct bounds from window
+diff --git a/core/java/com/android/internal/policy/DecorView.java b/core/java/com/android/internal/policy/DecorView.java
+index 72e1694..7a6ab59 100644
+--- a/core/java/com/android/internal/policy/DecorView.java
++++ b/core/java/com/android/internal/policy/DecorView.java
+@@ -52,6 +52,7 @@ import android.graphics.PixelFormat;
+ import android.graphics.Rect;
+ import android.graphics.Region;
+ import android.graphics.Shader;
++import android.graphics.Point;
+ import android.graphics.drawable.ColorDrawable;
+ import android.graphics.drawable.Drawable;
+ import android.os.RemoteException;
+@@ -1917,6 +1918,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+             } else if (mDecorCaptionView != null) {
+                 // We might have to change the kind of surface before we do anything else.
+                 mDecorCaptionView.onConfigurationChanged(StackId.hasWindowDecor(mStackId));
++                //mDecorCaptionView.onConfigurationChanged(!isFullscreen());
+                 enableCaption(StackId.hasWindowDecor(workspaceId));
+             }
+         }
+@@ -1925,7 +1927,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+     }
+ 
+     boolean processCaptionEvent(MotionEvent event) {
+-        if (getStackId() != 1) {
++        if (!isFullscreen()) {
+             return false;
+         }
+         int y = (int) event.getRawY();
+@@ -2354,6 +2356,15 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+         return isShowingCaption() ? mDecorCaptionView.getCaptionHeight() : 0;
+     }
+ 
++    boolean isFullscreen() {
++        WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
++        Point point = new Point();
++        wm.getDefaultDisplay().getSize(point);
++        Rect winframe = getViewRootImpl().getWinFrame();
++        Rect fullscreen = new Rect(0, 0, point.x, point.y);
++        return winframe.equals(fullscreen) || getStackId() == 1;
++    }
++
+     /**
+      * Converts a DIP measure into physical pixels.
+      * @param dip The dip value.
+-- 
+2.7.4
+

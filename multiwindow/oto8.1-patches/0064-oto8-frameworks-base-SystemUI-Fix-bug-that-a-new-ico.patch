@@ -1,0 +1,33 @@
+From 20eb207b22dd094bab52e4e4d30659d9538e94d4 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Fri, 1 Mar 2019 06:14:54 +0000
+Subject: [PATCH 064/110] oto8: frameworks: base: SystemUI: Fix bug that a new
+ icon will be created caused by exists task's
+
+packageName change.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ .../SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java  | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 8cfe6cb..55dffbf 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -3458,6 +3458,10 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 if (buttonView.containTask(mPrevTaskId)) {
+                     buttonView.setFocusInApplications(false);
+                 }
++                if (buttonView.containTask(taskId)) {
++                    buttonView.setFocusInApplications(true);
++                    return;
++                }
+             }
+         }
+ 
+-- 
+2.7.4
+

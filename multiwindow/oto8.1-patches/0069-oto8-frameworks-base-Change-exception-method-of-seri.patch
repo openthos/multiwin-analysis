@@ -1,0 +1,187 @@
+From 8814a11a1b902e03b895ba81840d050beef00270 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Thu, 28 Feb 2019 00:55:07 +0000
+Subject: [PATCH 069/110] oto8: frameworks: base: Change exception method of
+ serialize.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ .../systemui/statusbar/phone/StatusBar.java        | 125 ++++++++++++---------
+ 1 file changed, 73 insertions(+), 52 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 55dffbf..f334197 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -3386,32 +3386,69 @@ public class StatusBar extends SystemUI implements DemoMode,
+         return mFingerprintUnlockController;
+     }
+ 
+-    private String serialize(LinkedHashMap<String, AppInfo> appinfos) throws IOException {
+-        long startTime = System.currentTimeMillis();
+-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+-        ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
+-        objectOutputStream.writeObject(appinfos);
+-        String serStr = byteArrayOutputStream.toString("ISO-8859-1");
+-        serStr = java.net.URLEncoder.encode(serStr, "UTF-8");
+-        objectOutputStream.close();
+-        byteArrayOutputStream.close();
+-        long endTime = System.currentTimeMillis();
+-        return serStr;
+-    }
+-
+-    private LinkedHashMap<String, AppInfo> deSerialization(String str) throws IOException,
+-            ClassNotFoundException {
+-        long startTime = System.currentTimeMillis();
+-        String redStr = java.net.URLDecoder.decode(str, "UTF-8");
+-        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(
+-                redStr.getBytes("ISO-8859-1"));
+-        ObjectInputStream objectInputStream = new ObjectInputStream(
+-                byteArrayInputStream);
+-        LinkedHashMap<String, AppInfo> infos = (LinkedHashMap<String, AppInfo>) objectInputStream.readObject();
+-        objectInputStream.close();
+-        byteArrayInputStream.close();
+-        long endTime = System.currentTimeMillis();
+-        return infos;
++    private String serialize(LinkedHashMap<String, AppInfo> appinfos) {
++        ByteArrayOutputStream byteArrayOutputStream = null;
++        ObjectOutputStream objectOutputStream = null;
++        String serStr = null;
++        try {
++            byteArrayOutputStream = new ByteArrayOutputStream();
++            objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
++            objectOutputStream.writeObject(appinfos);
++            serStr = byteArrayOutputStream.toString("ISO-8859-1");
++            serStr = java.net.URLEncoder.encode(serStr, "UTF-8");
++            objectOutputStream.close();
++            byteArrayOutputStream.close();
++        } catch (Exception e) {
++            Log.e(TAG, "Error during serialize", e);
++        } finally {
++            if (objectOutputStream != null) {
++                try {
++                    objectOutputStream.close();
++                } catch (Exception e) {
++                    Log.e(TAG, "Error during serialize", e);
++                }
++            }
++            if (byteArrayOutputStream != null) {
++                try {
++                    byteArrayOutputStream.close();
++                } catch (Exception e) {
++                    Log.e(TAG, "Error during serialize", e);
++                }
++            }
++            return serStr;
++        }
++    }
++
++    private LinkedHashMap<String, AppInfo> deSerialization(String str) {
++        ByteArrayInputStream byteArrayInputStream = null;
++        ObjectInputStream objectInputStream = null;
++        LinkedHashMap<String, AppInfo> infos = null;
++        try {
++            String redStr = java.net.URLDecoder.decode(str, "UTF-8");
++            byteArrayInputStream = new ByteArrayInputStream(redStr.getBytes("ISO-8859-1"));
++            objectInputStream = new ObjectInputStream(byteArrayInputStream);
++            infos = (LinkedHashMap<String, AppInfo>) objectInputStream.readObject();
++            objectInputStream.close();
++            byteArrayInputStream.close();
++        } catch (Exception e) {
++            Log.e(TAG, "Error during serialize", e);
++        } finally {
++            if (objectInputStream != null) {
++                try {
++                    objectInputStream.close();
++                } catch (Exception e) {
++                    Log.e(TAG, "Error during serialize", e);
++                }
++            }
++            if (byteArrayInputStream != null) {
++                try {
++                    byteArrayInputStream.close();
++                } catch (Exception e) {
++                    Log.e(TAG, "Error during serialize", e);
++                }
++            }
++            return infos;
++        }
+     }
+ 
+     void saveObject(String strObject) {
+@@ -3429,12 +3466,12 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+ 
+     private void initTaskbarIcons() {
+-        try {
+-            for (AppInfo info : deSerialization(getObject()).values()) {
+-                addToTaskbar(-1, info);
+-            }
+-        } catch (Exception e) {
+-            Log.e(TAG, "Error during serialize", e);
++        LinkedHashMap<String, AppInfo> dockedMap = deSerialization(getObject());
++        if (dockedMap == null) {
++            return;
++        }
++        for (AppInfo info : dockedMap.values()) {
++            addToTaskbar(-1, info);
+         }
+     }
+ 
+@@ -3531,11 +3568,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         }
+         mLockedIcons.put(componentName.getPackageName(), buttonView);
+         mLockedInfos.put(componentName.getPackageName(), appInfo);
+-        try {
+-            saveObject(serialize(mLockedInfos));
+-        } catch (Exception e) {
+-            Log.e(TAG, "Error during serialize", e);
+-        }
++        saveObject(serialize(mLockedInfos));
+         buttonView.locked();
+     }
+ 
+@@ -3551,11 +3584,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         }
+         mLockedIcons.put(componentName.getPackageName(), buttonView);
+         mLockedInfos.put(componentName.getPackageName(), appInfo);
+-        try {
+-            saveObject(serialize(mLockedInfos));
+-        } catch (Exception e) {
+-            Log.e(TAG, "Error during serialize", e);
+-        }
++        saveObject(serialize(mLockedInfos));
+         buttonView.locked();
+     }
+ 
+@@ -3565,11 +3594,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 mActivityLayout.removeView(buttonView);
+                 mLockedIcons.remove(packageName);
+                 mLockedInfos.remove(packageName);
+-                try {
+-                    saveObject(serialize(mLockedInfos));
+-                } catch (Exception e) {
+-                    Log.e(TAG, "Error during serialize", e);
+-                }
++                saveObject(serialize(mLockedInfos));
+             }
+         }
+     }
+@@ -3583,11 +3608,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+             buttonView.unlocked();
+             mLockedIcons.remove(componentName.getPackageName());
+             mLockedInfos.remove(componentName.getPackageName());
+-            try {
+-                saveObject(serialize(mLockedInfos));
+-            } catch (Exception e) {
+-                Log.e(TAG, "Error during serialize", e);
+-            }
++            saveObject(serialize(mLockedInfos));
+         }
+     }
+ 
+-- 
+2.7.4
+

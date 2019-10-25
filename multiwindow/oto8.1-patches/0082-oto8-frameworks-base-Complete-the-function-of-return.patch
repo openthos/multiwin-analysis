@@ -1,0 +1,451 @@
+From 24aa742facd62e88da28320ea7ef5efff5642ae6 Mon Sep 17 00:00:00 2001
+From: Lu Ning <luning@openthos.org>
+Date: Fri, 29 Mar 2019 07:03:45 +0000
+Subject: [PATCH 082/110] oto8: frameworks: base: Complete the function of
+ returning to desktop
+
+The function will use for ALT-TAB and
+the button on the most right-lower conner of the screen.
+
+ALT-TAB list is support the function of returning to desktop.
+
+Fix issue: Returning to desktop by ALT-TAB will invalidate ALT-TAB
+
+Signed-off-by: Lu Ning <luning@openthos.org>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ core/java/android/app/Activity.java                |  2 +-
+ core/java/android/app/ActivityManager.java         |  4 +-
+ core/java/android/app/IActivityManager.aidl        |  5 +-
+ packages/SystemUI/res/layout/task_dialog.xml       |  2 +-
+ packages/SystemUI/res/values-zh-rCN/strings.xml    |  1 +
+ packages/SystemUI/res/values/strings.xml           |  1 +
+ .../systemui/recents/taskview/TaskViewDialog.java  | 55 +++++++++----------
+ .../statusbar/phone/OpenthosStatusBarView.java     | 14 ++++-
+ .../android/server/am/ActivityManagerService.java  | 64 +++++++++++++++++++---
+ .../java/com/android/server/am/ActivityStack.java  |  2 +
+ .../android/server/policy/PhoneWindowManager.java  |  2 +-
+ 11 files changed, 106 insertions(+), 46 deletions(-)
+
+diff --git a/core/java/android/app/Activity.java b/core/java/android/app/Activity.java
+index 4025dd0..4994c90 100644
+--- a/core/java/android/app/Activity.java
++++ b/core/java/android/app/Activity.java
+@@ -3256,7 +3256,7 @@ public class Activity extends ContextThemeWrapper
+     @Override
+     public boolean getIsHome() {
+         try {
+-            return ActivityManager.getService().getIsHome(mToken);
++            return ActivityManager.getService().getIsHome(getTaskId());
+         } catch (Exception e) {
+             return false;
+         }
+diff --git a/core/java/android/app/ActivityManager.java b/core/java/android/app/ActivityManager.java
+index 2b1acb0..9cc494e 100644
+--- a/core/java/android/app/ActivityManager.java
++++ b/core/java/android/app/ActivityManager.java
+@@ -2150,9 +2150,9 @@ public class ActivityManager {
+         }
+     }
+ 
+-    public boolean isHomeTask(int taskId) {
++    public boolean removeTaskRecents(int taskId, boolean remove) throws SecurityException {
+         try {
+-            return getService().isHomeTask(taskId);
++            return getService().removeTaskRecents(taskId, remove);
+         } catch (RemoteException e) {
+             throw e.rethrowFromSystemServer();
+         }
+diff --git a/core/java/android/app/IActivityManager.aidl b/core/java/android/app/IActivityManager.aidl
+index 270389f..6d9e3e4 100644
+--- a/core/java/android/app/IActivityManager.aidl
++++ b/core/java/android/app/IActivityManager.aidl
+@@ -291,7 +291,7 @@ interface IActivityManager {
+     boolean switchUser(int userid);
+     void setFocusedTask(int taskId);
+     boolean removeTask(int taskId);
+-    boolean isHomeTask(int taskId);
++    boolean removeTaskRecents(int taskId, boolean remove);
+     void registerProcessObserver(in IProcessObserver observer);
+     void unregisterProcessObserver(in IProcessObserver observer);
+     boolean isIntentSenderTargetedToPackage(in IIntentSender sender);
+@@ -489,8 +489,9 @@ interface IActivityManager {
+      */
+     void positionTaskInStack(int taskId, int stackId, int position);
+     int getActivityStackId(in IBinder token);
+-    boolean getIsHome(in IBinder token);
++    boolean getIsHome(in int taskId);
+     boolean isTaskMaximize(in IBinder token);
++    void returnToDesktop();
+     void exitFreeformMode(in IBinder token);
+     void switchTaskFreeformAndFullscreen(in IBinder token);
+     void moveTaskMaximize(in IBinder token);
+diff --git a/packages/SystemUI/res/layout/task_dialog.xml b/packages/SystemUI/res/layout/task_dialog.xml
+index 8148b20..2b219a5 100644
+--- a/packages/SystemUI/res/layout/task_dialog.xml
++++ b/packages/SystemUI/res/layout/task_dialog.xml
+@@ -24,7 +24,7 @@
+             android:gravity="center" />
+ 
+         <TextView
+-            android:layout_width="match_parent"
++            android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:id="@+id/recent_clear_all"
+             android:text="@string/clear_all" />
+diff --git a/packages/SystemUI/res/values-zh-rCN/strings.xml b/packages/SystemUI/res/values-zh-rCN/strings.xml
+index 78e764b..a573b81 100644
+--- a/packages/SystemUI/res/values-zh-rCN/strings.xml
++++ b/packages/SystemUI/res/values-zh-rCN/strings.xml
+@@ -343,6 +343,7 @@
+     <string name="recents_accessibility_split_screen_top" msgid="9056056469282256287">"将屏幕分隔线移到上方"</string>
+     <string name="recents_accessibility_split_screen_left" msgid="8987144699630620019">"将屏幕分隔线移到左侧"</string>
+     <string name="recents_accessibility_split_screen_right" msgid="275069779299592867">"将屏幕分隔线移到右侧"</string>
++    <string name="switch_fail">无法打开此应用程序</string>
+     <string-array name="recents_blacklist_array">
+     </string-array>
+     <string name="expanded_header_battery_charged" msgid="5945855970267657951">"已充满"</string>
+diff --git a/packages/SystemUI/res/values/strings.xml b/packages/SystemUI/res/values/strings.xml
+index 6d04bc5..ff38770 100644
+--- a/packages/SystemUI/res/values/strings.xml
++++ b/packages/SystemUI/res/values/strings.xml
+@@ -809,6 +809,7 @@
+     <string name="recents_accessibility_split_screen_left">Split screen to the left</string>
+     <!-- Recents: Accessibility split to the right -->
+     <string name="recents_accessibility_split_screen_right">Split screen to the right</string>
++    <string name="switch_fail">Unable to open this application</string>
+ 
+     <!-- Fully qualified activity class names to be blacklisted in Recents, add package names into overlay as needed -->
+     <string-array name="recents_blacklist_array">
+diff --git a/packages/SystemUI/src/com/android/systemui/recents/taskview/TaskViewDialog.java b/packages/SystemUI/src/com/android/systemui/recents/taskview/TaskViewDialog.java
+index 7c6514f..27e6b84 100644
+--- a/packages/SystemUI/src/com/android/systemui/recents/taskview/TaskViewDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/recents/taskview/TaskViewDialog.java
+@@ -2,6 +2,7 @@ package com.android.systemui.recents.taskview;
+ 
+ import android.app.ActivityManager;
+ import android.app.ActivityManager.RecentTaskInfo;
++import android.app.ActivityManagerNative;
+ import android.app.Dialog;
+ import android.content.BroadcastReceiver;
+ import android.content.Context;
+@@ -33,6 +34,7 @@ import android.widget.ImageView;
+ import android.widget.GridView;
+ import android.widget.LinearLayout;
+ import android.widget.TextView;
++import android.widget.Toast;
+ 
+ import java.util.ArrayList;
+ 
+@@ -78,7 +80,7 @@ public class TaskViewDialog extends Dialog {
+         mTaskContainer = (GridView) findViewById(R.id.gridView);
+         mClearAll = (TextView) findViewById(R.id.recent_clear_all);
+         gridViewReloadTask();
+-        setCanceledOnTouchOutside(true);
++        setCanceledOnTouchOutside(false);
+         mClickListener = new ClickListener();
+         mClearAll.setOnClickListener(mClickListener);
+ 
+@@ -106,18 +108,6 @@ public class TaskViewDialog extends Dialog {
+         }
+     }
+ 
+-    @Override
+-    public boolean onKeyDown(int keyCode, KeyEvent event) {
+-        switch (keyCode) {
+-            case KeyEvent.KEYCODE_TAB:
+-                if (event.getRepeatCount() <= 0) {
+-                    showOrTabTaskView();
+-                }
+-                return true;
+-        }
+-        return super.onKeyDown(keyCode, event);
+-    }
+-
+     private void gridViewReloadTask() {
+         if (mTaskContainer != null) {
+             mTaskAdapter = new TaskSwitchAdapter();
+@@ -222,8 +212,6 @@ public class TaskViewDialog extends Dialog {
+         private Drawable mDrawable;
+         private ActivityManager.TaskSnapshot mSnapshot = null;
+         private float mImageSize;
+-        private static final int DISPLAY_TASKS = 100;
+-        private static final int MAX_TASKS = DISPLAY_TASKS + 1;
+ 
+         class TaskInfo {
+             public RecentTaskInfo info;
+@@ -249,7 +237,8 @@ public class TaskViewDialog extends Dialog {
+         public void reloadTask() {
+             ArrayList<RecentTaskInfo> recentTasks = new ArrayList();
+             try {
+-                recentTasks = (ArrayList) mActivityManager.getRecentTasks(MAX_TASKS,
++                recentTasks = (ArrayList) mActivityManager.getRecentTasks(
++                        ActivityManager.getMaxRecentTasksStatic(),
+                         ActivityManager.RECENT_WITH_EXCLUDED);
+             } catch(Exception e) {
+                 e.printStackTrace();
+@@ -263,7 +252,12 @@ public class TaskViewDialog extends Dialog {
+                 }
+                 Intent intent = new Intent(ri.baseIntent);
+                 intent.setComponent(ri.realActivity);
+-                boolean isHome = mActivityManager.isHomeTask(ri.id);
++                boolean isHome = false;
++                try {
++                    isHome = ActivityManager.getService().getIsHome(ri.id);
++                } catch (RemoteException e) {
++                    e.printStackTrace();
++                }
+                 int stackId = ri.stackId;
+                 if (stackId != 0 || mTasks.isEmpty()) {
+                     mTasks.add(new TaskInfo(ri, intent, isHome));
+@@ -292,17 +286,22 @@ public class TaskViewDialog extends Dialog {
+             if (mTasks != null && position >= 0 && position < mTasks.size()) {
+                 mCurrentPosition = position;
+                 TaskInfo taskInfo = mTasks.get(mCurrentPosition);
+-                if (taskInfo.info.id >= 0) {
+-                    mActivityManager.moveTaskToFront(mTasks.get(mCurrentPosition).info.id, 0, null);
+-                } else if (taskInfo.intent != null) {
+-                    taskInfo.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+-                            | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+-                    try {
++                try {
++                    if (taskInfo.info.id >= 0) {
++                        if (taskInfo.isHome) {
++                            ActivityManager.getService().returnToDesktop();
++                        } else {
++                            ActivityManager.getService()
++                                    .setFocusedTask(mTasks.get(mCurrentPosition).info.id);
++                        }
++                    } else if (taskInfo.intent != null) {
++                        taskInfo.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
++                                | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                         mContext.startActivity(taskInfo.intent);
+-                    } catch(Exception e) {
+-                        e.printStackTrace();
+-                        Log.w("TaskSwitchAdapter", "switchTask e:   " + e );
+                     }
++                } catch(Exception e) {
++                    Toast.makeText(mContext,
++                            mContext.getString(R.string.switch_fail), Toast.LENGTH_SHORT).show();
+                 }
+             }
+         }
+@@ -419,14 +418,14 @@ public class TaskViewDialog extends Dialog {
+         }
+ 
+         public void removeSingleRecent() {
+-            mActivityManager.removeTask(mTasks.get(mCurrentPosition).info.id);
++            mActivityManager.removeTaskRecents(mTasks.get(mCurrentPosition).info.id, false);
+             reloadTask();
+         }
+ 
+         public void clearAllRecents() {
+             for (TaskInfo task : mTasks) {
+                 if (!task.isHome) {
+-                    mActivityManager.removeTask(task.info.id);
++                    mActivityManager.removeTaskRecents(task.info.id, false);
+                 }
+             }
+             reloadTask();
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+index f9e737f..c908e20 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+@@ -1,9 +1,11 @@
+ package com.android.systemui.statusbar.phone;
+ 
++import android.app.ActivityManager;
+ import android.content.Context;
+ import android.content.Intent;
+ import android.content.res.Configuration;
+ import android.graphics.Canvas;
++import android.os.RemoteException;
+ import android.provider.Settings;
+ import android.view.MotionEvent;
+ import android.view.ViewGroup;
+@@ -180,9 +182,7 @@ public class OpenthosStatusBarView extends PanelBar {
+                     showDialog(mCalendarView, mCalendarDialog);
+                     break;
+                 case R.id.iv_home_status_bar:
+-                    Intent home = new Intent(Intent.ACTION_MAIN);
+-                    home.addCategory(Intent.CATEGORY_HOME);
+-                    getContext().startActivity(home);
++                    handleHomeButton();
+                     break;
+                 case R.id.ll_scroll_icon_contents:
+                     //Handle events
+@@ -200,6 +200,14 @@ public class OpenthosStatusBarView extends PanelBar {
+         return false;
+     };
+ 
++    private void handleHomeButton() {
++        try {
++            ActivityManager.getService().returnToDesktop();
++        } catch (RemoteException e) {
++            e.printStackTrace();
++        }
++    }
++
+     public void updateBattertIcon(int level, boolean pluggedIn, boolean charging) {
+         if (charging || pluggedIn || level == 0) {
+             mBatteryView.setImageDrawable(getContext().getDrawable(
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index ffd9d10..596b22e 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -200,6 +200,7 @@ import android.app.ActivityManager;
+ import android.app.ActivityManager.RunningTaskInfo;
+ import android.app.ActivityManager.StackId;
+ import android.app.ActivityManager.StackInfo;
++import android.app.ActivityManager.RecentTaskInfo;
+ import android.app.ActivityManager.TaskSnapshot;
+ import android.app.ActivityManager.TaskThumbnailInfo;
+ import android.app.ActivityManagerInternal;
+@@ -1737,6 +1738,9 @@ public class ActivityManagerService extends IActivityManager.Stub
+ 
+     private static String sTheRealBuildSerial = Build.UNKNOWN;
+ 
++    // The list of applications which are moved to background stack by home button.
++    private ArrayList<RecentTaskInfo> mBackTasks = new ArrayList();
++
+     /**
+      * Current global configuration information. Contains general settings for the entire system,
+      * also corresponds to the merged configuration of the default display.
+@@ -3195,6 +3199,10 @@ public class ActivityManagerService extends IActivityManager.Stub
+ 
+     @Override
+     public void setFocusedTask(int taskId) {
++        setFocusedTask(taskId, true);
++    }
++
++    public void setFocusedTask(int taskId, boolean clear) {
+         enforceCallingPermission(MANAGE_ACTIVITY_STACKS, "setFocusedTask()");
+         if (DEBUG_FOCUS) Slog.d(TAG_FOCUS, "setFocusedTask: taskId=" + taskId);
+         final long callingId = Binder.clearCallingIdentity();
+@@ -3221,6 +3229,9 @@ public class ActivityManagerService extends IActivityManager.Stub
+                 if (mStackSupervisor.moveFocusableActivityStackToFrontLocked(r, "setFocusedTask")) {
+                     mStackSupervisor.resumeFocusedStackTopActivityLocked();
+                 }
++                if (!getIsHome(taskId) && clear) {
++                    clearBackTasks();
++                }
+             }
+         } finally {
+             Binder.restoreCallingIdentity(callingId);
+@@ -10471,7 +10482,7 @@ public class ActivityManagerService extends IActivityManager.Stub
+         synchronized (this) {
+             final long ident = Binder.clearCallingIdentity();
+             try {
+-                return mStackSupervisor.removeTaskByIdLocked(taskId, true, !REMOVE_FROM_RECENTS);
++                return mStackSupervisor.removeTaskByIdLocked(taskId, true, REMOVE_FROM_RECENTS);
+             } finally {
+                 Binder.restoreCallingIdentity(ident);
+             }
+@@ -10479,8 +10490,16 @@ public class ActivityManagerService extends IActivityManager.Stub
+     }
+ 
+     @Override
+-    public boolean isHomeTask(int taskId) {
+-        return mStackSupervisor.isHomeTaskByIdLocked(taskId);
++    public boolean removeTaskRecents(int taskId, boolean remove) {
++        enforceCallingPermission(android.Manifest.permission.REMOVE_TASKS, "removeTask()");
++        synchronized (this) {
++            final long ident = Binder.clearCallingIdentity();
++            try {
++                return mStackSupervisor.removeTaskByIdLocked(taskId, true, remove);
++            } finally {
++                Binder.restoreCallingIdentity(ident);
++            }
++        }
+     }
+ 
+     /**
+@@ -10642,11 +10661,8 @@ public class ActivityManagerService extends IActivityManager.Stub
+     }
+ 
+     @Override
+-    public boolean getIsHome(IBinder token) throws RemoteException {
+-        synchronized (this) {
+-            final ActivityRecord r = ActivityRecord.forTokenLocked(token);
+-            return r != null ? r.isHomeActivity() : false;
+-        }
++    public boolean getIsHome(int taskId) {
++        return mStackSupervisor.isHomeTaskByIdLocked(taskId);
+     }
+ 
+     @Override
+@@ -10658,6 +10674,38 @@ public class ActivityManagerService extends IActivityManager.Stub
+     }
+ 
+     @Override
++    public void returnToDesktop() {
++        if (mBackTasks.size() == 0) {
++            ArrayList<RecentTaskInfo> recentTasks = (ArrayList) getRecentTasks(
++                    ActivityManager.getMaxRecentTasksStatic(),
++                    ActivityManager.RECENT_WITH_EXCLUDED, UserHandle.myUserId()).getList();
++            for (RecentTaskInfo task : recentTasks) {
++                if (!isBackgroundStack(task.id) && !getIsHome(task.id)) {
++                    moveTaskBackwards(task.id);
++                    mBackTasks.add(task);
++                }
++            }
++            Collections.reverse(mBackTasks);
++        } else {
++            for (RecentTaskInfo task : mBackTasks) {
++                setFocusedTask(task.id, false);
++            }
++            mBackTasks.clear();
++        }
++    }
++
++    public boolean isBackgroundStack(int taskId) {
++        TaskRecord target = mStackSupervisor.anyTaskForIdLocked(taskId);
++        return target != null && target.getStack().mStackId == BACKGROUND_STACK_ID;
++    }
++
++    public void clearBackTasks() {
++        if (!mBackTasks.isEmpty()) {
++            mBackTasks.clear();
++        }
++    }
++
++    @Override
+     public int getActivityStackId(IBinder token) throws RemoteException {
+         synchronized (this) {
+             ActivityStack stack = ActivityRecord.getStackLocked(token);
+diff --git a/services/core/java/com/android/server/am/ActivityStack.java b/services/core/java/com/android/server/am/ActivityStack.java
+index 9053c02..e5764ec 100644
+--- a/services/core/java/com/android/server/am/ActivityStack.java
++++ b/services/core/java/com/android/server/am/ActivityStack.java
+@@ -4172,6 +4172,7 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
+             if (lastActivity) {
+                 removeTask(task, reason, REMOVE_TASK_MODE_DESTROYING);
+                 mService.removeTaskIcon(task.taskId, task.realActivity);
++                mService.clearBackTasks();
+             }
+         }
+         cleanUpActivityServicesLocked(r);
+@@ -5241,6 +5242,7 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
+             task.updateOverrideConfiguration(mBounds);
+         }
+         task.createWindowContainer(toTop, (info.flags & FLAG_SHOW_FOR_ALL_USERS) != 0);
++        mService.clearBackTasks();
+         return task;
+     }
+ 
+diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+index 247cc68..2248f01 100644
+--- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
++++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+@@ -3761,7 +3761,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+ 
+         // Display task switcher for ALT-TAB.
+         if (down && repeatCount == 0 && keyCode == KeyEvent.KEYCODE_TAB) {
+-            if (mRecentAppsHeldModifiers == 0 && !keyguardOn && isUserSetupComplete()) {
++            if (!keyguardOn && isUserSetupComplete()) {
+                 final int shiftlessModifiers = event.getModifiers() & ~KeyEvent.META_SHIFT_MASK;
+                 if (KeyEvent.metaStateHasModifiers(shiftlessModifiers, KeyEvent.META_ALT_ON)) {
+                     mRecentAppsHeldModifiers = shiftlessModifiers;
+-- 
+2.7.4
+

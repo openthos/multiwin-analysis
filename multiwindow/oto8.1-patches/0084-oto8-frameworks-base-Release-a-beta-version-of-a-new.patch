@@ -1,0 +1,592 @@
+From b105c4d9ba0f3e6baf39eb3f96b9778f6171edc9 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Wed, 3 Apr 2019 09:08:29 +0000
+Subject: [PATCH 084/110] oto8: frameworks: base: Release a beta version of a
+ new PhoneWindow for wechat to resolve problems about windows, views, events
+ and metrics.
+
+A new DecorView and a fake DecorView will be added to the new PhoneWindow. For all these classes,
+we should change DecorView and PhoneWindow to make sure they can extend them.
+
+For Apps like wechat there is still some problems we only can resolve them by fake data, so we
+should change code of some "big" classes just like Display, MotionEvent and View to record the fake
+data or create method to get fake data for it.
+
+There is also things should be done to make the method create new PhoneWindow and new DecorView to
+resolve some App who don't think they will run in multiwindow like wechat work well.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ core/java/android/app/Activity.java                |  10 +-
+ core/java/android/app/ActivityThread.java          |   8 +-
+ core/java/android/view/Display.java                |  35 +++-
+ core/java/android/view/MotionEvent.java            |   8 +-
+ core/java/android/view/View.java                   |  43 +++--
+ core/java/android/view/Window.java                 |   2 +
+ .../com/android/internal/policy/DecorView.java     |   2 +-
+ .../android/internal/policy/NewPhoneWindow.java    | 191 +++++++++++++++++++++
+ .../com/android/internal/policy/PhoneWindow.java   |  14 +-
+ .../android/internal/widget/DecorCaptionView.java  |   5 +-
+ core/res/res/values/dimens.xml                     |   2 +-
+ .../statusbar/phone/StatusBarWindowView.java       |   5 +
+ 12 files changed, 297 insertions(+), 28 deletions(-)
+ create mode 100644 core/java/com/android/internal/policy/NewPhoneWindow.java
+
+diff --git a/core/java/android/app/Activity.java b/core/java/android/app/Activity.java
+index 1ea7a08..4ee77a4 100644
+--- a/core/java/android/app/Activity.java
++++ b/core/java/android/app/Activity.java
+@@ -126,6 +126,7 @@ import com.android.internal.app.ToolbarActionBar;
+ import com.android.internal.app.WindowDecorActionBar;
+ import com.android.internal.policy.DecorView;
+ import com.android.internal.policy.PhoneWindow;
++import com.android.internal.policy.NewPhoneWindow;
+ 
+ import java.io.FileDescriptor;
+ import java.io.PrintWriter;
+@@ -7020,6 +7021,13 @@ public class Activity extends ContextThemeWrapper
+         mParent = parent;
+     }
+ 
++    final Window getPhoneWindow(Context context, Window window,
++            ActivityConfigCallback activityConfigCallback) {
++        if (("com.tencent.mm").equals(getPackageName()))
++            return new NewPhoneWindow(this, context, window, activityConfigCallback);
++        return new PhoneWindow(this, window, activityConfigCallback);
++    }
++
+     final void attach(Context context, ActivityThread aThread,
+             Instrumentation instr, IBinder token, int ident,
+             Application application, Intent intent, ActivityInfo info,
+@@ -7031,7 +7039,7 @@ public class Activity extends ContextThemeWrapper
+ 
+         mFragments.attachHost(null /*parent*/);
+ 
+-        mWindow = new PhoneWindow(this, window, activityConfigCallback);
++        mWindow = getPhoneWindow(context, window, activityConfigCallback);
+         mWindow.setWindowControllerCallback(this);
+         mWindow.setCallback(this);
+         mWindow.setOnWindowDismissedCallback(this);
+diff --git a/core/java/android/app/ActivityThread.java b/core/java/android/app/ActivityThread.java
+index 45f7eba..28d44a7 100644
+--- a/core/java/android/app/ActivityThread.java
++++ b/core/java/android/app/ActivityThread.java
+@@ -3594,8 +3594,8 @@ public final class ActivityThread {
+         }
+         if (r.mPendingRemoveWindow != null) {
+             r.mPendingRemoveWindowManager.removeViewImmediate(
+-                    r.mPendingRemoveWindow.getDecorView());
+-            IBinder wtoken = r.mPendingRemoveWindow.getDecorView().getWindowToken();
++                    r.mPendingRemoveWindow.getSpecialDecorView());
++            IBinder wtoken = r.mPendingRemoveWindow.getSpecialDecorView().getWindowToken();
+             if (wtoken != null) {
+                 WindowManagerGlobal.getInstance().closeAll(wtoken,
+                         r.activity.getClass().getName(), "Activity");
+@@ -3645,7 +3645,7 @@ public final class ActivityThread {
+             }
+             if (r.window == null && !a.mFinished && willBeVisible) {
+                 r.window = r.activity.getWindow();
+-                View decor = r.window.getDecorView();
++                View decor = r.window.getSpecialDecorView();
+                 decor.setVisibility(View.INVISIBLE);
+                 ViewManager wm = a.getWindowManager();
+                 WindowManager.LayoutParams l = r.window.getAttributes();
+@@ -3710,7 +3710,7 @@ public final class ActivityThread {
+                             | forwardBit;
+                     if (r.activity.mVisibleFromClient) {
+                         ViewManager wm = a.getWindowManager();
+-                        View decor = r.window.getDecorView();
++                        View decor = r.window.getSpecialDecorView();
+                         wm.updateViewLayout(decor, l);
+                     }
+                 }
+diff --git a/core/java/android/view/Display.java b/core/java/android/view/Display.java
+index 4e09bc6..d5fe71e 100644
+--- a/core/java/android/view/Display.java
++++ b/core/java/android/view/Display.java
+@@ -66,6 +66,10 @@ public final class Display {
+     private static final String TAG = "Display";
+     private static final boolean DEBUG = false;
+ 
++    private static boolean mUseFakeDisplaySize;
++    private static int mFakeWidth;
++    private static int mFakeHeight;
++
+     private final DisplayManagerGlobal mGlobal;
+     private final int mDisplayId;
+     private final int mLayerStack;
+@@ -606,8 +610,28 @@ public final class Display {
+         synchronized (this) {
+             updateDisplayInfoLocked();
+             mDisplayInfo.getAppMetrics(mTempMetrics, getDisplayAdjustments());
+-            outSize.x = mTempMetrics.widthPixels;
+-            outSize.y = mTempMetrics.heightPixels;
++            //outSize.x = mTempMetrics.widthPixels;
++            //outSize.y = mTempMetrics.heightPixels;
++            outSize.x = mUseFakeDisplaySize ? mFakeWidth : mTempMetrics.widthPixels;
++            outSize.y = mUseFakeDisplaySize ? mFakeHeight : mTempMetrics.heightPixels;
++        }
++    }
++
++    public void setUseFake(boolean use) {
++        mUseFakeDisplaySize = use;
++    }
++
++    public boolean setFakeSize(int width, int height) {
++        boolean re = (width != mFakeWidth || height != mFakeHeight);
++        mFakeWidth = width;
++        mFakeHeight = height;
++        return re;
++    }
++
++    public void adjustFakeSize(DisplayMetrics outMetrics) {
++        if (mUseFakeDisplaySize) {
++            outMetrics.widthPixels = mFakeWidth;
++            outMetrics.heightPixels = mFakeHeight;
+         }
+     }
+ 
+@@ -989,6 +1013,7 @@ public final class Display {
+         synchronized (this) {
+             updateDisplayInfoLocked();
+             mDisplayInfo.getAppMetrics(outMetrics, getDisplayAdjustments());
++            adjustFakeSize(outMetrics);
+         }
+     }
+ 
+@@ -1007,8 +1032,10 @@ public final class Display {
+     public void getRealSize(Point outSize) {
+         synchronized (this) {
+             updateDisplayInfoLocked();
+-            outSize.x = mDisplayInfo.logicalWidth;
+-            outSize.y = mDisplayInfo.logicalHeight;
++            //outSize.x = mDisplayInfo.logicalWidth;
++            //outSize.y = mDisplayInfo.logicalHeight;
++            outSize.x = mUseFakeDisplaySize ? mFakeWidth : mDisplayInfo.logicalWidth;
++            outSize.y = mUseFakeDisplaySize ? mFakeHeight : mDisplayInfo.logicalHeight;
+         }
+     }
+ 
+diff --git a/core/java/android/view/MotionEvent.java b/core/java/android/view/MotionEvent.java
+index 04fa637..aa02dee 100644
+--- a/core/java/android/view/MotionEvent.java
++++ b/core/java/android/view/MotionEvent.java
+@@ -1563,6 +1563,10 @@ public final class MotionEvent extends InputEvent implements Parcelable {
+     @CriticalNative
+     private static native void nativeTransform(long nativePtr, long matrix);
+ 
++    public boolean mmOffSet = false;  //mmOffSet : Wechat
++    public float offSetX = 0.0f;
++    public float offSetY = 0.0f;
++
+     private MotionEvent() {
+     }
+ 
+@@ -2450,7 +2454,7 @@ public final class MotionEvent extends InputEvent implements Parcelable {
+      * @see #AXIS_X
+      */
+     public final float getRawX() {
+-        return nativeGetRawAxisValue(mNativePtr, AXIS_X, 0, HISTORY_CURRENT);
++        return nativeGetRawAxisValue(mNativePtr, AXIS_X, 0, HISTORY_CURRENT) - (mmOffSet ? offSetX : 0);
+     }
+ 
+     /**
+@@ -2463,7 +2467,7 @@ public final class MotionEvent extends InputEvent implements Parcelable {
+      * @see #AXIS_Y
+      */
+     public final float getRawY() {
+-        return nativeGetRawAxisValue(mNativePtr, AXIS_Y, 0, HISTORY_CURRENT);
++        return nativeGetRawAxisValue(mNativePtr, AXIS_Y, 0, HISTORY_CURRENT) - (mmOffSet ? offSetY : 0);
+     }
+ 
+     /**
+diff --git a/core/java/android/view/View.java b/core/java/android/view/View.java
+index 166d6b7..a9afab5 100644
+--- a/core/java/android/view/View.java
++++ b/core/java/android/view/View.java
+@@ -4462,6 +4462,7 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
+      * @hide
+      */
+     public boolean mCachingFailed;
++    public boolean mIsFakeDecor;
+     private Bitmap mDrawingCache;
+     private Bitmap mUnscaledDrawingCache;
+ 
+@@ -21315,6 +21316,16 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
+         return parent;
+     }
+ 
++    public View getRootViewWithoutAttachInfo() {
++        View parent = this;
++
++        while (parent.mParent != null && parent.mParent instanceof View && !parent.mIsFakeDecor) {
++            parent = (View) parent.mParent;
++        }
++
++        return parent;
++    }
++
+     /**
+      * Transforms a motion event from view-local coordinates to on-screen
+      * coordinates.
+@@ -21432,6 +21443,14 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
+     public void getLocationOnScreen(@Size(2) int[] outLocation) {
+         getLocationInWindow(outLocation);
+ 
++        View root = getRootViewWithoutAttachInfo();
++        if (this != root) {
++            int [] rootOut = root.getLocationOnScreen();
++            outLocation[0] += rootOut[0];
++            outLocation[1] += rootOut[1];
++            return;
++        }
++
+         final AttachInfo info = mAttachInfo;
+         if (info != null) {
+             outLocation[0] += info.mWindowLeft;
+@@ -21457,6 +21476,18 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
+         transformFromViewToWindowSpace(outLocation);
+     }
+ 
++    public void transformParent(@Size(2) float[] position) {
++        position[0] -= mScrollX;
++        position[1] -= mScrollY;
++
++        if (!hasIdentityMatrix()) {
++            getMatrix().mapPoints(position);
++        }
++
++        position[0] += mLeft;
++        position[1] += mTop;
++    }
++
+     /** @hide */
+     public void transformFromViewToWindowSpace(@Size(2) int[] inOutLocation) {
+         if (inOutLocation == null || inOutLocation.length < 2) {
+@@ -21483,17 +21514,7 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
+         ViewParent viewParent = mParent;
+         while (viewParent instanceof View) {
+             final View view = (View) viewParent;
+-
+-            position[0] -= view.mScrollX;
+-            position[1] -= view.mScrollY;
+-
+-            if (!view.hasIdentityMatrix()) {
+-                view.getMatrix().mapPoints(position);
+-            }
+-
+-            position[0] += view.mLeft;
+-            position[1] += view.mTop;
+-
++            view.transformParent(position);
+             viewParent = view.mParent;
+          }
+ 
+diff --git a/core/java/android/view/Window.java b/core/java/android/view/Window.java
+index 1867a12..02623b2 100644
+--- a/core/java/android/view/Window.java
++++ b/core/java/android/view/Window.java
+@@ -1675,6 +1675,8 @@ public abstract class Window {
+      */
+     public abstract View getDecorView();
+ 
++    public abstract View getSpecialDecorView();
++
+     /**
+      * Retrieve the current decor view, but only if it has already been created;
+      * otherwise returns null.
+diff --git a/core/java/com/android/internal/policy/DecorView.java b/core/java/com/android/internal/policy/DecorView.java
+index b2c921b..8c92ff5 100644
+--- a/core/java/com/android/internal/policy/DecorView.java
++++ b/core/java/com/android/internal/policy/DecorView.java
+@@ -244,7 +244,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+ 
+     private boolean mWindowResizeCallbacksAdded = false;
+     private Drawable.Callback mLastBackgroundDrawableCb = null;
+-    private BackdropFrameRenderer mBackdropFrameRenderer = null;
++    protected BackdropFrameRenderer mBackdropFrameRenderer = null;
+     private Drawable mResizingBackgroundDrawable;
+     private Drawable mCaptionBackgroundDrawable;
+     private Drawable mUserCaptionBackgroundDrawable;
+diff --git a/core/java/com/android/internal/policy/NewPhoneWindow.java b/core/java/com/android/internal/policy/NewPhoneWindow.java
+new file mode 100644
+index 0000000..f31e8b9
+--- /dev/null
++++ b/core/java/com/android/internal/policy/NewPhoneWindow.java
+@@ -0,0 +1,191 @@
++package com.android.internal.policy;
++
++import android.content.Context;
++import android.content.res.Resources;
++import android.content.res.Configuration;
++import android.graphics.Rect;
++import android.view.MotionEvent;
++import android.view.LayoutInflater;
++import android.view.View;
++import android.view.ViewGroup;
++import android.view.ViewRootImpl.ActivityConfigCallback;
++import android.view.ViewTreeObserver;
++import android.view.Window;
++import android.view.WindowManager;
++import android.widget.FrameLayout;
++import android.util.DisplayMetrics;
++import android.os.SystemProperties;
++
++import java.util.ArrayList;
++import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
++import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
++
++public class NewPhoneWindow extends PhoneWindow {
++
++    NewDecorView newDecor;
++    Context mAppContext;
++
++    int mFakeWidth;
++    int mFakeHeight;
++
++    public NewPhoneWindow(Context context) {
++        super(context);
++    }
++
++    public NewPhoneWindow(Context context, Context appContext, Window preservedWindow,
++            ActivityConfigCallback activityConfigCallback) {
++        super(context, preservedWindow, activityConfigCallback);
++        mAppContext = appContext;
++    }
++
++    @Override
++    public View getDecorView() {
++        if (newDecor != null) {
++            return newDecor.getSpecialDecor();
++        }
++        return super.getDecorView();
++    }
++
++    @Override
++    protected DecorView generateDecor(int featureId) {
++        Context context;
++        if (mUseDecorContext) {
++            Context applicationContext = getContext().getApplicationContext();
++            if (applicationContext == null) {
++                context = getContext();
++            } else {
++                context = new DecorContext(applicationContext, getContext().getResources());
++                if (mTheme != -1) {
++                    context.setTheme(mTheme);
++                }
++            }
++        } else {
++            context = getContext();
++        }
++        newDecor = new NewDecorView(context, featureId, this, getAttributes());
++        return newDecor;
++    }
++
++    private final class FakeDecor extends FrameLayout {
++        FakeDecor(Context context) {
++            super(context);
++            mIsFakeDecor = true;
++        }
++
++        @Override
++        public void getLocationOnScreen(int[] outLocation) {
++            outLocation[0] = 0;
++            outLocation[1] = newDecor.mDecorCaptionView.hasCaption() ?
++                                newDecor.mDecorCaptionView.getCaption().getMeasuredHeight() : 0;
++        }
++
++        @Override
++        public void transformParent(float[] position) {
++        }
++
++        @Override
++        public void getWindowVisibleDisplayFrame(Rect outRect) {
++            super.getWindowVisibleDisplayFrame(outRect);
++            DisplayMetrics dp = getContext().getResources().getDisplayMetrics();
++            int width = outRect.width();
++            int height = outRect.height();
++            outRect.left = 0;
++            outRect.right = width;
++            outRect.bottom = height;
++        }
++    }
++
++    private final class NewDecorView extends DecorView {
++        FakeDecor mFakeDecor;
++        NewDecorView(Context context, int featureId, PhoneWindow window,
++                WindowManager.LayoutParams params) {
++            super(context, featureId, window, params);
++            mFakeDecor = new FakeDecor(context);
++            getViewTreeObserver().addOnGlobalLayoutListener(
++                         new ViewTreeObserver.OnGlobalLayoutListener() {
++                @Override
++                public void onGlobalLayout() {
++                    View v = findViewById(ID_ANDROID_CONTENT);
++                    if (v != null) {
++                        View v1 = ((ViewGroup)v).getChildAt(0);
++                        if (v1 != null && v1.getLayoutParams() != null &&
++                                v1.getLayoutParams().height > v.getMeasuredHeight()) {
++                            v1.getLayoutParams().height = v.getMeasuredHeight();
++                            v1.getLayoutParams().width = v.getMeasuredWidth();
++                            v1.requestLayout();
++                        }
++                    }
++                }
++            });
++        }
++
++        @Override
++        public Resources getResources() {
++            return mAppContext.getResources();
++        }
++
++        @Override
++        public boolean onInterceptTouchEvent(MotionEvent ev) {
++            Rect hit = new Rect();
++            mDecorCaptionView.getCaption().getHitRect(hit);
++            final int x = (int) ev.getX();
++            final int y = (int) ev.getY();
++            if (hit.contains(x, y)) {
++                ev.mmOffSet = false;
++            } else {
++                int[] out = getLocationOnScreen();
++                ev.mmOffSet = true;
++                ev.offSetX = out[0];
++                ev.offSetY = out[1];
++            }
++            return super.onInterceptTouchEvent(ev);
++        }
++
++        void setRootToFakeDecorIfHasCaption() {
++            if (mDecorCaptionView != null && mDecorCaptionView.getChildAt(0) != mFakeDecor) {
++                if (mDecorCaptionView.getChildAt(0) == mContentRoot) {
++                    mDecorCaptionView.removeView(mContentRoot);
++                }
++                mFakeDecor.addView(mContentRoot, 0,
++                    new ViewGroup.MarginLayoutParams(MATCH_PARENT, MATCH_PARENT));
++                mDecorCaptionView.addView(mFakeDecor,
++                    new ViewGroup.MarginLayoutParams(MATCH_PARENT, MATCH_PARENT));
++            }
++        }
++
++        @Override
++        protected void onConfigurationChanged(Configuration newConfig) {
++            setRootToFakeDecorIfHasCaption();
++            mContext.getResources().getConfiguration().setTo(newConfig);
++            Rect out = new Rect();
++            mFakeDecor.getWindowVisibleDisplayFrame(out);
++            super.onConfigurationChanged(newConfig);
++            WindowManager windowManager = (WindowManager) mContext.getSystemService("window");
++            windowManager.getDefaultDisplay().setUseFake(true);
++            mFakeWidth = newConfig.appBounds.width();
++            mFakeHeight = newConfig.appBounds.height();
++            if (windowManager.getDefaultDisplay().setFakeSize(mFakeWidth, mFakeHeight)) {
++                requestLayout();
++            }
++        }
++
++        @Override
++        void onResourcesLoaded(LayoutInflater inflater, int layoutResource) {
++            super.onResourcesLoaded(inflater, layoutResource);
++            setRootToFakeDecorIfHasCaption();
++        }
++
++        public View getSpecialDecor() {
++            if (mDecorCaptionView != null) {
++                DisplayMetrics dp = mAppContext.getResources().getDisplayMetrics();
++                Rect out = new Rect();
++                mFakeDecor.getWindowVisibleDisplayFrame(out);
++                dp.widthPixels = out.width();
++                dp.heightPixels = out.height();
++                mContext.getResources().getDisplayMetrics().setTo(dp);
++                return mFakeDecor;
++            }
++            return this;
++        }
++    }
++}
+diff --git a/core/java/com/android/internal/policy/PhoneWindow.java b/core/java/com/android/internal/policy/PhoneWindow.java
+index b13560c..8a46c0b 100644
+--- a/core/java/com/android/internal/policy/PhoneWindow.java
++++ b/core/java/com/android/internal/policy/PhoneWindow.java
+@@ -283,11 +283,11 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
+     private Boolean mSharedElementsUseOverlay;
+ 
+     private boolean mIsStartingWindow;
+-    private int mTheme = -1;
++    protected int mTheme = -1;
+ 
+     private int mDecorCaptionShade = DECOR_CAPTION_SHADE_AUTO;
+ 
+-    private boolean mUseDecorContext = false;
++    protected boolean mUseDecorContext = false;
+ 
+     /** @see ViewRootImpl#mActivityConfigCallback */
+     private ActivityConfigCallback mActivityConfigCallback;
+@@ -2062,7 +2062,15 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
+     }
+ 
+     @Override
+-    public final View getDecorView() {
++    public final View getSpecialDecorView() {
++        if (mDecor == null || mForceDecorInstall) {
++            installDecor();
++        }
++        return mDecor;
++    }
++
++    @Override
++    public View getDecorView() {
+         if (mDecor == null || mForceDecorInstall) {
+             installDecor();
+         }
+diff --git a/core/java/com/android/internal/widget/DecorCaptionView.java b/core/java/com/android/internal/widget/DecorCaptionView.java
+index 40a2cf8..2640c69 100644
+--- a/core/java/com/android/internal/widget/DecorCaptionView.java
++++ b/core/java/com/android/internal/widget/DecorCaptionView.java
+@@ -224,7 +224,10 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+             }
+             return true;
+         }
+-        return onTouch(mCaption, event);
++        if (mShow && !hasCaption()) {
++            return onTouch(mCaption, event);
++        }
++        return false;
+     }
+ 
+     @Override
+diff --git a/core/res/res/values/dimens.xml b/core/res/res/values/dimens.xml
+index f9a9eaa..b7ac94f 100644
+--- a/core/res/res/values/dimens.xml
++++ b/core/res/res/values/dimens.xml
+@@ -32,7 +32,7 @@
+ 
+     <dimen name="toast_y_offset">24dp</dimen>
+     <!-- Height of the status bar -->
+-    <dimen name="status_bar_height">0dp</dimen>
++    <dimen name="status_bar_height">1px</dimen>
+     <!-- Height of the bottom navigation / system bar. -->
+     <dimen name="navigation_bar_height">48dp</dimen>
+     <!-- Height of the bottom navigation bar in portrait; often the same as @dimen/navigation_bar_height -->
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowView.java
+index d7f11f7..1b632b5 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowView.java
+@@ -667,6 +667,11 @@ public class StatusBarWindowView extends FrameLayout {
+         }
+ 
+         @Override
++        public View getSpecialDecorView() {
++            return StatusBarWindowView.this;
++        }
++
++        @Override
+         public View peekDecorView() {
+             return null;
+         }
+-- 
+2.7.4
+

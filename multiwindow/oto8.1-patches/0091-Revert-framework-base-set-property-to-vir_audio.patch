@@ -1,0 +1,123 @@
+From 20380854be275f628a3f36b39dabf1017e53769a Mon Sep 17 00:00:00 2001
+From: Wang Zhixu <wangzhixu@openthos.org>
+Date: Tue, 14 May 2019 03:33:17 +0000
+Subject: [PATCH 091/110] Revert "framework: base: set property to vir_audio"
+
+This reverts commit ec85a6dfeff367f9b9b5c667277d44694f00257b.
+---
+ media/java/android/media/AudioRecord.java          |  4 ----
+ media/java/android/media/MediaRecorder.java        |  5 +----
+ .../android/server/pm/PackageManagerService.java   | 24 ----------------------
+ 3 files changed, 1 insertion(+), 32 deletions(-)
+
+diff --git a/media/java/android/media/AudioRecord.java b/media/java/android/media/AudioRecord.java
+index 99aff68..0906ba5 100644
+--- a/media/java/android/media/AudioRecord.java
++++ b/media/java/android/media/AudioRecord.java
+@@ -36,7 +36,6 @@ import android.os.RemoteException;
+ import android.os.ServiceManager;
+ import android.util.ArrayMap;
+ import android.util.Log;
+-import android.os.SystemProperties;
+ 
+ import com.android.internal.annotations.GuardedBy;
+ 
+@@ -978,9 +977,6 @@ public class AudioRecord implements AudioRouting
+             throw new IllegalStateException("startRecording() called on an "
+                     + "uninitialized AudioRecord.");
+         }
+-        SystemProperties.set("audio.use_fake",
+-                SystemProperties.get(ActivityThread.currentPackageName()
+-                + ".permission.record_audio", "phy_audio"));
+ 
+         // start recording
+         synchronized(mRecordingStateLock) {
+diff --git a/media/java/android/media/MediaRecorder.java b/media/java/android/media/MediaRecorder.java
+index 88c389a..59a124f 100644
+--- a/media/java/android/media/MediaRecorder.java
++++ b/media/java/android/media/MediaRecorder.java
+@@ -33,7 +33,6 @@ import java.io.FileDescriptor;
+ import java.io.IOException;
+ import java.io.RandomAccessFile;
+ import java.lang.ref.WeakReference;
+-import android.os.SystemProperties;
+ 
+ /**
+  * Used to record audio and video. The recording control is based on a
+@@ -961,9 +960,7 @@ public class MediaRecorder
+         } else {
+             throw new IOException("No valid output file");
+         }
+-        SystemProperties.set("audio.use_fake",
+-                SystemProperties.get(ActivityThread.currentPackageName()
+-                + ".permission.record_audio", "phy_audio"));
++
+         _prepare();
+     }
+ 
+diff --git a/services/core/java/com/android/server/pm/PackageManagerService.java b/services/core/java/com/android/server/pm/PackageManagerService.java
+index aac3cff..b37f56a 100644
+--- a/services/core/java/com/android/server/pm/PackageManagerService.java
++++ b/services/core/java/com/android/server/pm/PackageManagerService.java
+@@ -550,12 +550,6 @@ public class PackageManagerService extends IPackageManager.Stub
+     /** Permission grant: grant as runtime a permission that was granted as an install time one. */
+     private static final int GRANT_UPGRADE = 4;
+ 
+-
+-    /** Use for virtual audio */
+-    private static final String REC_AUDIO =  ".permission.record_audio";
+-    private static final String PHY_AUDIO =  "phy_audio";
+-    private static final String VIR_AUDIO =  "vir_audio";
+-
+     /** Canonical intent used to identify what counts as a "web browser" app */
+     private static final Intent sBrowserIntent;
+     static {
+@@ -3862,10 +3856,6 @@ public class PackageManagerService extends IPackageManager.Stub
+                 && ps.isSystem()) {
+             flags |= MATCH_ANY_USER;
+         }
+-        if (!permissions.isEmpty()
+-                && SystemProperties.get(p.packageName + REC_AUDIO, PHY_AUDIO).equals(VIR_AUDIO)) {
+-            permissions.remove(Manifest.permission.RECORD_AUDIO);
+-        }
+ 
+         PackageInfo packageInfo = PackageParser.generatePackageInfo(p, gids, flags,
+                 ps.firstInstallTime, ps.lastUpdateTime, permissions, state, userId);
+@@ -5677,10 +5667,6 @@ public class PackageManagerService extends IPackageManager.Stub
+                 throw new IllegalArgumentException("Unknown package: " + packageName);
+             }
+ 
+-            if (name.contains(Manifest.permission.RECORD_AUDIO)) {
+-                SystemProperties.set(packageName + REC_AUDIO, PHY_AUDIO);
+-            }
+-
+             enforceDeclaredAsUsedAndRuntimeOrDevelopmentPermission(pkg, bp);
+ 
+             // If a permission review is required for legacy apps we represent
+@@ -5800,11 +5786,6 @@ public class PackageManagerService extends IPackageManager.Stub
+             if (pkg == null) {
+                 throw new IllegalArgumentException("Unknown package: " + packageName);
+             }
+-            if (name.contains(Manifest.permission.RECORD_AUDIO)) {
+-                SystemProperties.set(packageName + REC_AUDIO, PHY_AUDIO);
+-                return;
+-            }
+-
+             final PackageSetting ps = (PackageSetting) pkg.mExtras;
+             if (ps == null
+                     || filterAppAccessLPr(ps, Binder.getCallingUid(), userId)) {
+@@ -6095,11 +6076,6 @@ public class PackageManagerService extends IPackageManager.Stub
+             if (pkg == null) {
+                 throw new IllegalArgumentException("Unknown package: " + packageName);
+             }
+-            if (name.contains(Manifest.permission.RECORD_AUDIO)
+-                && SystemProperties.get(p.packageName + REC_AUDIO, PHY_AUDIO).equals(VIR_AUDIO)) {
+-                return;
+-            }
+-
+             final PackageSetting ps = (PackageSetting) pkg.mExtras;
+             if (ps == null
+                     || filterAppAccessLPr(ps, callingUid, userId)) {
+-- 
+2.7.4
+

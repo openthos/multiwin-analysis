@@ -1,0 +1,52 @@
+From 90148741098027ddbe5321b964524bef1f18354b Mon Sep 17 00:00:00 2001
+From: luojunhuan <forward_m@126.com>
+Date: Fri, 10 Nov 2017 07:39:13 +0000
+Subject: [PATCH 047/110] Oreo: frameworks: base: SystemUI: Fix a focus problem
+ about taskbar icon
+
+Signed-off-by: luojunhuan <forward_m@126.com>
+---
+ .../src/com/android/systemui/statusbar/phone/StatusBar.java | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 8abdde1..95f259f 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -448,7 +448,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     Point mCurrentDisplaySize = new Point();
+ 
+     protected LinearLayout mActivityLayout;
+-    protected ComponentName mPrevCmp;
++    protected int mPrevTaskId;
+     protected StatusBarWindowView mStatusBarWindow;
+     protected OpenthosStatusBarView mOpenthosStatusBarView;
+     protected PhoneStatusBarView mStatusBarView;
+@@ -3480,8 +3480,13 @@ public class StatusBar extends SystemUI implements DemoMode,
+     }
+ 
+     public void bindIconToTaskId(int taskId, ComponentName cmp) {
+-        if (mPrevCmp != null && mShowIcons.get(mPrevCmp) != null) {
+-            mShowIcons.get(mPrevCmp).setFocus(false);
++        if (mPrevTaskId != 0) {
++            for (ComponentName componentName : mShowIcons.keySet()) {
++                if (mPrevTaskId == mShowIcons.get(componentName).getTaskId()) {
++                    mShowIcons.get(componentName).setFocus(false);
++		    break;
++                }
++            }
+         }
+         TaskbarIcon taskbarIcon = mShowIcons.get(cmp);
+         if (taskbarIcon == null) {
+@@ -3499,7 +3504,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         taskbarIcon.setFocus(true);
+         taskbarIcon.setRun(true);
+         taskbarIcon.setTaskId(taskId);
+-        mPrevCmp = cmp;
++        mPrevTaskId = taskId;
+     }
+ 
+     private void initTaskbarIcons() {
+-- 
+2.7.4
+

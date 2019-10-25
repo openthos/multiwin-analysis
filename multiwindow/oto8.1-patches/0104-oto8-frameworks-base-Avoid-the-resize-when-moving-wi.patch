@@ -1,0 +1,29 @@
+From 19e8291657175be123790a3ea0ffa0daedc83b3d Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Thu, 19 Sep 2019 06:49:04 +0000
+Subject: [PATCH 104/110] oto8: frameworks: base: Avoid the resize when moving
+ windows to outside of screen.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ services/core/java/com/android/server/wm/WindowState.java | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/services/core/java/com/android/server/wm/WindowState.java b/services/core/java/com/android/server/wm/WindowState.java
+index 52da72b..7cd9815 100644
+--- a/services/core/java/com/android/server/wm/WindowState.java
++++ b/services/core/java/com/android/server/wm/WindowState.java
+@@ -841,7 +841,7 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
+             layoutContainingFrame = !mInsetFrame.isEmpty() ? mInsetFrame : mContainingFrame;
+             mTmpRect.set(0, 0, dc.getDisplayInfo().logicalWidth, dc.getDisplayInfo().logicalHeight);
+             subtractInsets(mDisplayFrame, layoutContainingFrame, displayFrame, mTmpRect);
+-            if (!layoutInParentFrame()) {
++            if (!layoutInParentFrame() && getStackId() != FREEFORM_WORKSPACE_STACK_ID) {
+                 subtractInsets(mContainingFrame, layoutContainingFrame, parentFrame, mTmpRect);
+                 subtractInsets(mInsetFrame, layoutContainingFrame, parentFrame, mTmpRect);
+             }
+-- 
+2.7.4
+

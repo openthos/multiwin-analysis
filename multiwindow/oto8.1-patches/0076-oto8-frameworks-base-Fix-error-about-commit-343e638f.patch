@@ -1,0 +1,33 @@
+From 9116297d91f6d7c82decce0a1b0685e9910d5219 Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Wed, 13 Mar 2019 09:27:00 +0000
+Subject: [PATCH 076/110] oto8: frameworks: base: Fix error about commit
+ 343e638f
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ services/core/java/com/android/server/wm/Task.java | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/services/core/java/com/android/server/wm/Task.java b/services/core/java/com/android/server/wm/Task.java
+index 0d6c920..816c1b5 100644
+--- a/services/core/java/com/android/server/wm/Task.java
++++ b/services/core/java/com/android/server/wm/Task.java
+@@ -347,12 +347,13 @@ class Task extends WindowContainer<AppWindowToken> implements DimLayer.DimLayerU
+         if (mDockedTmpRect.equals(mMaxTmpRect)) {
+             width = mMaxTmpRect.width() / 2;
+             height = width / 16 * 9;
++            mDockedTmpRect.set(new Rect(startX, startY, startX + width, startY + height));
+         } else if (mDockedTmpRect.equals(mLeftDockedTmpRect)
+                     || mDockedTmpRect.equals(mRightDockedTmpRect)) {
+             height = mMaxTmpRect.height() / 3 * 2;
+             width = height / 16 * 9;
++            mDockedTmpRect.set(new Rect(startX, startY, startX + width, startY + height));
+         }
+-        mDockedTmpRect.set(new Rect(startX, startY, startX + width, startY + height));
+     }
+ 
+     private void setUniqueBounds() {
+-- 
+2.7.4
+

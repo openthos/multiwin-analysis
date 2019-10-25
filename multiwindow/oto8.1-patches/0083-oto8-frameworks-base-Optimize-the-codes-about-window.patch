@@ -1,0 +1,788 @@
+From 7253b032f068df3e36ee1480cdaa56d16ceeb688 Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Mon, 1 Apr 2019 06:51:21 +0000
+Subject: [PATCH 083/110] oto8: frameworks: base: Optimize the codes about
+ window size state.
+
+Windows state contains maximize, docked, fullscreen and so on.
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Reviewed-by: ladehunter <ladehunter@gmail.com>
+---
+ core/java/android/app/Activity.java                |  7 +-
+ core/java/android/app/ActivityOptions.java         | 18 ++---
+ core/java/android/app/IActivityManager.aidl        |  3 +-
+ core/java/android/view/Display.java                | 41 ++++++++++
+ core/java/android/view/Window.java                 |  2 +-
+ .../android/internal/widget/DecorCaptionView.java  | 13 ++-
+ .../systemui/startupmenu/LaunchAppUtil.java        | 56 +++----------
+ .../startupmenu/utils/AppOperateManager.java       |  5 +-
+ .../android/server/am/ActivityManagerService.java  | 16 +++-
+ .../com/android/server/am/ActivityStarter.java     |  9 ++-
+ .../java/com/android/server/am/TaskRecord.java     | 92 +++++++++++++++-------
+ services/core/java/com/android/server/wm/Task.java | 45 ++---------
+ .../java/com/android/server/wm/TaskPositioner.java |  6 ++
+ .../server/wm/TaskWindowContainerController.java   |  8 ++
+ 14 files changed, 182 insertions(+), 139 deletions(-)
+
+diff --git a/core/java/android/app/Activity.java b/core/java/android/app/Activity.java
+index 4994c90..1ea7a08 100644
+--- a/core/java/android/app/Activity.java
++++ b/core/java/android/app/Activity.java
+@@ -88,6 +88,7 @@ import android.view.ActionMode;
+ import android.view.ContextMenu;
+ import android.view.ContextMenu.ContextMenuInfo;
+ import android.view.ContextThemeWrapper;
++import android.view.Display;
+ import android.view.DragAndDropPermissions;
+ import android.view.DragEvent;
+ import android.view.KeyEvent;
+@@ -3263,11 +3264,11 @@ public class Activity extends ContextThemeWrapper
+     }
+ 
+     @Override
+-    public boolean isWindowMaximize() {
++    public int getWindowSizeMode() {
+         try {
+-            return ActivityManager.getService().isTaskMaximize(mToken);
++            return ActivityManager.getService().getTaskBoundsMode(mToken);
+         } catch (Exception e) {
+-            return false;
++            return Display.STANDARD_MODE;
+         }
+     }
+ 
+diff --git a/core/java/android/app/ActivityOptions.java b/core/java/android/app/ActivityOptions.java
+index fb7ba1c..2452d54 100644
+--- a/core/java/android/app/ActivityOptions.java
++++ b/core/java/android/app/ActivityOptions.java
+@@ -84,7 +84,7 @@ public class ActivityOptions {
+      */
+     public static final String KEY_LAUNCH_BOUNDS = "android:activity.launchBounds";
+ 
+-    public static final String KEY_FREEFORM_BOUNDS = "android:activity.freeformBounds";
++    public static final String KEY_FREEFORM_BOUNDS_MODE = "android:activity.freeformBoundsMode";
+ 
+     /**
+      * Type of animation that arguments specify.
+@@ -255,7 +255,7 @@ public class ActivityOptions {
+ 
+     private String mPackageName;
+     private Rect mLaunchBounds;
+-    private Rect mFreeformBounds;
++    private int mFreeformBoundsMode;
+     private int mAnimationType = ANIM_NONE;
+     private int mCustomEnterResId;
+     private int mCustomExitResId;
+@@ -815,7 +815,7 @@ public class ActivityOptions {
+             Slog.w(TAG, e);
+         }
+         mLaunchBounds = opts.getParcelable(KEY_LAUNCH_BOUNDS);
+-        mFreeformBounds = opts.getParcelable(KEY_FREEFORM_BOUNDS);
++        mFreeformBoundsMode = opts.getInt(KEY_FREEFORM_BOUNDS_MODE);
+         mAnimationType = opts.getInt(KEY_ANIM_TYPE);
+         switch (mAnimationType) {
+             case ANIM_CUSTOM:
+@@ -905,8 +905,8 @@ public class ActivityOptions {
+         return this;
+     }
+ 
+-    public ActivityOptions setFreeformBounds(@Nullable Rect screenSpacePixelRect) {
+-        mFreeformBounds = screenSpacePixelRect != null ? new Rect(screenSpacePixelRect) : null;
++    public ActivityOptions setFreeformBoundsMode(int freeformBoundsMode) {
++        mFreeformBoundsMode = freeformBoundsMode;
+         return this;
+     }
+ 
+@@ -925,8 +925,8 @@ public class ActivityOptions {
+         return mLaunchBounds;
+     }
+ 
+-    public Rect getFreeformBounds() {
+-        return mFreeformBounds;
++    public int getFreeformBoundsMode() {
++        return mFreeformBoundsMode;
+     }
+ 
+     /** @hide */
+@@ -1247,9 +1247,6 @@ public class ActivityOptions {
+         if (mPackageName != null) {
+             b.putString(KEY_PACKAGE_NAME, mPackageName);
+         }
+-        if (mFreeformBounds != null) {
+-            b.putParcelable(KEY_FREEFORM_BOUNDS, mFreeformBounds);
+-        }
+         if (mLaunchBounds != null) {
+             b.putParcelable(KEY_LAUNCH_BOUNDS, mLaunchBounds);
+         }
+@@ -1257,6 +1254,7 @@ public class ActivityOptions {
+         if (mUsageTimeReport != null) {
+             b.putParcelable(KEY_USAGE_TIME_REPORT, mUsageTimeReport);
+         }
++        b.putInt(KEY_FREEFORM_BOUNDS_MODE, mFreeformBoundsMode);
+         switch (mAnimationType) {
+             case ANIM_CUSTOM:
+                 b.putInt(KEY_ANIM_ENTER_RES_ID, mCustomEnterResId);
+diff --git a/core/java/android/app/IActivityManager.aidl b/core/java/android/app/IActivityManager.aidl
+index 6d9e3e4..bb0eeb6 100644
+--- a/core/java/android/app/IActivityManager.aidl
++++ b/core/java/android/app/IActivityManager.aidl
+@@ -443,6 +443,8 @@ interface IActivityManager {
+     void notifyCleartextNetwork(int uid, in byte[] firstPacket);
+     int createStackOnDisplay(int displayId);
+     int getFocusedStackId();
++    int getTaskBoundsMode(in IBinder token);
++    void setTaskBoundsMode(int taskId, in Rect bounds, int taskMode);
+     void setTaskResizeable(int taskId, int resizeableMode);
+     boolean requestAssistContextExtras(int requestType, in IResultReceiver receiver,
+             in Bundle receiverExtras, in IBinder activityToken,
+@@ -490,7 +492,6 @@ interface IActivityManager {
+     void positionTaskInStack(int taskId, int stackId, int position);
+     int getActivityStackId(in IBinder token);
+     boolean getIsHome(in int taskId);
+-    boolean isTaskMaximize(in IBinder token);
+     void returnToDesktop();
+     void exitFreeformMode(in IBinder token);
+     void switchTaskFreeformAndFullscreen(in IBinder token);
+diff --git a/core/java/android/view/Display.java b/core/java/android/view/Display.java
+index e7c3f92..4e09bc6 100644
+--- a/core/java/android/view/Display.java
++++ b/core/java/android/view/Display.java
+@@ -362,6 +362,13 @@ public final class Display {
+      */
+     public static final int REMOVE_MODE_DESTROY_CONTENT = 1;
+ 
++    public static final int STANDARD_MODE = 0;
++    public static final int LEFT_DOCKED_MODE = 1;
++    public static final int RIGHT_DOCKED_MODE = 2;
++    public static final int TOP_DOCKED_MODE = 4;
++    public static final int DESKTOP_MODE = 5;
++    public static final int PHONE_MODE = 6;
++
+     /**
+      * Internal method to create a display.
+      * The display created with this method will have a static {@link DisplayAdjustments} applied.
+@@ -618,6 +625,40 @@ public final class Display {
+         }
+     }
+ 
++    public void getDefaultFreeformSize(Rect outSize, int windowMode) {
++        synchronized (this) {
++            updateDisplayInfoLocked();
++            mDisplayInfo.getAppMetrics(mTempMetrics, getDisplayAdjustments());
++            int startX = mTempMetrics.widthPixels / 4;
++            int startY = mTempMetrics.heightPixels / 4;
++            int width = mTempMetrics.widthPixels;
++            int height = mTempMetrics.heightPixels;
++            if (windowMode == DESKTOP_MODE) {
++                width = width / 2;
++                height = width / 16 * 9;
++            } else if (windowMode == PHONE_MODE) {
++                height = height / 3 * 2;
++                width = height / 16 * 9;
++            }
++            outSize.set(new Rect(startX, startY, startX + width, startY + height));
++        }
++    }
++
++    public void getDockedSize(Rect outSize, int dockedMode) {
++        synchronized (this) {
++            updateDisplayInfoLocked();
++            mDisplayInfo.getAppMetrics(mTempMetrics, getDisplayAdjustments());
++            int left = 0;
++            int right = mTempMetrics.widthPixels;
++            if (dockedMode == LEFT_DOCKED_MODE) {
++                right = right / 2;
++            } else if (dockedMode == RIGHT_DOCKED_MODE) {
++                left = right / 2;
++            }
++            outSize.set(new Rect(left , 0, right, mTempMetrics.heightPixels));
++        }
++    }
++
+     /**
+      * Return the range of display sizes an application can expect to encounter
+      * under normal operation, as long as there is no physical change in screen
+diff --git a/core/java/android/view/Window.java b/core/java/android/view/Window.java
+index 31e43d1..1867a12 100644
+--- a/core/java/android/view/Window.java
++++ b/core/java/android/view/Window.java
+@@ -627,7 +627,7 @@ public abstract class Window {
+         boolean getIsHome();
+ 
+         /** Returns whether the window is maximize*/
+-        boolean isWindowMaximize();
++        int getWindowSizeMode();
+ 
+         /** Returns the current stack Id for the window. */
+         int getWindowStackId() throws RemoteException;
+diff --git a/core/java/com/android/internal/widget/DecorCaptionView.java b/core/java/com/android/internal/widget/DecorCaptionView.java
+index 3e358f3..40a2cf8 100644
+--- a/core/java/com/android/internal/widget/DecorCaptionView.java
++++ b/core/java/com/android/internal/widget/DecorCaptionView.java
+@@ -23,6 +23,7 @@ import android.os.RemoteException;
+ import android.os.SystemClock;
+ import android.util.AttributeSet;
+ import android.util.Log;
++import android.view.Display;
+ import android.view.GestureDetector;
+ import android.view.MotionEvent;
+ import android.view.View;
+@@ -467,11 +468,16 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     }
+ 
+     public boolean hasCaption() {
++        return getWindowSizeMode() != Display.TOP_DOCKED_MODE
++                && getStackId() != FULLSCREEN_WORKSPACE_STACK_ID;
++    }
++
++    private int getWindowSizeMode() {
+         Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
+         if (callback != null) {
+-            return !callback.isWindowMaximize() && getStackId() != FULLSCREEN_WORKSPACE_STACK_ID;
++            return callback.getWindowSizeMode();
+         }
+-        return false;
++        return Display.STANDARD_MODE;
+     }
+ 
+     /**
+@@ -538,7 +544,8 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     }
+ 
+     private boolean updateRotateState() {
+-        return hasCaption() && canResizeOrientation();
++        return getWindowSizeMode() == Display.STANDARD_MODE && canResizeOrientation()
++                && getStackId() != FULLSCREEN_WORKSPACE_STACK_ID;
+     }
+ 
+     @Override
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+index a07a594..a2457a2 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+@@ -24,9 +24,6 @@ public class LaunchAppUtil {
+     private static final int FULLSCREEN_WORKSPACE_STACK_ID = 1;
+     private static final int FREEFORM_WORKSPACE_STACK_ID = 2;
+ 
+-    public static final int STANDARD_MODE = 0;
+-    public static final int DESKTOP_MODE = 1;
+-    public static final int PHONE_MODE = 2;
+     private static SharedPreferences pref;
+ 
+     /**
+@@ -55,7 +52,7 @@ public class LaunchAppUtil {
+      * @param componentName
+      */
+     public static void launchApp(Context context, ComponentName componentName) {
+-        launchApp(context, componentName, STANDARD_MODE);
++        launchApp(context, componentName, Display.STANDARD_MODE);
+     }
+ 
+     /**
+@@ -64,8 +61,8 @@ public class LaunchAppUtil {
+      * @param packageName
+      */
+     public static void launchApp(Context context, String packageName) {
+-        launchApp(context,
+-                context.getPackageManager().getLaunchIntentForPackage(packageName), DESKTOP_MODE);
++        launchApp(context, context.getPackageManager().
++                getLaunchIntentForPackage(packageName), Display.DESKTOP_MODE);
+     }
+ 
+     /**
+@@ -86,7 +83,7 @@ public class LaunchAppUtil {
+      * @param intent
+      */
+     public static void launchApp(Context context, Intent intent) {
+-        launchApp(context, intent, DESKTOP_MODE);
++        launchApp(context, intent, Display.DESKTOP_MODE);
+     }
+ 
+     /**
+@@ -114,26 +111,15 @@ public class LaunchAppUtil {
+             ActivityOptions options = ActivityOptions.makeBasic();
+             try {
+                 options.setLaunchStackId(FREEFORM_WORKSPACE_STACK_ID);
+-                DisplayMetrics metrics = getRealDisplayMetrics(context);
+-                int startX, startY, width, height;
+                 switch (startMode) {
+-                    case STANDARD_MODE:
++                    case Display.STANDARD_MODE:
++                        options.setFreeformBoundsMode(Display.STANDARD_MODE);
+                         break;
+-                    case DESKTOP_MODE:
+-                        startX = metrics.widthPixels / 4;
+-                        startY = metrics.heightPixels / 4;
+-                        width = metrics.widthPixels / 2;
+-                        height = width / 16 * 9;
+-                        options.setFreeformBounds(new Rect(startX, startY,
+-                                                      startX + width, startY + height));
++                    case Display.DESKTOP_MODE:
++                        options.setFreeformBoundsMode(Display.DESKTOP_MODE);
+                         break;
+-                    case PHONE_MODE:
+-                        startX = metrics.widthPixels / 4;
+-                        startY = metrics.heightPixels / 4;
+-                        height = metrics.heightPixels / 3 * 2;
+-                        width = height / 16 * 9;
+-                        options.setFreeformBounds(new Rect(startX, startY,
+-                                                      startX + width, startY + height));
++                    case Display.PHONE_MODE:
++                        options.setFreeformBoundsMode(Display.PHONE_MODE);
+                         break;
+                 }
+                 return options.toBundle();
+@@ -144,26 +130,4 @@ public class LaunchAppUtil {
+             return null;
+         }
+     }
+-
+-    /**
+-     * get display metrics
+-     * @param context
+-     * @return
+-     */
+-    public static DisplayMetrics getRealDisplayMetrics(Context context) {
+-        DisplayMetrics metrics = new DisplayMetrics();
+-        WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+-        Display disp = wm.getDefaultDisplay();
+-
+-        if (isChromeOs(context))
+-            disp.getRealMetrics(metrics);
+-        else
+-            disp.getMetrics(metrics);
+-
+-        return metrics;
+-    }
+-
+-    public static boolean isChromeOs(Context context) {
+-        return context.getPackageManager().hasSystemFeature("org.chromium.arc");
+-    }
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/utils/AppOperateManager.java b/packages/SystemUI/src/com/android/systemui/startupmenu/utils/AppOperateManager.java
+index 71b8896..c0b8c95 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/utils/AppOperateManager.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/utils/AppOperateManager.java
+@@ -4,6 +4,7 @@ import android.content.ComponentName;
+ import android.content.Context;
+ import android.content.Intent;
+ import android.net.Uri;
++import android.view.Display;
+ 
+ import com.android.systemui.SysUiServiceProvider;
+ import com.android.systemui.dialog.StartupMenuDialog;
+@@ -74,13 +75,13 @@ public class AppOperateManager {
+     }
+ 
+     public void runPhoneMode(ComponentName componentName) {
+-        LaunchAppUtil.launchApp(mContext, componentName, LaunchAppUtil.PHONE_MODE);
++        LaunchAppUtil.launchApp(mContext, componentName, Display.PHONE_MODE);
+         updateClick(componentName.getPackageName());
+         dismissStartupMenuDialog();
+     }
+ 
+     public void runDesktopMode(ComponentName componentName) {
+-        LaunchAppUtil.launchApp(mContext, componentName, LaunchAppUtil.DESKTOP_MODE);
++        LaunchAppUtil.launchApp(mContext, componentName, Display.DESKTOP_MODE);
+         updateClick(componentName.getPackageName());
+         dismissStartupMenuDialog();
+     }
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index 596b22e..f39bfbd 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -101,6 +101,7 @@ import static android.service.voice.VoiceInteractionSession.SHOW_SOURCE_APPLICAT
+ import static android.text.format.DateUtils.DAY_IN_MILLIS;
+ import static android.view.Display.DEFAULT_DISPLAY;
+ import static android.view.Display.INVALID_DISPLAY;
++import static android.view.Display.STANDARD_MODE;
+ import static com.android.internal.util.XmlUtils.readBooleanAttribute;
+ import static com.android.internal.util.XmlUtils.readIntAttribute;
+ import static com.android.internal.util.XmlUtils.readLongAttribute;
+@@ -10233,6 +10234,17 @@ public class ActivityManagerService extends IActivityManager.Stub
+         }
+     }
+ 
++    public void setTaskBoundsMode(int taskId, Rect bounds, int taskBoundsMode) {
++        synchronized (this) {
++            TaskRecord task = mStackSupervisor.anyTaskForIdLocked(taskId);
++            if (task == null) {
++                Slog.w(TAG, "setTaskBoundsMode: taskId=" + taskId + " not found");
++                return;
++            }
++            task.setTaskBoundsMode(bounds, taskBoundsMode);
++        }
++    }
++
+     @Override
+     public int getDefaultMinSizeOfResizeableTask() {
+         if (mStackSupervisor != null) {
+@@ -10666,10 +10678,10 @@ public class ActivityManagerService extends IActivityManager.Stub
+     }
+ 
+     @Override
+-    public boolean isTaskMaximize(IBinder token) throws RemoteException {
++    public int getTaskBoundsMode(IBinder token) throws RemoteException {
+         synchronized (this) {
+             final ActivityRecord r = ActivityRecord.forTokenLocked(token);
+-            return r != null ? r.getTask().isTaskMaximize() : false;
++            return r != null ? r.getTask().getTaskBoundsMode() : STANDARD_MODE;
+         }
+     }
+ 
+diff --git a/services/core/java/com/android/server/am/ActivityStarter.java b/services/core/java/com/android/server/am/ActivityStarter.java
+index c642e7f..98a4caa 100644
+--- a/services/core/java/com/android/server/am/ActivityStarter.java
++++ b/services/core/java/com/android/server/am/ActivityStarter.java
+@@ -58,6 +58,7 @@ import static android.content.pm.ActivityInfo.LAUNCH_SINGLE_TASK;
+ import static android.content.pm.ActivityInfo.LAUNCH_SINGLE_TOP;
+ import static android.view.Display.DEFAULT_DISPLAY;
+ import static android.view.Display.INVALID_DISPLAY;
++import static android.view.Display.STANDARD_MODE;
+ import static com.android.server.am.ActivityManagerDebugConfig.DEBUG_CONFIGURATION;
+ import static com.android.server.am.ActivityManagerDebugConfig.DEBUG_FOCUS;
+ import static com.android.server.am.ActivityManagerDebugConfig.DEBUG_PERMISSIONS_REVIEW;
+@@ -1803,8 +1804,12 @@ class ActivityStarter {
+                     mNewTaskIntent != null ? mNewTaskIntent : mIntent, mVoiceSession,
+                     mVoiceInteractor, !mLaunchTaskBehind /* toTop */, mStartActivity.mActivityType);
+             addOrReparentStartingActivity(task, "setTaskFromReuseOrCreateNewTask - mReuseTask");
+-            if (mOptions != null && mOptions.getFreeformBounds() != null)
+-                task.resize(mOptions.getFreeformBounds(), ActivityManager.RESIZE_MODE_FORCED, true, true);
++            if (mOptions != null && mOptions.getFreeformBoundsMode() != STANDARD_MODE) {
++                Rect bounds = new Rect();
++                mTargetStack.getDisplay().mDisplay.getDefaultFreeformSize(
++                        bounds, mOptions.getFreeformBoundsMode());
++                task.resize(bounds, ActivityManager.RESIZE_MODE_FORCED, true, true);
++            }
+             if (!mStartActivity.fullscreen) {
+                 Rect bounds = new Rect();
+                 mTargetStack.getDisplay().mDisplay.getRectSize(bounds);
+diff --git a/services/core/java/com/android/server/am/TaskRecord.java b/services/core/java/com/android/server/am/TaskRecord.java
+index f3905cc..9bc88f3 100644
+--- a/services/core/java/com/android/server/am/TaskRecord.java
++++ b/services/core/java/com/android/server/am/TaskRecord.java
+@@ -47,6 +47,7 @@ import android.provider.Settings;
+ import android.service.voice.IVoiceInteractionSession;
+ import android.util.DisplayMetrics;
+ import android.util.Slog;
++import android.view.Display;
+ 
+ import com.android.internal.annotations.VisibleForTesting;
+ import com.android.internal.app.IVoiceInteractor;
+@@ -164,6 +165,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     private static final String ATTR_MIN_WIDTH = "min_width";
+     private static final String ATTR_MIN_HEIGHT = "min_height";
+     private static final String ATTR_PERSIST_TASK_VERSION = "persist_task_version";
++    private static final String ATTR_BOUNDS_MODE = "_bounds_mode";
+ 
+     // Current version of the task record we persist. Used to check if we need to run any upgrade
+     // code.
+@@ -227,6 +229,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+ 
+     int mResizeMode;        // The resize mode of this task and its activities.
+                             // Based on the {@link ActivityInfo#resizeMode} of the root activity.
++    int mTaskBoundsMode;    // Task bounds mode.
+     private boolean mSupportsPictureInPicture;  // Whether or not this task and its activities
+             // support PiP. Based on the {@link ActivityInfo#FLAG_SUPPORTS_PICTURE_IN_PICTURE} flag
+             // of the root activity.
+@@ -465,27 +468,40 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+                 getStack().getWindowContainerController(), userId, bounds, overrideConfig,
+                 mResizeMode, mSupportsPictureInPicture, isHomeTask(), onTop, showForAllUsers,
+                 lastTaskDescription));
++        mWindowContainerController.setTaskBoundsMode(mTmpNonMaximizeBounds, mTaskBoundsMode);
+     }
+ 
+     Rect getTaskMemoryBounds() {
+-        Rect bounds = null;
++        setUniqueTaskBounds();
++        Rect bounds = new Rect();
+         if (affinity != null && mService.mRecentTasks != null && mService.mRecentTasks.size() > 0) {
+             for (int taskNdx = mService.mRecentTasks.size() - 1; taskNdx >= 0; --taskNdx) {
+                 final TaskRecord tk = mService.mRecentTasks.get(taskNdx);
+                 if (affinity.equals(tk.affinity)) {
+                     if (tk.mBounds != null)
+-                    bounds = new Rect(tk.mBounds);
++                    bounds.set(new Rect(tk.mBounds));
+                     break;
+                 }
+             }
+         }
+ 
+-        if (bounds == null) {
+-            Rect rect = Settings.Global.getRect(
+-                    mService.mContext.getContentResolver(), realActivity.getPackageName(), null);
+-            bounds = formatTaskBounds(rect, false);
++        if (mStack != null && bounds.isEmpty()) {
++            switch (mTaskBoundsMode) {
++                case Display.LEFT_DOCKED_MODE:
++                    mStack.getDisplay().mDisplay.getDockedSize(bounds, Display.LEFT_DOCKED_MODE);
++                    break;
++                case Display.RIGHT_DOCKED_MODE:
++                    mStack.getDisplay().mDisplay.getDockedSize(bounds, Display.RIGHT_DOCKED_MODE);
++                    break;
++                case Display.TOP_DOCKED_MODE:
++                    bounds.set(mMaximizeBounds);
++                    break;
++                case Display.STANDARD_MODE:
++                    bounds.set(mTmpNonMaximizeBounds);
++                    break;
++            }
+         }
+-        return bounds;
++        return bounds.isEmpty() ? null : bounds;
+     }
+ 
+     /**
+@@ -528,6 +544,11 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+         mService.mStackSupervisor.resumeFocusedStackTopActivityLocked();
+     }
+ 
++    void setTaskBoundsMode(Rect bounds, int taskBoundsMode) {
++        mTaskBoundsMode = taskBoundsMode;
++        mTmpNonMaximizeBounds.set(bounds);
++    }
++
+     void setTaskDockedResizing(boolean resizing) {
+         mWindowContainerController.setTaskDockedResizing(resizing);
+     }
+@@ -1772,16 +1793,18 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     }
+ 
+     void storeTaskBounds() {
+-        if (!isHomeTask() && mBounds != null && StackId.persistTaskBounds(mStack.mStackId)) {
++        if (mStack != null && !isHomeTask() && StackId.persistTaskBounds(mStack.mStackId)) {
++            Settings.Global.putInt(mService.mContext.getContentResolver(),
++                    realActivity.getPackageName() + ATTR_BOUNDS_MODE, mTaskBoundsMode);
+             Settings.Global.putRect(mService.mContext.getContentResolver(),
+-                    realActivity.getPackageName(), formatTaskBounds(mBounds, true));
++                    realActivity.getPackageName(), formatTaskBounds(mTmpNonMaximizeBounds, true));
+         }
+     }
+ 
+     private Rect formatTaskBounds(Rect bounds, boolean isStored) {
+         Rect storeBounds = null;
+         Rect restoreBounds = null;
+-        if (bounds != null) {
++        if (!bounds.isEmpty()) {
+             final Point displaySize = new Point();
+             mStack.getDisplaySize(displaySize);
+             int displayWidth = displaySize.x;
+@@ -2088,6 +2111,16 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+         return task;
+     }
+ 
++    private void adjustForNonMaximizeBounds(Rect bounds) {
++        if (mTmpNonMaximizeBounds.isEmpty()) {
++            boolean taskLaunchMode = (bounds == null
++                    || mTaskBoundsMode == Display.TOP_DOCKED_MODE
++                    || mTaskBoundsMode == Display.LEFT_DOCKED_MODE
++                    || mTaskBoundsMode == Display.RIGHT_DOCKED_MODE);
++            mTmpNonMaximizeBounds.set(taskLaunchMode ? mDefaultPcBounds : bounds);
++        }
++    }
++
+     private void adjustForMinimalTaskDimensions(Rect bounds) {
+         if (bounds == null) {
+             return;
+@@ -2196,12 +2229,17 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+             computeOverrideConfiguration(newConfig, mTmpRect, insetBounds,
+                     mTmpRect.right != bounds.right, mTmpRect.bottom != bounds.bottom);
+         }
++        adjustForNonMaximizeBounds(mBounds);
+         onOverrideConfigurationChanged(newConfig);
+ 
+         if (mFullscreen != oldFullscreen) {
+             mService.mStackSupervisor.scheduleUpdateMultiWindowMode(this);
+         }
+ 
++        if(mWindowContainerController != null && mTaskBoundsMode != Display.STANDARD_MODE) {
++            mWindowContainerController.setTaskBoundsMode(mTmpNonMaximizeBounds, mTaskBoundsMode);
++        }
++
+         return !mTmpConfig.equals(newConfig);
+     }
+ 
+@@ -2329,42 +2367,36 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     }
+ 
+     void toggleTaskMaximize() {
+-        getUniqueTaskBounds();
+         if (Objects.equals(mMaximizeBounds, mBounds)) {
+             mTmpNonMaximizeBounds.set(mTmpNonMaximizeBounds.isEmpty()
+                     ? mDefaultPcBounds : mTmpNonMaximizeBounds);
++            mTaskBoundsMode = Display.STANDARD_MODE;
+             resize(mTmpNonMaximizeBounds, RESIZE_MODE_FORCED, true, true);
+         } else {
+             mTmpNonMaximizeBounds.set(mBounds == null ? mDefaultPcBounds : mBounds);
++            mTaskBoundsMode = Display.TOP_DOCKED_MODE;
+             resize(mMaximizeBounds, RESIZE_MODE_FORCED, true, true);
+         }
+     }
+ 
+-    void getUniqueTaskBounds() {
+-        if (mMaximizeBounds.isEmpty()) {
+-            // Maximize tasks
+-            final Point displaySize = new Point();
+-            mStack.getDisplaySize(displaySize);
+-            int displayWidth = displaySize.x;
+-            int displayHeight = displaySize.y;
+-            int defStartX = displayWidth / 4;
+-            int defStartY = displayHeight / 4;
+-            int defWidth = displayWidth / 2;
+-            int defHeight = defWidth / 16 * 9;
+-            mMaximizeBounds.set(new Rect(0, 0, displayWidth, displayHeight));
+-            mDefaultPcBounds.set(new Rect(defStartX, defStartY,
+-                    defStartX + defWidth, defStartY + defHeight));
+-        }
++    void setUniqueTaskBounds() {
++        mStack.getDisplay().mDisplay.getRectSize(mMaximizeBounds);
++        mStack.getDisplay().mDisplay.getDefaultFreeformSize(
++                mDefaultPcBounds, Display.DESKTOP_MODE);
++        mTaskBoundsMode = Settings.Global.getInt(mService.mContext.getContentResolver(),
++                realActivity.getPackageName() + ATTR_BOUNDS_MODE, Display.STANDARD_MODE);
++        Rect bounds = Settings.Global.getRect(mService.mContext.getContentResolver(),
++                realActivity.getPackageName(), null);
++        if (bounds != null)
++        mTmpNonMaximizeBounds.set(formatTaskBounds(bounds, false));
+     }
+ 
+-    boolean isTaskMaximize() {
+-        getUniqueTaskBounds();
+-        return Objects.equals(mMaximizeBounds, mBounds);
++    int getTaskBoundsMode() {
++        return mTaskBoundsMode;
+     }
+ 
+     void changeTaskOrientation() {
+         if (mBounds != null) {
+-            getUniqueTaskBounds();
+             if (mBounds.width() > mBounds.height()) {
+                 mTmpLastPcRect.set(mBounds);
+                 prepareLastPhoneRect(mBounds);
+diff --git a/services/core/java/com/android/server/wm/Task.java b/services/core/java/com/android/server/wm/Task.java
+index 219b3aa..8f3d359a 100644
+--- a/services/core/java/com/android/server/wm/Task.java
++++ b/services/core/java/com/android/server/wm/Task.java
+@@ -37,6 +37,7 @@ import android.content.res.Configuration;
+ import android.graphics.Rect;
+ import android.util.EventLog;
+ import android.util.Slog;
++import android.view.Display;
+ import android.view.DisplayInfo;
+ import android.view.Surface;
+ 
+@@ -330,48 +331,9 @@ class Task extends WindowContainer<AppWindowToken> implements DimLayer.DimLayerU
+             displayContent.mDimLayerController.updateDimLayer(this);
+         }
+         onOverrideConfigurationChanged(mFillsParent ? Configuration.EMPTY : overrideConfig);
+-        setUniqueBounds();
+-        mIsDocked = false;
+-        if (mBounds.equals(mMaxTmpRect) || mBounds.equals(mLeftDockedTmpRect)
+-                    || mBounds.equals(mRightDockedTmpRect)) {
+-            mIsDocked = true;
+-            validateDockedTmpRect();
+-        }
+         return boundsChange;
+     }
+ 
+-    private void validateDockedTmpRect() {
+-        getDimBounds(mDockedTmpRect);
+-        int startX, startY, width, height;
+-        startX = mMaxTmpRect.width() / 4;
+-        startY = mMaxTmpRect.height() / 4;
+-        if (mDockedTmpRect.equals(mMaxTmpRect)) {
+-            width = mMaxTmpRect.width() / 2;
+-            height = width / 16 * 9;
+-            mDockedTmpRect.set(new Rect(startX, startY, startX + width, startY + height));
+-        } else if (mDockedTmpRect.equals(mLeftDockedTmpRect)
+-                    || mDockedTmpRect.equals(mRightDockedTmpRect)) {
+-            height = mMaxTmpRect.height() / 3 * 2;
+-            width = height / 16 * 9;
+-            mDockedTmpRect.set(new Rect(startX, startY, startX + width, startY + height));
+-        }
+-    }
+-
+-    private void setUniqueBounds() {
+-        DisplayContent content = getDisplayContent();
+-        if (content != null) {
+-            if (mMaxTmpRect.isEmpty()) {
+-                content.getLogicalDisplayRect(mMaxTmpRect);
+-                int width = mMaxTmpRect.width();
+-                int height = mMaxTmpRect.height();
+-                mLeftDockedTmpRect = new Rect(mMaxTmpRect.left, mMaxTmpRect.top,
+-                        mMaxTmpRect.right / 2, mMaxTmpRect.bottom);
+-                mRightDockedTmpRect = new Rect(mMaxTmpRect.left + width / 2, mMaxTmpRect.top,
+-                        mMaxTmpRect.right, mMaxTmpRect.bottom);
+-            }
+-        }
+-    }
+-
+     /**
+      * Sets the bounds used to calculate the insets. See
+      * {@link android.app.IActivityManager#resizeDockedStack} why this is needed.
+@@ -396,6 +358,11 @@ class Task extends WindowContainer<AppWindowToken> implements DimLayer.DimLayerU
+         mResizeMode = resizeMode;
+     }
+ 
++    void setTaskBoundsMode(Rect bounds, int taskBoundsMode) {
++        mIsDocked = taskBoundsMode != Display.STANDARD_MODE;
++        mDockedTmpRect.set(bounds);
++    }
++
+     boolean isResizeable() {
+         return ActivityInfo.isResizeableMode(mResizeMode) || mSupportsPictureInPicture
+                 || mService.mForceResizableTasks;
+diff --git a/services/core/java/com/android/server/wm/TaskPositioner.java b/services/core/java/com/android/server/wm/TaskPositioner.java
+index bed00ff..d29ef99 100644
+--- a/services/core/java/com/android/server/wm/TaskPositioner.java
++++ b/services/core/java/com/android/server/wm/TaskPositioner.java
+@@ -181,6 +181,8 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+                                     "wm.TaskPositioner.resizeTask");
+                             if (!mResizing) {
+                                 try {
++                                    mService.mActivityManager.setTaskBoundsMode(
++                                            mTask.mTaskId, mWindowDragBounds, mCurrentDimSide);
+                                     mService.mActivityManager.resizeTask(
+                                             mTask.mTaskId, mWindowDragBounds, RESIZE_MODE_USER);
+                                 } catch (RemoteException e) {
+@@ -222,6 +224,8 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+                         if (wasResizing && !mTmpRect.equals(mWindowDragBounds)) {
+                             // We were using fullscreen surface during resizing. Request
+                             // resizeTask() one last time to restore surface to window size.
++                            mService.mActivityManager.setTaskBoundsMode(
++                                    mTask.mTaskId, mWindowDragBounds, mCurrentDimSide);
+                             mService.mActivityManager.resizeTask(
+                                     mTask.mTaskId, mWindowDragBounds, RESIZE_MODE_USER_FORCED);
+                         }
+@@ -239,6 +243,8 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+                             } else if (mCurrentDimSide == CTRL_RIGHT) {
+                                 mTmpRect.left = mTmpRect.centerX();
+                             }
++                            mService.mActivityManager.setTaskBoundsMode(
++                                    mTask.mTaskId, mTask.mDockedTmpRect, mCurrentDimSide);
+                             mService.mActivityManager.resizeTask(
+                                     mTask.mTaskId, mTmpRect, RESIZE_MODE_USER_FORCED);
+                             //mService.mActivityManager.moveTaskToDockedStack(
+diff --git a/services/core/java/com/android/server/wm/TaskWindowContainerController.java b/services/core/java/com/android/server/wm/TaskWindowContainerController.java
+index 54a6cc0..85965ee 100644
+--- a/services/core/java/com/android/server/wm/TaskWindowContainerController.java
++++ b/services/core/java/com/android/server/wm/TaskWindowContainerController.java
+@@ -150,6 +150,14 @@ public class TaskWindowContainerController
+         }
+     }
+ 
++    public void setTaskBoundsMode(Rect bounds, int taskBoundsMode) {
++        synchronized (mWindowMap) {
++            if (mContainer != null) {
++                mContainer.setTaskBoundsMode(bounds, taskBoundsMode);
++            }
++        }
++    }
++
+     public void resize(Rect bounds, Configuration overrideConfig, boolean relayout,
+             boolean forced) {
+         synchronized (mWindowMap) {
+-- 
+2.7.4
+

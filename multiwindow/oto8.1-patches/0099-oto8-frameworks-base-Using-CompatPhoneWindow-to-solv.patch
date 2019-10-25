@@ -1,0 +1,51 @@
+From fee92505a3224e89b3fe646e03aa807028f9040b Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Mon, 26 Aug 2019 08:34:51 +0000
+Subject: [PATCH 099/110] oto8: frameworks: base: Using CompatPhoneWindow to
+ solve decor problem
+
+for JD.com. Also do some change to ensure CompatPhoneWindow could return decorView
+
+correctly.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ core/java/android/app/Activity.java                          | 2 ++
+ core/java/com/android/internal/policy/CompatPhoneWindow.java | 3 ++-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/core/java/android/app/Activity.java b/core/java/android/app/Activity.java
+index 4203ed3..79a6078 100644
+--- a/core/java/android/app/Activity.java
++++ b/core/java/android/app/Activity.java
+@@ -7036,6 +7036,8 @@ public class Activity extends ContextThemeWrapper
+             ActivityConfigCallback activityConfigCallback) {
+         if (("com.tencent.mm").equals(getPackageName()))
+             return new CompatPhoneWindow(this, context, window, activityConfigCallback);
++        if (("com.jingdong.app.mall").equals(getPackageName()))
++            return new CompatPhoneWindow(this, context, window, activityConfigCallback);
+         return new PhoneWindow(this, window, activityConfigCallback);
+     }
+ 
+diff --git a/core/java/com/android/internal/policy/CompatPhoneWindow.java b/core/java/com/android/internal/policy/CompatPhoneWindow.java
+index d06c853..0379420 100644
+--- a/core/java/com/android/internal/policy/CompatPhoneWindow.java
++++ b/core/java/com/android/internal/policy/CompatPhoneWindow.java
+@@ -37,10 +37,11 @@ public class CompatPhoneWindow extends PhoneWindow {
+ 
+     @Override
+     public View getDecorView() {
++        View superDecor = super.getDecorView();
+         if (compatDecor != null) {
+             return compatDecor.getSpecialDecor();
+         }
+-        return super.getDecorView();
++        return superDecor;
+     }
+ 
+     @Override
+-- 
+2.7.4
+

@@ -1,0 +1,499 @@
+From b3549ff184410320246d748fbbd384a50689904b Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Tue, 20 Aug 2019 05:04:19 +0000
+Subject: [PATCH 095/110] oto8: frameworks: base: Initialize commit for
+ compatible mode[3/3].
+
+Rename NewPhoneWindow to CompatPhoneWindow.
+
+And delete redundant codes about window size for CompatPhoneWindow.
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ core/java/android/app/Activity.java                |   4 +-
+ core/java/android/view/Display.java                |  31 +---
+ .../android/internal/policy/CompatPhoneWindow.java | 175 ++++++++++++++++++
+ .../android/internal/policy/NewPhoneWindow.java    | 197 ---------------------
+ 4 files changed, 179 insertions(+), 228 deletions(-)
+ create mode 100644 core/java/com/android/internal/policy/CompatPhoneWindow.java
+ delete mode 100644 core/java/com/android/internal/policy/NewPhoneWindow.java
+
+diff --git a/core/java/android/app/Activity.java b/core/java/android/app/Activity.java
+index 4c0126d..450fdd1 100644
+--- a/core/java/android/app/Activity.java
++++ b/core/java/android/app/Activity.java
+@@ -126,7 +126,7 @@ import com.android.internal.app.ToolbarActionBar;
+ import com.android.internal.app.WindowDecorActionBar;
+ import com.android.internal.policy.DecorView;
+ import com.android.internal.policy.PhoneWindow;
+-import com.android.internal.policy.NewPhoneWindow;
++import com.android.internal.policy.CompatPhoneWindow;
+ 
+ import java.io.FileDescriptor;
+ import java.io.PrintWriter;
+@@ -7034,7 +7034,7 @@ public class Activity extends ContextThemeWrapper
+     final Window getPhoneWindow(Context context, Window window,
+             ActivityConfigCallback activityConfigCallback) {
+         if (("com.tencent.mm").equals(getPackageName()))
+-            return new NewPhoneWindow(this, context, window, activityConfigCallback);
++            return new CompatPhoneWindow(this, context, window, activityConfigCallback);
+         return new PhoneWindow(this, window, activityConfigCallback);
+     }
+ 
+diff --git a/core/java/android/view/Display.java b/core/java/android/view/Display.java
+index 4e36577..4e7c4d4 100644
+--- a/core/java/android/view/Display.java
++++ b/core/java/android/view/Display.java
+@@ -66,10 +66,6 @@ public final class Display {
+     private static final String TAG = "Display";
+     private static final boolean DEBUG = false;
+ 
+-    private static boolean mUseFakeDisplaySize;
+-    private static int mFakeWidth;
+-    private static int mFakeHeight;
+-
+     private final DisplayManagerGlobal mGlobal;
+     private final int mDisplayId;
+     private final int mLayerStack;
+@@ -617,10 +613,8 @@ public final class Display {
+         synchronized (this) {
+             updateDisplayInfoLocked();
+             mDisplayInfo.getAppMetrics(mTempMetrics, getDisplayAdjustments());
+-            //outSize.x = mTempMetrics.widthPixels;
+-            //outSize.y = mTempMetrics.heightPixels;
+-            outSize.x = mUseFakeDisplaySize ? mFakeWidth : mTempMetrics.widthPixels;
+-            outSize.y = mUseFakeDisplaySize ? mFakeHeight : mTempMetrics.heightPixels;
++            outSize.x = mTempMetrics.widthPixels;
++            outSize.y = mTempMetrics.heightPixels;
+             if (mIsCompatDisplayInfo) {
+                 outSize.x = getWidth();
+                 outSize.y = getHeight();
+@@ -628,24 +622,6 @@ public final class Display {
+         }
+     }
+ 
+-    public void setUseFake(boolean use) {
+-        mUseFakeDisplaySize = use;
+-    }
+-
+-    public boolean setFakeSize(int width, int height) {
+-        boolean re = (width != mFakeWidth || height != mFakeHeight);
+-        mFakeWidth = width;
+-        mFakeHeight = height;
+-        return re;
+-    }
+-
+-    public void adjustFakeSize(DisplayMetrics outMetrics) {
+-        if (mUseFakeDisplaySize) {
+-            outMetrics.widthPixels = mFakeWidth;
+-            outMetrics.heightPixels = mFakeHeight;
+-        }
+-    }
+-
+     public void setCompatDisplayInfo(boolean isCompatDisplayInfo) {
+         mIsCompatDisplayInfo = isCompatDisplayInfo;
+     }
+@@ -1037,7 +1013,6 @@ public final class Display {
+         synchronized (this) {
+             updateDisplayInfoLocked();
+             mDisplayInfo.getAppMetrics(outMetrics, getDisplayAdjustments());
+-            adjustFakeSize(outMetrics);
+             if (mIsCompatDisplayInfo) {
+                 outMetrics.setCompatMetrics();
+             }
+@@ -1061,8 +1036,6 @@ public final class Display {
+             updateDisplayInfoLocked();
+             outSize.x = mDisplayInfo.logicalWidth;
+             outSize.y = mDisplayInfo.logicalHeight;
+-            //outSize.x = mUseFakeDisplaySize ? mFakeWidth : mDisplayInfo.logicalWidth;
+-            //outSize.y = mUseFakeDisplaySize ? mFakeHeight : mDisplayInfo.logicalHeight;
+             if (mIsCompatDisplayInfo) {
+                 outSize.x = getWidth();
+                 outSize.y = getHeight();
+diff --git a/core/java/com/android/internal/policy/CompatPhoneWindow.java b/core/java/com/android/internal/policy/CompatPhoneWindow.java
+new file mode 100644
+index 0000000..d06c853
+--- /dev/null
++++ b/core/java/com/android/internal/policy/CompatPhoneWindow.java
+@@ -0,0 +1,175 @@
++package com.android.internal.policy;
++
++import android.content.Context;
++import android.content.res.Resources;
++import android.content.res.Configuration;
++import android.graphics.Rect;
++import android.view.MotionEvent;
++import android.view.LayoutInflater;
++import android.view.View;
++import android.view.ViewGroup;
++import android.view.ViewRootImpl.ActivityConfigCallback;
++import android.view.ViewTreeObserver;
++import android.view.Window;
++import android.view.WindowManager;
++import android.widget.FrameLayout;
++import android.util.DisplayMetrics;
++import android.os.SystemProperties;
++
++import java.util.ArrayList;
++import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
++import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
++
++public class CompatPhoneWindow extends PhoneWindow {
++
++    CompatDecorView compatDecor;
++    Context mAppContext;
++
++    public CompatPhoneWindow(Context context) {
++        super(context);
++    }
++
++    public CompatPhoneWindow(Context context, Context appContext, Window preservedWindow,
++            ActivityConfigCallback activityConfigCallback) {
++        super(context, preservedWindow, activityConfigCallback);
++        mAppContext = appContext;
++    }
++
++    @Override
++    public View getDecorView() {
++        if (compatDecor != null) {
++            return compatDecor.getSpecialDecor();
++        }
++        return super.getDecorView();
++    }
++
++    @Override
++    protected DecorView generateDecor(int featureId) {
++        Context context;
++        if (mUseDecorContext) {
++            Context applicationContext = getContext().getApplicationContext();
++            if (applicationContext == null) {
++                context = getContext();
++            } else {
++                context = new DecorContext(applicationContext, getContext().getResources());
++                if (mTheme != -1) {
++                    context.setTheme(mTheme);
++                }
++            }
++        } else {
++            context = getContext();
++        }
++        compatDecor = new CompatDecorView(context, featureId, this, getAttributes());
++        return compatDecor;
++    }
++
++    private final class FakeDecor extends FrameLayout {
++        FakeDecor(Context context) {
++            super(context);
++            mIsFakeDecor = true;
++        }
++
++        @Override
++        public void getLocationOnScreen(int[] outLocation) {
++            outLocation[0] = 0;
++            outLocation[1] = compatDecor.mDecorCaptionView.hasCaption() ?
++                    compatDecor.mDecorCaptionView.getCaption().getMeasuredHeight() : 0;
++        }
++
++        @Override
++        public void getWindowVisibleDisplayFrame(Rect outRect) {
++            super.getWindowVisibleDisplayFrame(outRect);
++            int width = outRect.width();
++            int height = outRect.height();
++            outRect.left = 0;
++            outRect.top = 0;
++            outRect.right = width;
++            outRect.bottom = height;
++        }
++    }
++
++    private final class CompatDecorView extends DecorView {
++        FakeDecor mFakeDecor;
++        CompatDecorView(Context context, int featureId, PhoneWindow window,
++                WindowManager.LayoutParams params) {
++            super(context, featureId, window, params);
++            mFakeDecor = new FakeDecor(context);
++            getViewTreeObserver().addOnGlobalLayoutListener(
++                         new ViewTreeObserver.OnGlobalLayoutListener() {
++                @Override
++                public void onGlobalLayout() {
++                    View v = findViewById(ID_ANDROID_CONTENT);
++                    if (v != null) {
++                        View v1 = ((ViewGroup)v).getChildAt(0);
++                        if (v1 != null && v1.getLayoutParams() != null &&
++                                v1.getLayoutParams().height > v.getMeasuredHeight()) {
++                            v1.getLayoutParams().height = v.getMeasuredHeight();
++                            v1.requestLayout();
++                        }
++                    }
++                }
++            });
++        }
++
++        @Override
++        public Resources getResources() {
++            return mAppContext.getResources();
++        }
++
++        @Override
++        public boolean onInterceptTouchEvent(MotionEvent ev) {
++            Rect hit = new Rect();
++            mDecorCaptionView.getCaption().getHitRect(hit);
++            final int x = (int) ev.getX();
++            final int y = (int) ev.getY();
++            if (hit.contains(x, y)) {
++                ev.mmOffSet = false;
++            } else {
++                int[] out = getLocationOnScreen();
++                ev.mmOffSet = true;
++                ev.offSetX = out[0];
++                ev.offSetY = out[1];
++            }
++            return super.onInterceptTouchEvent(ev);
++        }
++
++        void setRootToFakeDecorIfHasCaption() {
++            if (mDecorCaptionView != null && mDecorCaptionView.getChildAt(0) != mFakeDecor) {
++                if (mDecorCaptionView.getChildAt(0) == mContentRoot) {
++                    mDecorCaptionView.removeView(mContentRoot);
++                }
++                mFakeDecor.addView(mContentRoot, 0,
++                    new ViewGroup.MarginLayoutParams(MATCH_PARENT, MATCH_PARENT));
++                mDecorCaptionView.addView(mFakeDecor,
++                    new ViewGroup.MarginLayoutParams(MATCH_PARENT, MATCH_PARENT));
++            }
++        }
++
++        @Override
++        protected void onConfigurationChanged(Configuration newConfig) {
++            setRootToFakeDecorIfHasCaption();
++            mContext.getResources().getConfiguration().setTo(newConfig);
++            super.onConfigurationChanged(newConfig);
++            if (mContext.isCompatContext()) {
++                Configuration appConfig = mAppContext.getResources().getConfiguration();
++                DisplayMetrics dp = mAppContext.getResources().getDisplayMetrics();
++                appConfig.densityDpi = 160;
++                appConfig.setLocales(null);
++                mContext.getResources().updateConfiguration(appConfig, dp);
++            }
++        }
++
++        @Override
++        void onResourcesLoaded(LayoutInflater inflater, int layoutResource) {
++            super.onResourcesLoaded(inflater, layoutResource);
++            setRootToFakeDecorIfHasCaption();
++        }
++
++        public View getSpecialDecor() {
++            if (mDecorCaptionView != null) {
++                return mFakeDecor;
++            }
++            return this;
++        }
++    }
++}
+diff --git a/core/java/com/android/internal/policy/NewPhoneWindow.java b/core/java/com/android/internal/policy/NewPhoneWindow.java
+deleted file mode 100644
+index fa6e123..0000000
+--- a/core/java/com/android/internal/policy/NewPhoneWindow.java
++++ /dev/null
+@@ -1,197 +0,0 @@
+-package com.android.internal.policy;
+-
+-import android.content.Context;
+-import android.content.res.Resources;
+-import android.content.res.Configuration;
+-import android.graphics.Rect;
+-import android.view.MotionEvent;
+-import android.view.LayoutInflater;
+-import android.view.View;
+-import android.view.ViewGroup;
+-import android.view.ViewRootImpl.ActivityConfigCallback;
+-import android.view.ViewTreeObserver;
+-import android.view.Window;
+-import android.view.WindowManager;
+-import android.widget.FrameLayout;
+-import android.util.DisplayMetrics;
+-import android.os.SystemProperties;
+-
+-import java.util.ArrayList;
+-import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
+-import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+-
+-public class NewPhoneWindow extends PhoneWindow {
+-
+-    NewDecorView newDecor;
+-    Context mAppContext;
+-
+-    int mFakeWidth;
+-    int mFakeHeight;
+-
+-    public NewPhoneWindow(Context context) {
+-        super(context);
+-    }
+-
+-    public NewPhoneWindow(Context context, Context appContext, Window preservedWindow,
+-            ActivityConfigCallback activityConfigCallback) {
+-        super(context, preservedWindow, activityConfigCallback);
+-        mAppContext = appContext;
+-    }
+-
+-    @Override
+-    public View getDecorView() {
+-        if (newDecor != null) {
+-            return newDecor.getSpecialDecor();
+-        }
+-        return super.getDecorView();
+-    }
+-
+-    @Override
+-    protected DecorView generateDecor(int featureId) {
+-        Context context;
+-        if (mUseDecorContext) {
+-            Context applicationContext = getContext().getApplicationContext();
+-            if (applicationContext == null) {
+-                context = getContext();
+-            } else {
+-                context = new DecorContext(applicationContext, getContext().getResources());
+-                if (mTheme != -1) {
+-                    context.setTheme(mTheme);
+-                }
+-            }
+-        } else {
+-            context = getContext();
+-        }
+-        newDecor = new NewDecorView(context, featureId, this, getAttributes());
+-        return newDecor;
+-    }
+-
+-    private final class FakeDecor extends FrameLayout {
+-        FakeDecor(Context context) {
+-            super(context);
+-            mIsFakeDecor = true;
+-        }
+-
+-        @Override
+-        public void getLocationOnScreen(int[] outLocation) {
+-            outLocation[0] = 0;
+-            outLocation[1] = newDecor.mDecorCaptionView.hasCaption() ?
+-                                newDecor.mDecorCaptionView.getCaption().getMeasuredHeight() : 0;
+-        }
+-
+-        //@Override
+-        //public void transformParent(float[] position) {
+-        //}
+-
+-        @Override
+-        public void getWindowVisibleDisplayFrame(Rect outRect) {
+-            super.getWindowVisibleDisplayFrame(outRect);
+-            int width = outRect.width();
+-            int height = outRect.height();
+-            outRect.left = 0;
+-            outRect.top = 0;
+-            outRect.right = width;
+-            outRect.bottom = height;
+-        }
+-    }
+-
+-    private final class NewDecorView extends DecorView {
+-        FakeDecor mFakeDecor;
+-        NewDecorView(Context context, int featureId, PhoneWindow window,
+-                WindowManager.LayoutParams params) {
+-            super(context, featureId, window, params);
+-            mFakeDecor = new FakeDecor(context);
+-            getViewTreeObserver().addOnGlobalLayoutListener(
+-                         new ViewTreeObserver.OnGlobalLayoutListener() {
+-                @Override
+-                public void onGlobalLayout() {
+-                    View v = findViewById(ID_ANDROID_CONTENT);
+-                    if (v != null) {
+-                        View v1 = ((ViewGroup)v).getChildAt(0);
+-                        if (v1 != null && v1.getLayoutParams() != null &&
+-                                v1.getLayoutParams().height > v.getMeasuredHeight()) {
+-                            v1.getLayoutParams().height = v.getMeasuredHeight();
+-                            v1.requestLayout();
+-                        }
+-                    }
+-                }
+-            });
+-        }
+-
+-        @Override
+-        public Resources getResources() {
+-            return mAppContext.getResources();
+-        }
+-
+-        @Override
+-        public boolean onInterceptTouchEvent(MotionEvent ev) {
+-            Rect hit = new Rect();
+-            mDecorCaptionView.getCaption().getHitRect(hit);
+-            final int x = (int) ev.getX();
+-            final int y = (int) ev.getY();
+-            if (hit.contains(x, y)) {
+-                ev.mmOffSet = false;
+-            } else {
+-                int[] out = getLocationOnScreen();
+-                ev.mmOffSet = true;
+-                ev.offSetX = out[0];
+-                ev.offSetY = out[1];
+-            }
+-            return super.onInterceptTouchEvent(ev);
+-        }
+-
+-        void setRootToFakeDecorIfHasCaption() {
+-            if (mDecorCaptionView != null && mDecorCaptionView.getChildAt(0) != mFakeDecor) {
+-                if (mDecorCaptionView.getChildAt(0) == mContentRoot) {
+-                    mDecorCaptionView.removeView(mContentRoot);
+-                }
+-                mFakeDecor.addView(mContentRoot, 0,
+-                    new ViewGroup.MarginLayoutParams(MATCH_PARENT, MATCH_PARENT));
+-                mDecorCaptionView.addView(mFakeDecor,
+-                    new ViewGroup.MarginLayoutParams(MATCH_PARENT, MATCH_PARENT));
+-            }
+-        }
+-
+-        @Override
+-        protected void onConfigurationChanged(Configuration newConfig) {
+-            setRootToFakeDecorIfHasCaption();
+-            mContext.getResources().getConfiguration().setTo(newConfig);
+-            super.onConfigurationChanged(newConfig);
+-            if (mContext.isCompatContext()) {
+-                Configuration appConfig = mAppContext.getResources().getConfiguration();
+-                DisplayMetrics dp = mAppContext.getResources().getDisplayMetrics();
+-                appConfig.densityDpi = 160;
+-                appConfig.setLocales(null);
+-                mContext.getResources().updateConfiguration(appConfig, dp);
+-            }
+-            WindowManager windowManager = (WindowManager) mContext.getSystemService("window");
+-            windowManager.getDefaultDisplay().setUseFake(true);
+-            mFakeWidth = newConfig.appBounds.width();
+-            mFakeHeight = newConfig.appBounds.height();
+-            if (windowManager.getDefaultDisplay().setFakeSize(mFakeWidth, mFakeHeight)) {
+-                requestLayout();
+-            }
+-        }
+-
+-        @Override
+-        void onResourcesLoaded(LayoutInflater inflater, int layoutResource) {
+-            super.onResourcesLoaded(inflater, layoutResource);
+-            setRootToFakeDecorIfHasCaption();
+-        }
+-
+-        public View getSpecialDecor() {
+-            if (mDecorCaptionView != null) {
+-                if (!mContext.isCompatContext()) {
+-                    DisplayMetrics dp = mAppContext.getResources().getDisplayMetrics();
+-                    Rect out = new Rect();
+-                    mFakeDecor.getWindowVisibleDisplayFrame(out);
+-                    dp.widthPixels = out.width();
+-                    dp.heightPixels = out.height();
+-                    mContext.getResources().getDisplayMetrics().setTo(dp);
+-                }
+-                return mFakeDecor;
+-            }
+-            return this;
+-        }
+-    }
+-}
+-- 
+2.7.4
+

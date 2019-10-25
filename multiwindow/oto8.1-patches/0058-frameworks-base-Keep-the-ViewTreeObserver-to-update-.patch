@@ -1,0 +1,57 @@
+From f745a962eab7414db37f2075651611f4a40182e2 Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Fri, 21 Sep 2018 01:27:15 +0000
+Subject: [PATCH 058/110] frameworks: base: Keep the ViewTreeObserver to update
+ the DecorCaptionView state
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ core/java/com/android/internal/widget/DecorCaptionView.java | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/core/java/com/android/internal/widget/DecorCaptionView.java b/core/java/com/android/internal/widget/DecorCaptionView.java
+index 13e565d..448b980 100644
+--- a/core/java/com/android/internal/widget/DecorCaptionView.java
++++ b/core/java/com/android/internal/widget/DecorCaptionView.java
+@@ -36,6 +36,7 @@ import android.widget.ImageView;
+ import android.widget.TextView;
+ import static android.app.ActivityManager.StackId.INVALID_STACK_ID;
+ import static android.app.ActivityManager.StackId.FULLSCREEN_WORKSPACE_STACK_ID;
++import static android.app.ActivityManager.StackId.FREEFORM_WORKSPACE_STACK_ID;
+ import static android.content.pm.ActivityInfo.RESIZE_MODE_FORCE_RESIZABLE_LANDSCAPE_ONLY;
+ import static android.content.pm.ActivityInfo.RESIZE_MODE_FORCE_RESIZABLE_PORTRAIT_ONLY;
+ import android.content.pm.ActivityInfo;
+@@ -181,8 +182,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+                          new ViewTreeObserver.OnGlobalLayoutListener() {
+             @Override
+             public void onGlobalLayout() {
+-                mRotate.setVisibility((isTaskDocked() || !canResizeOrientation()) ? GONE : VISIBLE);
+-                mRotate.getViewTreeObserver().removeGlobalOnLayoutListener(this);
++                mRotate.setVisibility(updateRotateState() ? VISIBLE : GONE );
+             }
+         });
+     }
+@@ -305,7 +305,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+      */
+     public void onConfigurationChanged(boolean show) {
+         mShow = show;
+-        mRotate.setVisibility((getStackId() == 1 || !canResizeOrientation()) ? GONE : VISIBLE);
++        mRotate.setVisibility(updateRotateState() ? VISIBLE : GONE );
+         updateCaptionVisibility();
+     }
+ 
+@@ -512,6 +512,11 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         return mCaption;
+     }
+ 
++    private boolean updateRotateState() {
++        return !isTaskDocked() && canResizeOrientation()
++                    && getStackId() == FREEFORM_WORKSPACE_STACK_ID;
++    }
++
+     @Override
+     public LayoutParams generateLayoutParams(AttributeSet attrs) {
+         return new MarginLayoutParams(getContext(), attrs);
+-- 
+2.7.4
+

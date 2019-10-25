@@ -1,0 +1,44 @@
+From b53234dcf7c73aee0b39321d27b3dcfbe4fa750f Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Fri, 13 Oct 2017 06:06:59 +0000
+Subject: [PATCH 022/110] using RESIZE_MODE_USER_FORCED to resizeTask during
+ orientation change.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ services/core/java/com/android/server/am/TaskRecord.java | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/services/core/java/com/android/server/am/TaskRecord.java b/services/core/java/com/android/server/am/TaskRecord.java
+index 93bbcc5..0bae8e7 100644
+--- a/services/core/java/com/android/server/am/TaskRecord.java
++++ b/services/core/java/com/android/server/am/TaskRecord.java
+@@ -79,8 +79,7 @@ import static android.app.ActivityManager.StackId.FULLSCREEN_WORKSPACE_STACK_ID;
+ import static android.app.ActivityManager.StackId.HOME_STACK_ID;
+ import static android.app.ActivityManager.StackId.INVALID_STACK_ID;
+ import static android.app.ActivityManager.StackId.PINNED_STACK_ID;
+-import static android.app.ActivityManager.RESIZE_MODE_FORCED;
+-import static android.app.ActivityManager.RESIZE_MODE_USER;
++import static android.app.ActivityManager.RESIZE_MODE_USER_FORCED;
+ import static android.app.ActivityManager.StackId.RECENTS_STACK_ID;
+ import static android.content.Intent.FLAG_ACTIVITY_NEW_DOCUMENT;
+ import static android.content.Intent.FLAG_ACTIVITY_RETAIN_IN_RECENTS;
+@@ -2259,13 +2258,11 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+         if (taskBounds.width() > taskBounds.height()) {
+             mLastPcRect.set(taskBounds);
+             prepareLastPhoneRect(taskBounds);
+-            mService.resizeTask(taskId, mLastPhoneRect, RESIZE_MODE_USER);
+-            mService.resizeTask(taskId, mLastPhoneRect, RESIZE_MODE_FORCED);
++            mService.resizeTask(taskId, mLastPhoneRect, RESIZE_MODE_USER_FORCED);
+         } else {
+             mLastPhoneRect.set(taskBounds);
+             prepareLastPcRect(taskBounds);
+-            mService.resizeTask(taskId, mLastPcRect, RESIZE_MODE_USER);
+-            mService.resizeTask(taskId, mLastPcRect, RESIZE_MODE_FORCED);
++            mService.resizeTask(taskId, mLastPcRect, RESIZE_MODE_USER_FORCED);
+         }
+     }
+ 
+-- 
+2.7.4
+

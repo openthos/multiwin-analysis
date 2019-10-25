@@ -1,0 +1,29 @@
+From 4db8d4e389ca747991843ad0a30655a9bd466951 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Wed, 27 Feb 2019 08:39:04 +0000
+Subject: [PATCH 068/110] oto8: frameworks: base: Never set opaque to freeform
+ window.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ services/core/java/com/android/server/wm/WindowManagerService.java | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/services/core/java/com/android/server/wm/WindowManagerService.java b/services/core/java/com/android/server/wm/WindowManagerService.java
+index 24fbba6..8bc079a 100644
+--- a/services/core/java/com/android/server/wm/WindowManagerService.java
++++ b/services/core/java/com/android/server/wm/WindowManagerService.java
+@@ -2878,7 +2878,7 @@ public class WindowManagerService extends IWindowManager.Stub
+ 
+     private void setWindowOpaqueLocked(IBinder token, boolean isOpaque) {
+         final AppWindowToken wtoken = mRoot.getAppWindowToken(token);
+-        if (wtoken != null) {
++        if (wtoken != null && !wtoken.getTask().inFreeformWorkspace()) {
+             final WindowState win = wtoken.findMainWindow();
+             if (win != null) {
+                 win.mWinAnimator.setOpaqueLocked(isOpaque);
+-- 
+2.7.4
+

@@ -1,0 +1,175 @@
+From 50eef5659374ade98f64f7b2fb5555635255084d Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Fri, 1 Mar 2019 06:13:53 +0000
+Subject: [PATCH 065/110] oto8: frameworks: base: Set launchBounds to more
+ resonable rect. And cut useless code.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ core/java/android/app/ActivityOptions.java         | 16 +++++++++++++
+ .../systemui/startupmenu/LaunchAppUtil.java        | 28 ++++++++++------------
+ .../com/android/server/am/ActivityStarter.java     |  7 +++---
+ .../android/server/am/LaunchingTaskPositioner.java |  6 ++---
+ 4 files changed, 34 insertions(+), 23 deletions(-)
+
+diff --git a/core/java/android/app/ActivityOptions.java b/core/java/android/app/ActivityOptions.java
+index 0bffc9e..fb7ba1c 100644
+--- a/core/java/android/app/ActivityOptions.java
++++ b/core/java/android/app/ActivityOptions.java
+@@ -84,6 +84,8 @@ public class ActivityOptions {
+      */
+     public static final String KEY_LAUNCH_BOUNDS = "android:activity.launchBounds";
+ 
++    public static final String KEY_FREEFORM_BOUNDS = "android:activity.freeformBounds";
++
+     /**
+      * Type of animation that arguments specify.
+      * @hide
+@@ -253,6 +255,7 @@ public class ActivityOptions {
+ 
+     private String mPackageName;
+     private Rect mLaunchBounds;
++    private Rect mFreeformBounds;
+     private int mAnimationType = ANIM_NONE;
+     private int mCustomEnterResId;
+     private int mCustomExitResId;
+@@ -812,6 +815,7 @@ public class ActivityOptions {
+             Slog.w(TAG, e);
+         }
+         mLaunchBounds = opts.getParcelable(KEY_LAUNCH_BOUNDS);
++        mFreeformBounds = opts.getParcelable(KEY_FREEFORM_BOUNDS);
+         mAnimationType = opts.getInt(KEY_ANIM_TYPE);
+         switch (mAnimationType) {
+             case ANIM_CUSTOM:
+@@ -901,6 +905,11 @@ public class ActivityOptions {
+         return this;
+     }
+ 
++    public ActivityOptions setFreeformBounds(@Nullable Rect screenSpacePixelRect) {
++        mFreeformBounds = screenSpacePixelRect != null ? new Rect(screenSpacePixelRect) : null;
++        return this;
++    }
++
+     /** @hide */
+     public String getPackageName() {
+         return mPackageName;
+@@ -916,6 +925,10 @@ public class ActivityOptions {
+         return mLaunchBounds;
+     }
+ 
++    public Rect getFreeformBounds() {
++        return mFreeformBounds;
++    }
++
+     /** @hide */
+     public int getAnimationType() {
+         return mAnimationType;
+@@ -1234,6 +1247,9 @@ public class ActivityOptions {
+         if (mPackageName != null) {
+             b.putString(KEY_PACKAGE_NAME, mPackageName);
+         }
++        if (mFreeformBounds != null) {
++            b.putParcelable(KEY_FREEFORM_BOUNDS, mFreeformBounds);
++        }
+         if (mLaunchBounds != null) {
+             b.putParcelable(KEY_LAUNCH_BOUNDS, mLaunchBounds);
+         }
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+index b2648df..3ced437 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+@@ -115,27 +115,25 @@ public class LaunchAppUtil {
+             try {
+                 options.setLaunchStackId(FREEFORM_WORKSPACE_STACK_ID);
+                 DisplayMetrics metrics = getRealDisplayMetrics(context);
+-                int width1, width2, height1, height2;
++                int startX, startY, width, height;
+                 switch (startMode) {
+                     case STANDARD_MODE:
+                         break;
+                     case DESKTOP_MODE:
+-                        width1 = metrics.widthPixels / 8;
+-                        width2 = metrics.widthPixels - width1;
+-                        height1 = metrics.heightPixels / 8;
+-                        height2 = metrics.heightPixels - height1;
+-                        options.setLaunchBounds(new Rect(width1, height1, width2, height2));
++                        startX = metrics.widthPixels / 4;
++                        startY = metrics.heightPixels / 4;
++                        width = metrics.widthPixels / 2;
++                        height = width / 16 * 9;
++                        options.setFreeformBounds(new Rect(startX, startY,
++                                                      startX + width, startY + height));
+                         break;
+                     case PHONE_MODE:
+-                        width1 = metrics.widthPixels / 2;
+-                        width2 = context.getResources().getDimensionPixelSize(R.dimen.phone_size_width) / 2;
+-                        height1 = metrics.heightPixels / 2;
+-                        height2 = context.getResources().getDimensionPixelSize(R.dimen.phone_size_height) / 2;
+-                        options.setLaunchBounds(new Rect(
+-                                width1 - width2,
+-                                height1 - height2,
+-                                width1 + width2,
+-                                height1 + height2));
++                        startX = metrics.widthPixels / 4;
++                        startY = metrics.heightPixels / 4;
++                        height = metrics.heightPixels / 3 * 2;
++                        width = height / 16 * 9;
++                        options.setFreeformBounds(new Rect(startX, startY,
++                                                      startX + width, startY + height));
+                         break;
+                 }
+                 return options.toBundle();
+diff --git a/services/core/java/com/android/server/am/ActivityStarter.java b/services/core/java/com/android/server/am/ActivityStarter.java
+index d47075f..b72efdc 100644
+--- a/services/core/java/com/android/server/am/ActivityStarter.java
++++ b/services/core/java/com/android/server/am/ActivityStarter.java
+@@ -1796,6 +1796,8 @@ class ActivityStarter {
+                     mNewTaskIntent != null ? mNewTaskIntent : mIntent, mVoiceSession,
+                     mVoiceInteractor, !mLaunchTaskBehind /* toTop */, mStartActivity.mActivityType);
+             addOrReparentStartingActivity(task, "setTaskFromReuseOrCreateNewTask - mReuseTask");
++            if (mOptions != null && mOptions.getFreeformBounds() != null)
++                task.resize(mOptions.getFreeformBounds(), ActivityManager.RESIZE_MODE_FORCED, true, true);
+             if (mLaunchBounds != null) {
+                 final int stackId = mTargetStack.mStackId;
+                 if (StackId.resizeStackWithLaunchBounds(stackId)) {
+@@ -2167,9 +2169,6 @@ class ActivityStarter {
+ 
+         // If the activity is of a specific type, return the associated stack, creating it if
+         // necessary
+-        if (r.isHomeActivity()) {
+-            mLaunchBounds = new Rect(0, 0, 1920, 1008);
+-        }
+         if (r.isRecentsActivity()) {
+             return mSupervisor.getStack(RECENTS_STACK_ID, CREATE_IF_NEEDED, ON_TOP);
+         }
+@@ -2280,7 +2279,7 @@ class ActivityStarter {
+ 
+     Rect getOverrideBounds(ActivityRecord r, ActivityOptions options, TaskRecord inTask) {
+         Rect newBounds = (mSupervisor.mFocusedStack.mStackId == FREEFORM_WORKSPACE_STACK_ID
+-                            || r.isHomeActivity()) ? new Rect(100, 100, 420, 580) : null;
++                            || r.isHomeActivity()) ? new Rect(0, 0, 0, 0) : null;
+         if (options != null && (r.isResizeable() || (inTask != null && inTask.isResizeable()))) {
+             if (mSupervisor.canUseActivityOptionsLaunchBounds(
+                     options, options.getLaunchStackId())) {
+diff --git a/services/core/java/com/android/server/am/LaunchingTaskPositioner.java b/services/core/java/com/android/server/am/LaunchingTaskPositioner.java
+index 0c3c8e3..4d56da1 100644
+--- a/services/core/java/com/android/server/am/LaunchingTaskPositioner.java
++++ b/services/core/java/com/android/server/am/LaunchingTaskPositioner.java
+@@ -95,10 +95,8 @@ class LaunchingTaskPositioner {
+         int height = mAvailableRect.height();
+         mDefaultFreeformStartX = mAvailableRect.left + width / MARGIN_SIZE_DENOMINATOR;
+         mDefaultFreeformStartY = mAvailableRect.top + height / MARGIN_SIZE_DENOMINATOR;
+-        //mDefaultFreeformWidth = width / WINDOW_SIZE_DENOMINATOR;
+-        mDefaultFreeformWidth = 360;
+-        //mDefaultFreeformHeight = height / WINDOW_SIZE_DENOMINATOR;
+-        mDefaultFreeformHeight = 480;
++        mDefaultFreeformWidth = width / WINDOW_SIZE_DENOMINATOR;
++        mDefaultFreeformHeight = height / WINDOW_SIZE_DENOMINATOR;
+         mDefaultFreeformStepHorizontal = Math.max(width / STEP_DENOMINATOR, MINIMAL_STEP);
+         mDefaultFreeformStepVertical = Math.max(height / STEP_DENOMINATOR, MINIMAL_STEP);
+         mDefaultStartBoundsConfigurationSet = true;
+-- 
+2.7.4
+

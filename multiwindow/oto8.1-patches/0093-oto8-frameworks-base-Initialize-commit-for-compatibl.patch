@@ -1,0 +1,1831 @@
+From 146c28a70ae095b2531499a3a84738b9f97a08ef Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Tue, 20 Aug 2019 01:12:53 +0000
+Subject: [PATCH 093/110] oto8: frameworks: base: Initialize commit for
+ compatible mode[1/3].
+
+Reframing the decor caption layout.
+
+* modity the caption layout styles and add the
+  window setting popup on caption to Display
+  window compat mode for changing.
+
+* remove the function about starting apps by
+  phone mode or desktop mode from startupmenu.
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ core/java/android/view/Display.java                |   5 +-
+ core/java/android/view/Window.java                 |   2 +-
+ .../com/android/internal/policy/DecorView.java     |   8 +-
+ .../android/internal/widget/DecorCaptionView.java  | 229 ++++++++++++++-------
+ .../drawable-hdpi/mw_btn_add_content_clicked.png   | Bin 384 -> 0 bytes
+ .../drawable-hdpi/mw_btn_add_content_default.png   | Bin 331 -> 0 bytes
+ .../res/res/drawable-hdpi/mw_btn_close_default.png | Bin 415 -> 0 bytes
+ .../res/drawable-hdpi/mw_btn_maximize_clicked.png  | Bin 405 -> 0 bytes
+ .../res/drawable-hdpi/mw_btn_maximize_default.png  | Bin 382 -> 0 bytes
+ .../res/drawable-hdpi/mw_btn_minimize_clicked.png  | Bin 235 -> 0 bytes
+ .../res/drawable-hdpi/mw_btn_minimize_default.png  | Bin 190 -> 0 bytes
+ core/res/res/drawable-hdpi/mw_btn_turn_clicked.png | Bin 19746 -> 0 bytes
+ core/res/res/drawable-hdpi/mw_btn_turn_default.png | Bin 15042 -> 0 bytes
+ core/res/res/drawable-xhdpi/fullscreen_model.png   | Bin 0 -> 681 bytes
+ core/res/res/drawable-xhdpi/mw_btn_back.png        | Bin 0 -> 649 bytes
+ core/res/res/drawable-xhdpi/mw_btn_close.png       | Bin 0 -> 698 bytes
+ core/res/res/drawable-xhdpi/mw_btn_maximize.png    | Bin 0 -> 480 bytes
+ core/res/res/drawable-xhdpi/mw_btn_minimize.png    | Bin 0 -> 453 bytes
+ core/res/res/drawable-xhdpi/mw_setting.png         | Bin 0 -> 968 bytes
+ core/res/res/drawable-xhdpi/normal_model.png       | Bin 0 -> 633 bytes
+ .../res/drawable-xhdpi/phone_landscape_model.png   | Bin 0 -> 600 bytes
+ .../res/drawable-xhdpi/phone_portrait_model.png    | Bin 0 -> 593 bytes
+ .../res/drawable/caption_setting_item_selector.xml |   5 +
+ .../res/res/drawable/caption_setting_popup_bkg.xml |   9 +
+ core/res/res/drawable/decor_rotate_button_dark.xml |  31 ---
+ .../res/res/drawable/decor_rotate_button_light.xml |  31 ---
+ .../res/res/drawable/decor_setting_button_dark.xml |  31 +++
+ .../res/drawable/decor_setting_button_light.xml    |  31 +++
+ core/res/res/drawable/mw_btn_add_content.xml       |   5 -
+ core/res/res/drawable/mw_btn_close.xml             |   5 -
+ core/res/res/drawable/mw_btn_maximize.xml          |   5 -
+ core/res/res/drawable/mw_btn_minimize.xml          |   5 -
+ core/res/res/drawable/mw_btn_rotate.xml            |   5 -
+ core/res/res/layout/decor_caption.xml              |  84 +++-----
+ core/res/res/layout/decor_caption_popupwindow.xml  |  77 +++++++
+ core/res/res/values-zh-rCN/strings.xml             |   6 +
+ core/res/res/values/colors.xml                     |   5 +
+ core/res/res/values/dimens.xml                     |  11 +-
+ core/res/res/values/strings.xml                    |  10 +-
+ core/res/res/values/styles.xml                     |  36 ++++
+ core/res/res/values/symbols.xml                    |  19 +-
+ core/res/res/values/themes.xml                     |   1 -
+ packages/SystemUI/res/drawable/mw_btn_close.png    | Bin 0 -> 698 bytes
+ .../SystemUI/res/drawable/mw_btn_close_default.png | Bin 415 -> 0 bytes
+ packages/SystemUI/res/layout/task_item.xml         |   2 +-
+ packages/SystemUI/res/values/arrays.xml            |   8 -
+ packages/SystemUI/res/values/strings.xml           |   2 -
+ .../systemui/startupmenu/LaunchAppUtil.java        |  76 +------
+ .../systemui/startupmenu/StartupMenuView.java      |   4 -
+ .../startupmenu/utils/AppOperateManager.java       |  12 --
+ .../systemui/statusbar/view/TaskBarIcon.java       |   4 -
+ 51 files changed, 430 insertions(+), 334 deletions(-)
+ delete mode 100644 core/res/res/drawable-hdpi/mw_btn_add_content_clicked.png
+ delete mode 100644 core/res/res/drawable-hdpi/mw_btn_add_content_default.png
+ delete mode 100644 core/res/res/drawable-hdpi/mw_btn_close_default.png
+ delete mode 100644 core/res/res/drawable-hdpi/mw_btn_maximize_clicked.png
+ delete mode 100644 core/res/res/drawable-hdpi/mw_btn_maximize_default.png
+ delete mode 100644 core/res/res/drawable-hdpi/mw_btn_minimize_clicked.png
+ delete mode 100644 core/res/res/drawable-hdpi/mw_btn_minimize_default.png
+ delete mode 100644 core/res/res/drawable-hdpi/mw_btn_turn_clicked.png
+ delete mode 100644 core/res/res/drawable-hdpi/mw_btn_turn_default.png
+ create mode 100644 core/res/res/drawable-xhdpi/fullscreen_model.png
+ create mode 100644 core/res/res/drawable-xhdpi/mw_btn_back.png
+ create mode 100644 core/res/res/drawable-xhdpi/mw_btn_close.png
+ create mode 100644 core/res/res/drawable-xhdpi/mw_btn_maximize.png
+ create mode 100644 core/res/res/drawable-xhdpi/mw_btn_minimize.png
+ create mode 100644 core/res/res/drawable-xhdpi/mw_setting.png
+ create mode 100644 core/res/res/drawable-xhdpi/normal_model.png
+ create mode 100644 core/res/res/drawable-xhdpi/phone_landscape_model.png
+ create mode 100644 core/res/res/drawable-xhdpi/phone_portrait_model.png
+ create mode 100644 core/res/res/drawable/caption_setting_item_selector.xml
+ create mode 100644 core/res/res/drawable/caption_setting_popup_bkg.xml
+ delete mode 100644 core/res/res/drawable/decor_rotate_button_dark.xml
+ delete mode 100644 core/res/res/drawable/decor_rotate_button_light.xml
+ create mode 100644 core/res/res/drawable/decor_setting_button_dark.xml
+ create mode 100644 core/res/res/drawable/decor_setting_button_light.xml
+ delete mode 100644 core/res/res/drawable/mw_btn_add_content.xml
+ delete mode 100644 core/res/res/drawable/mw_btn_close.xml
+ delete mode 100644 core/res/res/drawable/mw_btn_maximize.xml
+ delete mode 100644 core/res/res/drawable/mw_btn_minimize.xml
+ delete mode 100644 core/res/res/drawable/mw_btn_rotate.xml
+ create mode 100644 core/res/res/layout/decor_caption_popupwindow.xml
+ create mode 100644 packages/SystemUI/res/drawable/mw_btn_close.png
+ delete mode 100644 packages/SystemUI/res/drawable/mw_btn_close_default.png
+
+diff --git a/core/java/android/view/Display.java b/core/java/android/view/Display.java
+index d5fe71e..da3498a 100644
+--- a/core/java/android/view/Display.java
++++ b/core/java/android/view/Display.java
+@@ -370,8 +370,9 @@ public final class Display {
+     public static final int LEFT_DOCKED_MODE = 1;
+     public static final int RIGHT_DOCKED_MODE = 2;
+     public static final int TOP_DOCKED_MODE = 4;
+-    public static final int DESKTOP_MODE = 5;
+-    public static final int PHONE_MODE = 6;
++    public static final int PHONE_MODE = 8;
++    public static final int DESKTOP_MODE = 16;
++    public static final int FULLSCREEN_MODE = 32;
+ 
+     /**
+      * Internal method to create a display.
+diff --git a/core/java/android/view/Window.java b/core/java/android/view/Window.java
+index 02623b2..b9231cd 100644
+--- a/core/java/android/view/Window.java
++++ b/core/java/android/view/Window.java
+@@ -626,7 +626,7 @@ public abstract class Window {
+         /** Returns whether the window belongs to the home task. */
+         boolean getIsHome();
+ 
+-        /** Returns whether the window is maximize*/
++        /** Returns current window size mode. */
+         int getWindowSizeMode();
+ 
+         /** Returns the current stack Id for the window. */
+diff --git a/core/java/com/android/internal/policy/DecorView.java b/core/java/com/android/internal/policy/DecorView.java
+index 8c92ff5..fdd6704 100644
+--- a/core/java/com/android/internal/policy/DecorView.java
++++ b/core/java/com/android/internal/policy/DecorView.java
+@@ -2072,8 +2072,8 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+     private void setLightDecorCaptionShade(DecorCaptionView view) {
+         view.findViewById(R.id.back_window).setBackgroundResource(
+                 R.drawable.decor_back_button_light);
+-        view.findViewById(R.id.rotate_window).setBackgroundResource(
+-                R.drawable.decor_rotate_button_light);
++        view.findViewById(R.id.setting_window).setBackgroundResource(
++                R.drawable.decor_setting_button_light);
+         view.findViewById(R.id.minimize_window).setBackgroundResource(
+                 R.drawable.decor_minimize_button_light);
+         view.findViewById(R.id.maximize_window).setBackgroundResource(
+@@ -2085,8 +2085,8 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+     private void setDarkDecorCaptionShade(DecorCaptionView view) {
+         view.findViewById(R.id.back_window).setBackgroundResource(
+                 R.drawable.decor_back_button_dark);
+-        view.findViewById(R.id.rotate_window).setBackgroundResource(
+-                R.drawable.decor_rotate_button_dark);
++        view.findViewById(R.id.setting_window).setBackgroundResource(
++                R.drawable.decor_setting_button_dark);
+         view.findViewById(R.id.minimize_window).setBackgroundResource(
+                 R.drawable.decor_minimize_button_dark);
+         view.findViewById(R.id.maximize_window).setBackgroundResource(
+diff --git a/core/java/com/android/internal/widget/DecorCaptionView.java b/core/java/com/android/internal/widget/DecorCaptionView.java
+index 2640c69..48631ca 100644
+--- a/core/java/com/android/internal/widget/DecorCaptionView.java
++++ b/core/java/com/android/internal/widget/DecorCaptionView.java
+@@ -16,6 +16,7 @@
+ 
+ package com.android.internal.widget;
+ 
++import android.app.AlertDialog;
+ import android.content.Context;
+ import android.graphics.Color;
+ import android.graphics.Rect;
+@@ -25,15 +26,23 @@ import android.util.AttributeSet;
+ import android.util.Log;
+ import android.view.Display;
+ import android.view.GestureDetector;
++import android.view.Gravity;
++import android.view.LayoutInflater;
+ import android.view.MotionEvent;
+ import android.view.View;
+ import android.view.ViewConfiguration;
+ import android.view.ViewGroup;
+ import android.view.ViewOutlineProvider;
+ import android.view.Window;
++import android.view.WindowManager;
+ import android.view.ViewTreeObserver;
++import android.content.DialogInterface;
++import android.content.pm.ApplicationInfo;
+ import android.content.pm.PackageManager;
++import android.widget.FrameLayout;
+ import android.widget.ImageView;
++import android.widget.LinearLayout;
++import android.widget.PopupWindow;
+ import android.widget.TextView;
+ import static android.app.ActivityManager.StackId.INVALID_STACK_ID;
+ import static android.app.ActivityManager.StackId.FULLSCREEN_WORKSPACE_STACK_ID;
+@@ -86,10 +95,11 @@ import java.util.ArrayList;
+  * </ul>
+  */
+ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+-        GestureDetector.OnGestureListener {
++        GestureDetector.OnGestureListener, View.OnHoverListener {
+     private final static String TAG = "DecorCaptionView";
+     private PhoneWindow mOwner = null;
+     private PackageManager mPm;
++    private ApplicationInfo mApplicationInfo;
+     private boolean mShow = false;
+ 
+     // True if the window is being dragged.
+@@ -105,12 +115,19 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     private View mCaption;
+     private View mContent;
+     private View mBack;
+-    private View mFullscreen;
+-    private View mRotate;
++    private View mSetting;
+     private View mMinimize;
+     private View mMaximize;
+     private View mClose;
+ 
++    private View mPopContentView;
++    private PopupWindow mPopWindow;
++    private FrameLayout mNormalMode;
++    private FrameLayout mFullscreenMode;
++    private FrameLayout mPhonePortraitMode;
++    private FrameLayout mPhoneLandMode;
++    private int mWindowRunMode;
++
+     // Fields for detecting drag events.
+     private int mTouchDownX;
+     private int mTouchDownY;
+@@ -124,7 +141,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     private GestureDetector mGestureDetector;
+     private final Rect mBackRect = new Rect();
+     private final Rect mFullscreenRect = new Rect();
+-    private final Rect mRotateRect = new Rect();
++    private final Rect mSettingRect = new Rect();
+     private final Rect mMinimizeRect = new Rect();
+     private final Rect mMaximizeRect = new Rect();
+     private final Rect mCloseRect = new Rect();
+@@ -164,25 +181,60 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         // background without removing the shadow.
+         mOwner.getDecorView().setOutlineProvider(ViewOutlineProvider.BOUNDS);
+         mBack = findViewById(R.id.back_window);
+-        mFullscreen = findViewById(R.id.fullscreen_window);
+-        mRotate = findViewById(R.id.rotate_window);
++        mSetting = findViewById(R.id.setting_window);
+         mMinimize = findViewById(R.id.minimize_window);
+         mMaximize = findViewById(R.id.maximize_window);
++        mMaximize.setVisibility(mWindowRunMode == Display.STANDARD_MODE ? View.VISIBLE : View.GONE);
+         mClose = findViewById(R.id.close_window);
+         TextView appName = (TextView) findViewById(R.id.title_window);
+         ImageView appIcon = (ImageView) findViewById(R.id.icon_window);
+ 
+         mPm = getContext().getPackageManager();
+-        appName.setText(mPm.getApplicationLabel(getContext().getApplicationInfo()));
+-        appIcon.setImageDrawable(mPm.getApplicationIcon(getContext().getApplicationInfo()));
++        mApplicationInfo = getContext().getApplicationInfo();
++        appName.setText(mPm.getApplicationLabel(mApplicationInfo));
++        appIcon.setImageDrawable(mPm.getApplicationIcon(mApplicationInfo));
++
++        initPopupWindow();
++    }
++
++    private void initPopupWindow() {
++        mPopContentView = LayoutInflater.from(getContext())
++                .inflate(R.layout.decor_caption_popupwindow, null);
++        mPopWindow = new PopupWindow(mPopContentView,
++                LinearLayout.LayoutParams.WRAP_CONTENT,
++                LinearLayout.LayoutParams.WRAP_CONTENT, true);
++        mNormalMode = (FrameLayout) mPopContentView.findViewById(R.id.item_normal);
++        mFullscreenMode = (FrameLayout) mPopContentView.findViewById(R.id.item_fullscreen);
++        mPhonePortraitMode = (FrameLayout) mPopContentView.findViewById(R.id.item_phone_portrait);
++        mPhoneLandMode = (FrameLayout) mPopContentView.findViewById(R.id.item_phone_landscape);
++        mPopContentView.findViewById(R.id.layout_phone_portrait).
++                setVisibility(mApplicationInfo.isSystemApp() ? View.GONE : View.VISIBLE);
++        mPopContentView.findViewById(R.id.layout_phone_landscape).
++                setVisibility(mApplicationInfo.isSystemApp() ? View.GONE : View.VISIBLE);
++        switch(mWindowRunMode) {
++            case Display.STANDARD_MODE:
++                mNormalMode.setBackgroundResource(R.color.caption_setting_dark);
++                break;
++            case Display.FULLSCREEN_MODE:
++                mFullscreenMode.setBackgroundResource(R.color.caption_setting_dark);
++                break;
++            case Display.PHONE_MODE:
++                mPhonePortraitMode.setBackgroundResource(R.color.caption_setting_dark);
++                break;
++            case Display.DESKTOP_MODE:
++                mPhoneLandMode.setBackgroundResource(R.color.caption_setting_dark);
++                break;
++        }
+ 
+-        mRotate.getViewTreeObserver().addOnGlobalLayoutListener(
+-                         new ViewTreeObserver.OnGlobalLayoutListener() {
+-            @Override
+-            public void onGlobalLayout() {
+-                mRotate.setVisibility(updateRotateState() ? VISIBLE : GONE );
+-            }
+-        });
++        mNormalMode.setOnTouchListener(this);
++        mFullscreenMode.setOnTouchListener(this);
++        mPhonePortraitMode.setOnTouchListener(this);
++        mPhoneLandMode.setOnTouchListener(this);
++
++        mNormalMode.setOnHoverListener(this);
++        mFullscreenMode.setOnHoverListener(this);
++        mPhonePortraitMode.setOnHoverListener(this);
++        mPhoneLandMode.setOnHoverListener(this);
+     }
+ 
+     @Override
+@@ -195,11 +247,8 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+             if (mBackRect.contains(x, y)) {
+                 mClickTarget = mBack;
+             }
+-            if (mFullscreenRect.contains(x, y)) {
+-                mClickTarget = mFullscreen;
+-            }
+-            if (mRotateRect.contains(x, y)) {
+-                mClickTarget = mRotate;
++            if (mSettingRect.contains(x, y)) {
++                mClickTarget = mSetting;
+             }
+             if (mMinimizeRect.contains(x, y)) {
+                 mClickTarget = mMinimize;
+@@ -245,11 +294,6 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+                     // When there is no caption we should not react to anything.
+                     return false;
+                 }
+-                System.arraycopy(mHits, 1, mHits, 0, mHits.length - 1);
+-                mHits[mHits.length - 1] = SystemClock.uptimeMillis();
+-                if (mHits[mHits.length - 1] - mHits[0] < interval) {
+-                    maximizeWindow();
+-                }
+                 // Checking for a drag action is started if we aren't dragging already and the
+                 // starting event is either a left mouse button or any other input device.
+                 if (!fromMouse || primaryButton) {
+@@ -257,6 +301,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+                     mTouchDownX = x;
+                     mTouchDownY = y;
+                 }
++                setSettingPopupItemSelect(v);
+                 break;
+ 
+             case MotionEvent.ACTION_MOVE:
+@@ -282,6 +327,71 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         return mDragging || mCheckForDragging;
+     }
+ 
++    private void setSettingPopupItemSelect(View view) {
++        switch(view.getId()) {
++            case R.id.item_normal:
++                mWindowRunMode = Display.STANDARD_MODE;
++                break;
++            case R.id.item_fullscreen:
++                mWindowRunMode = Display.FULLSCREEN_MODE;
++                break;
++            case R.id.item_phone_portrait:
++                mWindowRunMode = Display.PHONE_MODE;
++                break;
++            case R.id.item_phone_landscape:
++                mWindowRunMode = Display.DESKTOP_MODE;
++                break;
++            default:
++                break;
++        }
++        AlertDialog.Builder builder = new AlertDialog.Builder(view.getContext(),
++                R.style.CaptionAlertDialogStyle);
++        builder.setMessage(getContext().getString(R.string.caption_setting_msg));
++        builder.setTitle(getContext().getString(R.string.caption_setting_title));
++        builder.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
++            @Override
++            public void onClick(DialogInterface dialogInterface, int i) {
++                dialogInterface.dismiss();
++                mPopWindow.dismiss();
++            }
++        });
++        builder.setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
++            @Override
++            public void onClick(DialogInterface dialogInterface, int i) {
++                dialogInterface.dismiss();
++            }
++        });
++        AlertDialog dialog = builder.create();
++        dialog.getWindow().setBackgroundDrawable(null);
++        dialog.show();
++        WindowManager.LayoutParams p = dialog.getWindow().getAttributes();
++        p.width = 400;
++        dialog.getWindow().setAttributes(p);
++    }
++
++    private void doubleClick() {
++        System.arraycopy(mHits, 1, mHits, 0, mHits.length - 1);
++        mHits[mHits.length - 1] = SystemClock.uptimeMillis();
++        if (mHits[mHits.length - 1] - mHits[0] < interval) {
++            maximizeWindow();
++        }
++    }
++
++    @Override
++    public boolean onHover(View v, MotionEvent event) {
++        switch (event.getAction()) {
++            case MotionEvent.ACTION_HOVER_ENTER:
++                v.setHovered(true);
++                v.setSelected(true);
++                break;
++            case MotionEvent.ACTION_HOVER_EXIT:
++                v.setHovered(false);
++                v.setSelected(false);
++                break;
++        }
++        return true;
++    }
++
+     @Override
+     public ArrayList<View> buildTouchDispatchChildList() {
+         mTouchDispatchList.ensureCapacity(3);
+@@ -309,7 +419,6 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+      */
+     public void onConfigurationChanged(boolean show) {
+         mShow = show;
+-        mRotate.setVisibility(updateRotateState() ? VISIBLE : GONE );
+         updateCaptionVisibility();
+     }
+ 
+@@ -358,15 +467,14 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+             mCaption.layout(0, 0, mCaption.getMeasuredWidth(), mCaption.getMeasuredHeight());
+             captionHeight = mCaption.getBottom() - mCaption.getTop();
+             mBack.getHitRect(mBackRect);
+-            mFullscreen.getHitRect(mFullscreenRect);
+-            mRotate.getHitRect(mRotateRect);
++            mSetting.getHitRect(mSettingRect);
+             mMinimize.getHitRect(mMinimizeRect);
+             mMaximize.getHitRect(mMaximizeRect);
+             mClose.getHitRect(mCloseRect);
+         } else {
+             captionHeight = 0;
+             mBackRect.setEmpty();
+-            mRotateRect.setEmpty();
++            mSettingRect.setEmpty();
+             mMinimizeRect.setEmpty();
+             mMaximizeRect.setEmpty();
+             mCloseRect.setEmpty();
+@@ -419,31 +527,12 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     }
+ 
+     /**
+-     *  Move window to the fullscreen workspace stack.
++     * Set the window run model.
+      */
+-    private void fullscreenWindow() {
+-        Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
+-        if (callback != null) {
+-            try {
+-                callback.switchWindowFreeformAndFullscreen();
+-            } catch (RemoteException ex) {
+-                Log.e(TAG, "Cannot change window workspace.");
+-            }
+-        }
+-    }
+-
+-    /**
+-     *Change the window orientation between landscape and portrait
+-     */
+-    private void rotateWindow() {
+-        Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
+-        if (callback != null) {
+-            try {
+-                callback.changeWindowOrientation();
+-            } catch (RemoteException ex) {
+-                Log.e(TAG, "Cannot change window orientation.");
+-            }
+-        }
++    private void showSettingPopupWindow(View view) {
++        int[] popWindowPos = calculatePopWindowPos(view, mPopContentView);
++        mPopWindow.showAtLocation(view, Gravity.TOP | Gravity.START,
++                popWindowPos[0], popWindowPos[1]);
+     }
+ 
+     /**
+@@ -470,17 +559,22 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         }
+     }
+ 
+-    public boolean hasCaption() {
+-        return getWindowSizeMode() != Display.TOP_DOCKED_MODE
+-                && getStackId() != FULLSCREEN_WORKSPACE_STACK_ID;
++    private int[] calculatePopWindowPos(final View anchorView, final View popContentView) {
++        final int popPos[] = new int[2];
++        final int anchorLoc[] = new int[2];
++        final int captionLoc[] = new int[2];
++        anchorView.getLocationOnScreen(anchorLoc);
++        mCaption.getLocationOnScreen(captionLoc);
++        final int captionHeight = mCaption.getHeight();
++        popContentView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
++        final int popWidth = popContentView.getMeasuredWidth();
++        popPos[0] = (int) (anchorLoc[0] - popWidth * 0.5 - captionLoc[0]);
++        popPos[1] = captionHeight + 3;
++        return popPos;
+     }
+ 
+-    private int getWindowSizeMode() {
+-        Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
+-        if (callback != null) {
+-            return callback.getWindowSizeMode();
+-        }
+-        return Display.STANDARD_MODE;
++    public boolean hasCaption() {
++        return getStackId() != FULLSCREEN_WORKSPACE_STACK_ID;
+     }
+ 
+     /**
+@@ -546,11 +640,6 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         return mCaption;
+     }
+ 
+-    private boolean updateRotateState() {
+-        return getWindowSizeMode() == Display.STANDARD_MODE && canResizeOrientation()
+-                && getStackId() != FULLSCREEN_WORKSPACE_STACK_ID;
+-    }
+-
+     @Override
+     public LayoutParams generateLayoutParams(AttributeSet attrs) {
+         return new MarginLayoutParams(getContext(), attrs);
+@@ -586,10 +675,8 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     public boolean onSingleTapUp(MotionEvent e) {
+         if (mClickTarget == mBack) {
+             keyBackWindow();
+-        } else if (mClickTarget == mFullscreen) {
+-            fullscreenWindow();
+-        } else if (mClickTarget == mRotate) {
+-            rotateWindow();
++        } else if (mClickTarget == mSetting) {
++            showSettingPopupWindow(mSetting);
+         } else if (mClickTarget == mMinimize) {
+             minimizeWindow();
+         } else if (mClickTarget == mMaximize) {
+diff --git a/core/res/res/drawable-hdpi/mw_btn_add_content_clicked.png b/core/res/res/drawable-hdpi/mw_btn_add_content_clicked.png
+deleted file mode 100644
+index 47ac4a2dc736ce063855955489febf1a5dac88ab..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 384
+zcmV-`0e}99P)<h;3K|Lk000e1NJLTq001Na001Ni1^@s6;Q*MJ00001b5ch_0Itp)
+z=>Px$I!Q!9R9FdPynOxce}+K>m<Ewsz)l%;5TO_u4WZExA`}9I<VVvG-9qTp$zu#n
+z^_2|QuU#QzCti6Lys|_}o;-1sVcqH#VAYI_j6~|fu8iU|gzOl<fDi@^O>OKp5h+TM
+zgU}sgZEH`YwYZg$?I2n>2INe#97HR}fE+|}qCRo_2*dg{D?xf0Kxu{=(F8UON|5BB
+zT|2ii?A^5;td$my0U1nElrjECYFtv5yP@HMNs;6rR}XK7z>sjTDVx@>VK{o^Af|~F
+zijd?WkX;s*HVi=_5nyX+;V6<F1agVFr8UhQMV5nT=_s-tL@P&8<REO0x^ev~NSJIu
+zQaOan7Eqc3)$%*GZ)W)a52<Ltr2&sP<7m$nPw0T8C{9BJ%qLlT)Io%TY&3*MLx@la
+e5RxBsX$SyYFJb{rwK`n@0000<MNUMnLSTYs^p`jQ
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_add_content_default.png b/core/res/res/drawable-hdpi/mw_btn_add_content_default.png
+deleted file mode 100644
+index dc59b4be36932fb8f3ab1990027d50d978141bd5..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 331
+zcmeAS@N?(olHy`uVBq!ia0vp^Dj>|k1|%Oc%$NbB7>k44ofy`glX(ebvwFHXhD30_
+zonpv$$biT7_5t5p_m;ZeVLEt1)PhA=rX?+9-H|gBO5B_t@f>VC+I8iipKj@f>1w@i
+z_x!u1$7LGoAR53L(wM5fVHWrL+}p92O}4FC_1vPbZ+7`v-Xn#v*WV`AYyKDeAX%Eb
+zf^nsN8>gbo+O6BKv~SYaJhw8R>+<)%mR}dXyXhcgAUKazh4nDgq?S&HC5zgw**TtB
+zKRb!>e4w!)lQicEiRSvku<B%vJ!-se&+o{#-RBm{Nqmy?YS+Jt_v~{F%6*x-rZXOJ
+z7V6?r;XMj8B#GJ6F_qERfj1!CZeC%}m2bh~2W)mZU6)NT+xu|l--*HBUsOZguB!2Y
+Zl~=m1>TcjIL15@Gc)I$ztaD0e0stkOgRuYr
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_close_default.png b/core/res/res/drawable-hdpi/mw_btn_close_default.png
+deleted file mode 100644
+index e71f471fb2053488be8e833b687dfc5bd01e8129..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 415
+zcmV;Q0bu@#P)<h;3K|Lk000e1NJLTq001Na001Ni1^@s6;Q*MJ00001b5ch_0Itp)
+z=>Px$SxH1eR9Fe^l`(3=KoCVGOLvIf8bVy;3=R%XBZ1na${}))Tq2!Ifz%40A&pHA
+zU^`t3cLL>qMGnid8#7DX&4SSG%<RtN?~D{hI#dBwKow90Q~_1sUloX@r{#J6+I8J6
+z_C42iy?5=;vTPj3@f&>aRaL#XVtlrd&+&)-9=-=8Y?#=N8(<nhFX3C*{&Q<FP?98%
+zICO`EGaJf)nK1^jPv-z^zxc{{Kv5JoZQC}OP5`w5T(1NH2@3lzP18kLmRrV4Mi3Aa
+zSWq9d0p=R7U>Kee48+X?)Ed((t}zZ!<}O5;pY2g3uA$RLzHx0|xTd3FJJM#X#nWIQ
+zqkyN#`Z+vPyU?XXK|lt~setFWsyUK7yH5fot|14^Z#P+m-glqx<LQGGD}*aq`C6OB
+z%yu`FTKN+D>|!7s#NS1q*wsx26u&`?)u9Tg0;+&2pbA`4fp74Ql@d>D{S5#B002ov
+JPDHLkV1iR_t|0&b
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_maximize_clicked.png b/core/res/res/drawable-hdpi/mw_btn_maximize_clicked.png
+deleted file mode 100644
+index 15ac08de4d0422a9492af34a95e2f32bf3c85e03..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 405
+zcmV;G0c!q<P)<h;3K|Lk000e1NJLTq001Na001Ni1^@s6;Q*MJ00001b5ch_0Itp)
+z=>Px$Pf0{UR9FdPynOxce}+K>m<Ewsz)l%;5TO_u4WZExA`}9I<VVxcXb2Gs0YdUD
+zgcKml|M~NW;p*j!46k0jL>9)$784U^(AL#wU|}KN8lqJ`e)NE0=Cnx+zkmP6=>TjJ
+ztZZxy>6y6<vT_R8q%p*Z&Si_{&jCAzk&%gkhnJTq3{w01*DnT;USa{!A@u3fN3fZ>
+zg(VEq(y~OE|Mcl&hDm*03^2XKXd*g<V1^Ov7?65W)WXas*+DRkw4z5HL?~oOLx}1j
+z^zQ9jLT19{Nl^>aM07dC$;rv^{rh)@zMeJ)At7Oye!TR%cM!*e^b!k*c2Ia!9K*tS
+zv%n?q%NNgyHJ^criHQNEmsr3^N=Fe?;vPM6km19-cSM;lASA?KZDY^C$Hz~UdXOTL
+z97MFK6et|c_Jjg&G=xS&h)@U+k{?Y&LoS2>e8W^bW%v+W00000NkvXXu0mjfiuSF}
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_maximize_default.png b/core/res/res/drawable-hdpi/mw_btn_maximize_default.png
+deleted file mode 100644
+index 86239e44d4ed644545ac3284213c7ac8966d1beb..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 382
+zcmV-^0fGLBP)<h;3K|Lk000e1NJLTq001Na001Ni1^@s6;Q*MJ00001b5ch_0Itp)
+z=>Px$I7vi7R9Fe^lrd|AP!xsp#11J=Aw#KCyJX2yB-t}7F5;fKKd65~5`y>xG8asS
+zPF>o`Ezm`ZP@_Fh6fz~p(j{;oTm;{D?mM0*cQBA82}lBxfFvLZTz3MhkA25+Zfx5Q
+z%Cej=I@2`Yvn*SsY5K$PnxPGOo;R=SdW#ye&6@+1`c_IUk|cR$bS49721YimnIjH3
+zFgoyK)GgQz>YmZ`F?6RJ;u>ag9PgRtzVAQbdUr6@Xc>*cKrPc;FKb3?PFVWa=wqmd
+z_rIfJ=u&o)(0?XW>t;a^JYH(r?VqrXwtIi>NzWlP`9h6~qIh#%_v2jCZVzl{UTdjE
+z8!`-ISyk1#oxD@3J0MJTJ=vEu&w`o@!_dz2{2AsR7#%*~)3U6WD2g(M7e*401SA1T
+c;2IM61(B3q=o7PA;Q#;t07*qoM6N<$f-(D_OaK4?
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_minimize_clicked.png b/core/res/res/drawable-hdpi/mw_btn_minimize_clicked.png
+deleted file mode 100644
+index 476963c15a2802930c3c6ee1968b930883affef9..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 235
+zcmeAS@N?(olHy`uVBq!ia0vp^Dj>|k1|%Oc%$NbB7>k44ofy`glX(f`EcJA842j@;
+zJKdVA!9c(z{G&$K)Q;nVtlau(%JbZuHwgThquP|De8Od8zzmZ_V@{vAwgXmwH%R=v
+zP+<Qgb+eQ63s;Yh76Ha3#?C4&913$Kl@whVUY-%)RAll<Z>w`Z;oQf+ccu2s<sUWj
+z&(;Ze%@PeuU&EVuwbSr?l*QUx-+7<9YVHjS+isKJ_2|i-l1S?}G5R;(F#T6#@PL`y
+bae-^+7pbKC=H@Lx2QzrO`njxgN@xNAwW?IY
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_minimize_default.png b/core/res/res/drawable-hdpi/mw_btn_minimize_default.png
+deleted file mode 100644
+index 52556c4401e0f4c50669aa78a7c7d128da6cf6f2..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 190
+zcmeAS@N?(olHy`uVBq!ia0vp^Dj>|k1|%Oc%$NbB7>k44ofy`glX(f`RCu~LhD30_
+zy<o`Kpup3bc&oxhoNobN-1(C;udWt-<>up|P-yTmz3I~R1L92Fj4T2U3^3xy)P^tr
+z%#Ky8cy;G?{P)fiQ-f~3j>@**syDAxe%I4EyMMpl^E}Lc|8E8PT{|w=R#eQqX(^-B
+hz`(?z@FB2~>1?xbDziiBb)Xv<JYD@<);T3K0RUq|MG61_
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_turn_clicked.png b/core/res/res/drawable-hdpi/mw_btn_turn_clicked.png
+deleted file mode 100644
+index e0f9a2271dd1ee48f0ca97045bdcb9f10ec123f1..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 19746
+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
+DLAxwa
+
+diff --git a/core/res/res/drawable-hdpi/mw_btn_turn_default.png b/core/res/res/drawable-hdpi/mw_btn_turn_default.png
+deleted file mode 100644
+index cb698838740222dc7ca0d286c02cf68f98dc557a..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 15042
+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
+
+diff --git a/core/res/res/drawable-xhdpi/fullscreen_model.png b/core/res/res/drawable-xhdpi/fullscreen_model.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..65464f314471fe03d0d9a76037e7a35de236e678
+GIT binary patch
+literal 681
+zcmeAS@N?(olHy`uVBq!ia0vp^8X(NU1|)m_?Z{<dVD!!mi71Ki^|4CM&(%vz$xlkv
+ztH><?$}=$7*jE%JCTFLXC?ut(XXe=|z2CiGNg*@ERw>-n*TA>HIW;5GqpB!1xXLdi
+zxhgx^GDXSWj?1RP3TQxXYDuC(MQ%=Bu~mhw64+cTAR8pCucQE0Qj%?}<Os4*A;LF6
+z!8yMuRl!uxOgGuk#7M#1QqR!Lz|zP>N5ROz&|KfZT;I@G*TB%qz|6|nQUMB-?6?$c
+zic-?7f?V97mH~OTN*N_31y=g{<>lpi<;HsXMd|v6mX?<K21fcuM!G;1y2X`wC5aWf
+zdBw^gBOqqDq!uR^WfqiV=I1GZ%uGzmFD<cEQql)mq7StN=skV7|9~8L2&Lu$gQW=Q
+z|9LVA?}5Q8>FMGa64Cm0x?&%bp-7v(nS{_2E*-YBT73uaHB78-HBwP1Tk(+L##D=S
+zjY(Hug|;wHn2_M0z;X7>l3HU`-Y=8azrC+tS$USnMQLJ3xKwKQ=bztiZa+|Aqgh(<
+zSvO$nvZwoOH>~`4kMY9Bn;F_W80}(pr+5{=j!Mr?$e8@mM7QjrYy?Bb+`GCOQ`Ocb
+z+Oga|up&XXkoU9V4raTaTU;+Z57ltYYlz>$+j;F~pp@932`u_A79XwD*;q5fS59d~
+z$gU~#rf#WVtMSw?aaFQVEjZXNv}ZwyN0h_;6@LqBmt?zY-C*A4wwC)(_@<MNN<V@F
+z>_Y@Kos?!=(G5Iyndc-!#O}7)@@w4YiEe9>)%maZO6`Z3yVArHtBV=M8&xwnFM1||
+OQkbW!pUXO@geCy)^z)ej
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-xhdpi/mw_btn_back.png b/core/res/res/drawable-xhdpi/mw_btn_back.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..005907dba76e31466df3f082b54702e4a1ac3a77
+GIT binary patch
+literal 649
+zcmeAS@N?(olHy`uVBq!ia0vp^av;pX1|+Qw)-7USVD!!mi71Ki^|4CM&(%vz$xlkv
+ztH><?$}=$7*jE%JCTFLXC?ut(XXe=|z2CiGNg*@ERw>-n*TA>HIW;5GqpB!1xXLdi
+zxhgx^GDXSWj?1RP3TQxXYDuC(MQ%=Bu~mhw64+cTAR8pCucQE0Qj%?}<Os4*A;LF6
+z!8yMuRl!uxOgGuk#7M#1QqR!Lz|zP>N5ROz&|KfZT;I@G*TB%qz|6|nQUMB-?6?$c
+zic-?7f?V97mH~OTN*N_31y=g{<>lpi<;HsXMd|v6mX?<K21fcuM!G;1y2X`wC5aWf
+zdBw^gBOqqDq!uR^WfqiV=I1GZ%uGzmFD<cEQql)mq7StN=skV7|9~8L2&Lu$gQW=Q
+z|9LVA?}1_W)6>N<#G~`=HUGXQ1Ciq&^N$Aays&ykPvIB7Jy#!d9ZtD&v_d%inCy4M
+zi@O>;dlEm0-jdxP+jv}E_X~fI<YbL=pC)|Y_jzB3#RKjYA*Ju{{J!p|yMa-+k@tZs
+zOTzzkc|wA%RV?Y#Zrv;3<|<$bJNba`i*snc=L3lh0~v1KrsPElbB<TevwpyGMt4Q3
+zTy*uHu7Cg9qmo-UPyZ&m<GZW#1J;7Nto4oWpY2}WJX>*YF#pGRyY>gq_U}3vzVX9?
+zN*Q7PxSdH4_kK?nJlVj!p=Q?~=A7<DFYX<X++bb$WzUu?{I~j}3;08(-HLFZ-}CEA
+iVc^xdsV8NO)gtA@XXW+l>%K7qr65mNKbLh*2~7a?g!63x
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-xhdpi/mw_btn_close.png b/core/res/res/drawable-xhdpi/mw_btn_close.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..ed31654973bf056d57ca5cddaed9c8bca48fa9a9
+GIT binary patch
+literal 698
+zcmeAS@N?(olHy`uVBq!ia0vp^av;pX1|+Qw)-7USVD!!mi71Ki^|4CM&(%vz$xlkv
+ztH><?$}=$7*jE%JCTFLXC?ut(XXe=|z2CiGNg*@ERw>-n*TA>HIW;5GqpB!1xXLdi
+zxhgx^GDXSWj?1RP3TQxXYDuC(MQ%=Bu~mhw64+cTAR8pCucQE0Qj%?}<Os4*A;LF6
+z!8yMuRl!uxOgGuk#7M#1QqR!Lz|zP>N5ROz&|KfZT;I@G*TB%qz|6|nQUMB-?6?$c
+zic-?7f?V97mH~OTN*N_31y=g{<>lpi<;HsXMd|v6mX?<K21fcuM!G;1y2X`wC5aWf
+zdBw^gBOqqDq!uR^WfqiV=I1GZ%uGzmFD<cEQql)mq7StN=skV7|9~8L2&Lu$gQW=Q
+z|9LVA?}5Rp<>}%W;?eo`%Gsc11Ch3e=6&C+Vl3~?^h?*cmUr^inzg!DU(NkmRKPfM
+znW3f1i&clWCpHwwec~>D78C9B%Js4d!}$Zs8`yR=&6<C}(}nNYk<RF)2ZVk|a7jK;
+zWi~%h_~YTZDDHv|(>;M*HU)AMMK?H0E@UYE{(a>!sXc5_@9S9K2v>A4?dd*|#&zc+
+z|N8!LL7TQb*C(MX*Ph$h?|eVGo%zb)ui{)P)w8(!A96ofDRQ>8_D)5H=$4aij`JT&
+z#0lS*bIs6vv#G;oxAXn1`X=5FN1x8wbtLTf{sV?3r=M;Re`wjQ-I`~k5>sHReEfAp
+zzp2P0?sZJxu0?HqE@jiU%jb~kj~R`94|i*R==^N+^vz{~_ia)~3%u*2_NFdSyvO7%
+i`19PKymNE3Pw@Xf7aX$kt=|JslJj)+b6Mw<&;$TS-3ku?
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-xhdpi/mw_btn_maximize.png b/core/res/res/drawable-xhdpi/mw_btn_maximize.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..9927f1cd23217e5fc22b76683eaafdc00fef4e82
+GIT binary patch
+literal 480
+zcmeAS@N?(olHy`uVBq!ia0vp^av;pX1|+Qw)-7USVD!!mi71Ki^|4CM&(%vz$xlkv
+ztH><?$}=$7*jE%JCTFLXC?ut(XXe=|z2CiGNg*@ERw>-n*TA>HIW;5GqpB!1xXLdi
+zxhgx^GDXSWj?1RP3TQxXYDuC(MQ%=Bu~mhw64+cTAR8pCucQE0Qj%?}<Os4*A;LF6
+z!8yMuRl!uxOgGuk#7M#1QqR!Lz|zP>N5ROz&|KfZT;I@G*TB%qz|6|nQUMB-?6?$c
+zic-?7f?V97mH~OTN*N_31y=g{<>lpi<;HsXMd|v6mX?<K21fcuM!G;1y2X`wC5aWf
+zdBw^gBOqqDq!uR^WfqiV=I1GZ%uGzmFD<cEQql)mq7StN=skV7|9~8L2&Lu$gQW=Q
+z|9LVA?}1?#;OXKR;?bF$Ai=u0!L31Xc7m_(+4`)=3zsf6UFB2DigeJDFzAl#2xvB4
+z!NJfJX!@zC>dK?QZg*X|tragKeSB0Mx9*aZ?AfzGj&*Uu4@QQ&H`z1=OWxIkBF59z
+K&t;ucLK6V4`jp22
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-xhdpi/mw_btn_minimize.png b/core/res/res/drawable-xhdpi/mw_btn_minimize.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..581a1add8e235e609ee7e9237f57302fc0917370
+GIT binary patch
+literal 453
+zcmX|-KTE?v7{*T!kzl`oh#co?a!G1i5}Ot^)fP=DS}=>yG(9!6O=5Dkv77&fI=Z<y
+z_yH8%L_`NyXFq_mI13_PYVqLyy!XER9-gOPDX%2BNe%#zC>8Z}c2CE9e2ks*;`J2(
+zBdbo;q^7Z^+Fo0*8eW|UQQK#I0J8bWx9ldNuugUyS3{o<PY5~<4Q-|j(eRhZu2bv<
+zWTRKE+P$W&G*CXrWh0dV+Jss#YPZ}_jWjgis_Y$qV+02yw5g$mSP+^<1ul63fhi%)
+z+tQp2Gm0RkMMa*Qg|aARu$aM8k{2aaOsh!+4j0OCFdH<s)pdP&D8?!c?NaKi7<ao}
+zp_>%EU<XTzqF_<RvdpsyK0I)#74dF36C?f@ItlH-@u}mvFlJhHZ=Y%i;aCI@RhT{e
+z?~fJ#2@#jY5-|UlQ?*Z)U8<xnREzzO*V_bu6EDvv_fOxC)?oz}xYHZ@J`R9zcXr-+
+hd+vOhTgRKW4Zu$b`n}PytBbu>oPMcL)~^?9N596&iv<7x
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-xhdpi/mw_setting.png b/core/res/res/drawable-xhdpi/mw_setting.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..275aff0127dd0426d59624b72a0a52d9791dab50
+GIT binary patch
+literal 968
+zcmeAS@N?(olHy`uVBq!ia0vp^av;pX1|+Qw)-7USVD!!mi71Ki^|4CM&(%vz$xlkv
+ztH><?$}=$7*jE%JCTFLXC?ut(XXe=|z2CiGNg*@ERw>-n*TA>HIW;5GqpB!1xXLdi
+zxhgx^GDXSWj?1RP3TQxXYDuC(MQ%=Bu~mhw64+cTAR8pCucQE0Qj%?}<Os4*A;LF6
+z!8yMuRl!uxOgGuk#7M#1QqR!Lz|zP>N5ROz&|KfZT;I@G*TB%qz|6|nQUMB-?6?$c
+zic-?7f?V97mH~OTN*N_31y=g{<>lpi<;HsXMd|v6mX?<K21fcuM!G;1y2X`wC5aWf
+zdBw^gBOqqDq!uR^WfqiV=I1GZ%uGzmFD<cEQql)mq7StN=skV7|9~8L2&Lu$gQW=Q
+z|9LVA?->}FEIeHtLp(a4PTQDw+d!br{^nceD<3DUoqbU(c5lij=_RX7(oYGqa9mh>
+z;?hyqc?%+qf(8Dtxv}X-a&P&1ZDsdm@fEqH3QuL$FA-UKuSmFX$-nn5_das?pPf`S
+zVQ>BS315#N$V_?Ht$8X^+hF5~xYN573zpQ(K45izdiu-THs1WRT4o<`PT;CxP&*XQ
+zdhK0J<utzr{{zo$yxR>w-Uz#Xp^<wX)4E1O1EzVJb4@p}<TVN}-_2Ub{Ct^4xb=eD
+zuLL5TpT>tCDbIZUMd<102OEv+1RJk8n#ub5J7(W!nDHw2x>NfBNA3lyzs`BKg7XjW
+z4wX3${ad+qn7HoDU}8SAv2zQ51#8UgMRQ(r&YXKZ$)-&Hr7?5#W>K^5gL#QeUz8sd
+z&RbgFlE3WWawm~PyEih{F^S*EVV!Lw-#DGI;ykNb^X%3mzx5<ymw)0{5i#GVP-n7r
+zo_NUhH?dkPTJ)L!t$4dR$0{=X14s3;TWl+=-g4bbcz?GvrMAgeg>(I6?GQ!|+x5*S
+zRc0lv_t~)aL#V<AJG1Kb6%m%XcXzeUoA5x|u#Rs}-ycWb3gMa4r!j2*)Og{Gz>I?X
+zxBguhdT``x#(9$;92U2QLk^w)r1Le-NNNwuyAA1^^>17Gu0Lm5!8#{dpM`gQ6w{>Z
+zYg_((=HhHj{_yMN=eY$d*EY)kh}GrlZ8Y6;=v#*K0-Y9JpFpX1zbi$!KBg%=RA%K-
+zy>~9Xt7u;OORgWOU7z&S?y;<UX!YoV>%*TufpxhTYn#4_E4wWDpz`r|1}Fo1y85}S
+Ib4q9e0I%bTegFUf
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-xhdpi/normal_model.png b/core/res/res/drawable-xhdpi/normal_model.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..6baf9a9ddc58d5452ec7116545522368ee9583e2
+GIT binary patch
+literal 633
+zcmeAS@N?(olHy`uVBq!ia0vp^8X(NU1|)m_?Z{<dVD!!mi71Ki^|4CM&(%vz$xlkv
+ztH><?$}=$7*jE%JCTFLXC?ut(XXe=|z2CiGNg*@ERw>-n*TA>HIW;5GqpB!1xXLdi
+zxhgx^GDXSWj?1RP3TQxXYDuC(MQ%=Bu~mhw64+cTAR8pCucQE0Qj%?}<Os4*A;LF6
+z!8yMuRl!uxOgGuk#7M#1QqR!Lz|zP>N5ROz&|KfZT;I@G*TB%qz|6|nQUMB-?6?$c
+zic-?7f?V97mH~OTN*N_31y=g{<>lpi<;HsXMd|v6mX?<K21fcuM!G;1y2X`wC5aWf
+zdBw^gBOqqDq!uR^WfqiV=I1GZ%uGzmFD<cEQql)mq7StN=skV7|9~8L2&Lu$gQW=Q
+z|9LVA?}1_W($mE;B%<~0^o4wf3<MnRb1<2Ax;8!5<`5F8VVjiavF(%OAI1z3srEyk
+zxQi_egbgCD2Sup8Q}vw{S6qAY=_GBACWSv!4~Y0&{<@d1QzL3>)s|NR9~S0TzGsrD
+z`}2)MA|!T`s0|}`IP=m+mu6f$DaL*9*z^dNT0zHnmkZ*8UtGb=oaHkO3rc*~l_qh0
+z&n>#aRrWd5I<zUhJx1}u>F?nRzYjg{U1i_ty^eFk>F>b_`BD+_DosVb$ILw+v*ylT
+zazf~Z$hmpDi}-lBV{3x7?(ML9qAVfxXfuDh<O7`>KZLk}PMpa;tyGTp*rJFSP>S(%
+L^>bP0l+XkK1996}
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-xhdpi/phone_landscape_model.png b/core/res/res/drawable-xhdpi/phone_landscape_model.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..d37e2f844e35187508d47865a6da164889189f15
+GIT binary patch
+literal 600
+zcmeAS@N?(olHy`uVBq!ia0vp^8X(NU1|)m_?Z{<dVD!!mi71Ki^|4CM&(%vz$xlkv
+ztH><?$}=$7*jE%JCTFLXC?ut(XXe=|z2CiGNg*@ERw>-n*TA>HIW;5GqpB!1xXLdi
+zxhgx^GDXSWj?1RP3TQxXYDuC(MQ%=Bu~mhw64+cTAR8pCucQE0Qj%?}<Os4*A;LF6
+z!8yMuRl!uxOgGuk#7M#1QqR!Lz|zP>N5ROz&|KfZT;I@G*TB%qz|6|nQUMB-?6?$c
+zic-?7f?V97mH~OTN*N_31y=g{<>lpi<;HsXMd|v6mX?<K21fcuM!G;1y2X`wC5aWf
+zdBw^gBOqqDq!uR^WfqiV=I1GZ%uGzmFD<cEQql)mq7StN=skV7|9~8L2&Lu$gQW=Q
+z|9LVA?}1@=!qdeuB%<~0HATKd4g#$Y<(m#1wDc&b*x{-x)qi7J%cKpmrv*36>Bw$S
+zSjimNzF=<btu-_J-=E%7vg>4%;V}u}<SS(hR-Joq$Nl8z!}RvT`G@}}F0%N|qSsh#
+zcECzyh2{?iueS`(xm;>I6AnHJ&tXlDJg9G;z?gDiwYNiYck<N(*LE&qd#6;#`sTLN
+z$@LW{^etG|Dg9&7X^fqIVFK&IpWlsq6@H3FAB;FDekEp-CF6QYLH@JF+8xUt@L06*
+iaZUZx)oXZchK2m~57KT*Z!YcyB?wPfKbLh*2~7ZPq17M&
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable-xhdpi/phone_portrait_model.png b/core/res/res/drawable-xhdpi/phone_portrait_model.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..58c306c2b422f55f778348f92a60afecd09f592a
+GIT binary patch
+literal 593
+zcmeAS@N?(olHy`uVBq!ia0vp^8X(NU1|)m_?Z{<dVD!!mi71Ki^|4CM&(%vz$xlkv
+ztH><?$}=$7*jE%JCTFLXC?ut(XXe=|z2CiGNg*@ERw>-n*TA>HIW;5GqpB!1xXLdi
+zxhgx^GDXSWj?1RP3TQxXYDuC(MQ%=Bu~mhw64+cTAR8pCucQE0Qj%?}<Os4*A;LF6
+z!8yMuRl!uxOgGuk#7M#1QqR!Lz|zP>N5ROz&|KfZT;I@G*TB%qz|6|nQUMB-?6?$c
+zic-?7f?V97mH~OTN*N_31y=g{<>lpi<;HsXMd|v6mX?<K21fcuM!G;1y2X`wC5aWf
+zdBw^gBOqqDq!uR^WfqiV=I1GZ%uGzmFD<cEQql)mq7StN=skV7|9~8L2&Lu$gQW=Q
+z|9LVA?}1@=(9^{+B%<~0HAAjL4g#$Y<2MTET#<glRQ9b(uDaWWo7FeUKVkmu%;|b!
+z>tdO1&J|?2&+fhL#2K5iU=|mbf44JUbf;Ek+OmruExhn%<MRvoGgPkFG`c_9!)nm4
+z>0x<Ldcx6lHufnC%}$+<-^diDxnL@s2tD=wnwZ5=vCykugQZnfAE>R-^R4g`{#EvA
+z&m*abw$N(RuRImcYMXp-?Eb*B<JHaCOKO^H-yN`eQy%AQ%Y3e3Z?e6hAY<IZ%c3Gb
+Sn|*G9Qi7+epUXO@geCx=Y|d@~
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable/caption_setting_item_selector.xml b/core/res/res/drawable/caption_setting_item_selector.xml
+new file mode 100644
+index 0000000..be82336
+--- /dev/null
++++ b/core/res/res/drawable/caption_setting_item_selector.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_selected="true" android:drawable="@color/caption_setting_dark" />
++    <item android:state_selected="false" android:drawable="@color/caption_setting_light" />
++</selector>
+diff --git a/core/res/res/drawable/caption_setting_popup_bkg.xml b/core/res/res/drawable/caption_setting_popup_bkg.xml
+new file mode 100644
+index 0000000..37e5595
+--- /dev/null
++++ b/core/res/res/drawable/caption_setting_popup_bkg.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
++    <item>
++        <shape>
++            <solid android:color="#FFFFFF" />
++            <corners android:radius="5dp" />
++        </shape>
++    </item>
++</layer-list>
+diff --git a/core/res/res/drawable/decor_rotate_button_dark.xml b/core/res/res/drawable/decor_rotate_button_dark.xml
+deleted file mode 100644
+index 6480e633..0000000
+--- a/core/res/res/drawable/decor_rotate_button_dark.xml
++++ /dev/null
+@@ -1,31 +0,0 @@
+-<!--
+-Copyright (C) 2015 The Android Open Source Project
+-
+-   Licensed under the Apache License, Version 2.0 (the "License");
+-    you may not use this file except in compliance with the License.
+-    You may obtain a copy of the License at
+-
+-         http://www.apache.org/licenses/LICENSE-2.0
+-
+-    Unless required by applicable law or agreed to in writing, software
+-    distributed under the License is distributed on an "AS IS" BASIS,
+-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-    See the License for the specific language governing permissions and
+-    limitations under the License.
+--->
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-        android:width="32.0dp"
+-        android:height="32.0dp"
+-        android:viewportWidth="32.0"
+-        android:viewportHeight="32.0"
+-        android:tint="@color/decor_button_dark_color"
+-        >
+-    <group android:scaleX="0.5"
+-            android:scaleY="0.5"
+-            android:translateX="8.0"
+-            android:translateY="8.0" >
+-        <path
+-            android:fillColor="@color/white"
+-            android:pathData="M12,6v3l4,-4 -4,-4v3c-4.42,0 -8,3.58 -8,8 0,1.57 0.46,3.03 1.24,4.26L6.7,14.8c-0.45,-0.83 -0.7,-1.79 -0.7,-2.8 0,-3.31 2.69,-6 6,-6zM18.76,7.74L17.3,9.2c0.44,0.84 0.7,1.79 0.7,2.8 0,3.31 -2.69,6 -6,6v-3l-4,4 4,4v-3c4.42,0 8,-3.58 8,-8 0,-1.57 -0.46,-3.03 -1.24,-4.26z"/>
+-    </group>
+-</vector>
+diff --git a/core/res/res/drawable/decor_rotate_button_light.xml b/core/res/res/drawable/decor_rotate_button_light.xml
+deleted file mode 100644
+index e8f7246..0000000
+--- a/core/res/res/drawable/decor_rotate_button_light.xml
++++ /dev/null
+@@ -1,31 +0,0 @@
+-<!--
+-Copyright (C) 2015 The Android Open Source Project
+-
+-   Licensed under the Apache License, Version 2.0 (the "License");
+-    you may not use this file except in compliance with the License.
+-    You may obtain a copy of the License at
+-
+-         http://www.apache.org/licenses/LICENSE-2.0
+-
+-    Unless required by applicable law or agreed to in writing, software
+-    distributed under the License is distributed on an "AS IS" BASIS,
+-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-    See the License for the specific language governing permissions and
+-    limitations under the License.
+--->
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-        android:width="32.0dp"
+-        android:height="32.0dp"
+-        android:viewportWidth="32.0"
+-        android:viewportHeight="32.0"
+-        android:tint="@color/decor_button_light_color"
+-        >
+-    <group android:scaleX="0.5"
+-            android:scaleY="0.5"
+-            android:translateX="8.0"
+-            android:translateY="8.0" >
+-        <path
+-                android:fillColor="@color/white"
+-                android:pathData="M12,6v3l4,-4 -4,-4v3c-4.42,0 -8,3.58 -8,8 0,1.57 0.46,3.03 1.24,4.26L6.7,14.8c-0.45,-0.83 -0.7,-1.79 -0.7,-2.8 0,-3.31 2.69,-6 6,-6zM18.76,7.74L17.3,9.2c0.44,0.84 0.7,1.79 0.7,2.8 0,3.31 -2.69,6 -6,6v-3l-4,4 4,4v-3c4.42,0 8,-3.58 8,-8 0,-1.57 -0.46,-3.03 -1.24,-4.26z"/>
+-    </group>
+-</vector>
+diff --git a/core/res/res/drawable/decor_setting_button_dark.xml b/core/res/res/drawable/decor_setting_button_dark.xml
+new file mode 100644
+index 0000000..6480e633
+--- /dev/null
++++ b/core/res/res/drawable/decor_setting_button_dark.xml
+@@ -0,0 +1,31 @@
++<!--
++Copyright (C) 2015 The Android Open Source Project
++
++   Licensed under the Apache License, Version 2.0 (the "License");
++    you may not use this file except in compliance with the License.
++    You may obtain a copy of the License at
++
++         http://www.apache.org/licenses/LICENSE-2.0
++
++    Unless required by applicable law or agreed to in writing, software
++    distributed under the License is distributed on an "AS IS" BASIS,
++    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++    See the License for the specific language governing permissions and
++    limitations under the License.
++-->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++        android:width="32.0dp"
++        android:height="32.0dp"
++        android:viewportWidth="32.0"
++        android:viewportHeight="32.0"
++        android:tint="@color/decor_button_dark_color"
++        >
++    <group android:scaleX="0.5"
++            android:scaleY="0.5"
++            android:translateX="8.0"
++            android:translateY="8.0" >
++        <path
++            android:fillColor="@color/white"
++            android:pathData="M12,6v3l4,-4 -4,-4v3c-4.42,0 -8,3.58 -8,8 0,1.57 0.46,3.03 1.24,4.26L6.7,14.8c-0.45,-0.83 -0.7,-1.79 -0.7,-2.8 0,-3.31 2.69,-6 6,-6zM18.76,7.74L17.3,9.2c0.44,0.84 0.7,1.79 0.7,2.8 0,3.31 -2.69,6 -6,6v-3l-4,4 4,4v-3c4.42,0 8,-3.58 8,-8 0,-1.57 -0.46,-3.03 -1.24,-4.26z"/>
++    </group>
++</vector>
+diff --git a/core/res/res/drawable/decor_setting_button_light.xml b/core/res/res/drawable/decor_setting_button_light.xml
+new file mode 100644
+index 0000000..e8f7246
+--- /dev/null
++++ b/core/res/res/drawable/decor_setting_button_light.xml
+@@ -0,0 +1,31 @@
++<!--
++Copyright (C) 2015 The Android Open Source Project
++
++   Licensed under the Apache License, Version 2.0 (the "License");
++    you may not use this file except in compliance with the License.
++    You may obtain a copy of the License at
++
++         http://www.apache.org/licenses/LICENSE-2.0
++
++    Unless required by applicable law or agreed to in writing, software
++    distributed under the License is distributed on an "AS IS" BASIS,
++    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++    See the License for the specific language governing permissions and
++    limitations under the License.
++-->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++        android:width="32.0dp"
++        android:height="32.0dp"
++        android:viewportWidth="32.0"
++        android:viewportHeight="32.0"
++        android:tint="@color/decor_button_light_color"
++        >
++    <group android:scaleX="0.5"
++            android:scaleY="0.5"
++            android:translateX="8.0"
++            android:translateY="8.0" >
++        <path
++                android:fillColor="@color/white"
++                android:pathData="M12,6v3l4,-4 -4,-4v3c-4.42,0 -8,3.58 -8,8 0,1.57 0.46,3.03 1.24,4.26L6.7,14.8c-0.45,-0.83 -0.7,-1.79 -0.7,-2.8 0,-3.31 2.69,-6 6,-6zM18.76,7.74L17.3,9.2c0.44,0.84 0.7,1.79 0.7,2.8 0,3.31 -2.69,6 -6,6v-3l-4,4 4,4v-3c4.42,0 8,-3.58 8,-8 0,-1.57 -0.46,-3.03 -1.24,-4.26z"/>
++    </group>
++</vector>
+diff --git a/core/res/res/drawable/mw_btn_add_content.xml b/core/res/res/drawable/mw_btn_add_content.xml
+deleted file mode 100644
+index be07460..0000000
+--- a/core/res/res/drawable/mw_btn_add_content.xml
++++ /dev/null
+@@ -1,5 +0,0 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<selector xmlns:android="http://schemas.android.com/apk/res/android">
+-    <item android:state_pressed="true" android:drawable="@drawable/mw_btn_add_content_clicked" />
+-    <item android:drawable="@drawable/mw_btn_add_content_default" />
+-</selector>
+diff --git a/core/res/res/drawable/mw_btn_close.xml b/core/res/res/drawable/mw_btn_close.xml
+deleted file mode 100644
+index f6514bf..0000000
+--- a/core/res/res/drawable/mw_btn_close.xml
++++ /dev/null
+@@ -1,5 +0,0 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<selector xmlns:android="http://schemas.android.com/apk/res/android">
+-    <item android:state_pressed="true" android:drawable="@drawable/mw_btn_close_default" />
+-    <item android:drawable="@drawable/mw_btn_close_default" />
+-</selector>
+diff --git a/core/res/res/drawable/mw_btn_maximize.xml b/core/res/res/drawable/mw_btn_maximize.xml
+deleted file mode 100644
+index 2524487..0000000
+--- a/core/res/res/drawable/mw_btn_maximize.xml
++++ /dev/null
+@@ -1,5 +0,0 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<selector xmlns:android="http://schemas.android.com/apk/res/android">
+-    <item android:state_pressed="true" android:drawable="@drawable/mw_btn_maximize_clicked" />
+-    <item android:drawable="@drawable/mw_btn_maximize_default" />
+-</selector>
+diff --git a/core/res/res/drawable/mw_btn_minimize.xml b/core/res/res/drawable/mw_btn_minimize.xml
+deleted file mode 100644
+index 7764280..0000000
+--- a/core/res/res/drawable/mw_btn_minimize.xml
++++ /dev/null
+@@ -1,5 +0,0 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<selector xmlns:android="http://schemas.android.com/apk/res/android">
+-    <item android:state_pressed="true" android:drawable="@drawable/mw_btn_minimize_clicked" />
+-    <item android:drawable="@drawable/mw_btn_minimize_default" />
+-</selector>
+diff --git a/core/res/res/drawable/mw_btn_rotate.xml b/core/res/res/drawable/mw_btn_rotate.xml
+deleted file mode 100644
+index d047d27..0000000
+--- a/core/res/res/drawable/mw_btn_rotate.xml
++++ /dev/null
+@@ -1,5 +0,0 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<selector xmlns:android="http://schemas.android.com/apk/res/android">
+-    <item android:state_pressed="true" android:drawable="@drawable/mw_btn_turn_clicked" />
+-    <item android:drawable="@drawable/mw_btn_turn_default" />
+-</selector>
+diff --git a/core/res/res/layout/decor_caption.xml b/core/res/res/layout/decor_caption.xml
+index 7e33501..bac5abb 100644
+--- a/core/res/res/layout/decor_caption.xml
++++ b/core/res/res/layout/decor_caption.xml
+@@ -25,96 +25,60 @@
+     <LinearLayout
+             android:id="@+id/caption"
+             android:layout_width="match_parent"
+-            android:layout_height="wrap_content"
++            android:layout_height="@dimen/caption_height"
+             android:gravity="end"
+             android:background="#d1d1f1"
+             android:focusable="false"
+             android:descendantFocusability="blocksDescendants" >
+         <ImageButton
+                 android:id="@+id/back_window"
+-                android:layout_width="wrap_content"
+-                android:layout_height="wrap_content"
+-                android:layout_margin="5dp"
+-                android:padding="4dp"
+-                android:layout_gravity="center_vertical"
+-                android:background="@null"
++                style="@style/caption_style"
++                android:layout_marginLeft="@dimen/caption_margin_left"
+                 android:contentDescription="@string/back_button_text"
+-                android:src="@drawable/mw_btn_add_content" />
++                android:src="@drawable/mw_btn_back" />
+         <ImageView
+                 android:id="@+id/icon_window"
+-                android:layout_width="32dp"
+-                android:layout_height="32dp"
+-                android:layout_marginTop="5dp"
+-                android:layout_marginBottom="5dp"
++                android:layout_width="14dp"
++                android:layout_height="14dp"
+                 android:layout_gravity="center_vertical"
+-                android:background="@drawable/decor_back_button_dark" />
++                android:layout_marginLeft="@dimen/caption_margin_left"/>
+         <TextView
+                 android:id="@+id/title_window"
+-                android:layout_width="wrap_content"
++                android:layout_width="80dp"
+                 android:layout_height="wrap_content"
+-                android:layout_marginTop="5dp"
+-                android:layout_marginBottom="5dp"
+-                android:padding="4dp"
++                android:textSize="@dimen/caption_text_size"
+                 android:layout_gravity="center_vertical"
+-                android:textColor="@color/black" />
++                android:layout_marginLeft="@dimen/caption_margin_left"
++                android:singleLine="true"
++                android:ellipsize="marquee"
++                android:textColor="#4D000000" />
+         <View
+                 android:id="@+id/blank_window"
+ 	            android:layout_width="0dp"
+                 android:layout_height="0dp"
+                 android:layout_weight="1" />
+         <ImageButton
+-                android:id="@+id/fullscreen_window"
+-                android:layout_width="32dp"
+-                android:layout_height="32dp"
+-                android:layout_marginTop="5dp"
+-                android:layout_marginBottom="5dp"
+-                android:padding="4dp"
+-                android:background="@null"
+-                android:layout_gravity="center_vertical|end"
+-                android:contentDescription="@string/fullscreen_button_text"
+-                android:src="@drawable/mw_btn_maximize" />
+-        <ImageButton
+-                android:id="@+id/rotate_window"
+-                android:layout_width="32dp"
+-                android:layout_height="32dp"
+-                android:layout_marginTop="5dp"
+-                android:layout_marginBottom="5dp"
+-                android:padding="4dp"
+-                android:background="@null"
+-                android:layout_gravity="center_vertical|end"
+-                android:contentDescription="@string/rotate_button_text"
+-                android:src="@drawable/mw_btn_rotate" />
++                android:id="@+id/setting_window"
++                style="@style/caption_style"
++                android:layout_marginRight="@dimen/caption_setting_margin_right"
++                android:contentDescription="@string/setting_button_text"
++                android:src="@drawable/mw_setting" />
+         <ImageButton
+                 android:id="@+id/minimize_window"
+-                android:layout_width="32dp"
+-                android:layout_height="32dp"
+-                android:layout_marginTop="5dp"
+-                android:layout_marginBottom="5dp"
+-                android:padding="4dp"
+-                android:background="@null"
+-                android:layout_gravity="center_vertical|end"
++                style="@style/caption_style"
++                android:layout_marginRight="@dimen/caption_margin_right"
+                 android:contentDescription="@string/minimize_button_text"
+                 android:src="@drawable/mw_btn_minimize" />
+         <ImageButton
+                 android:id="@+id/maximize_window"
+-                android:layout_width="32dp"
+-                android:layout_height="32dp"
+-                android:layout_marginTop="5dp"
+-                android:layout_marginBottom="5dp"
+-                android:padding="4dp"
+-                android:background="@null"
+-                android:layout_gravity="center_vertical|end"
++                style="@style/caption_style"
++                android:layout_marginRight="@dimen/caption_margin_right"
+                 android:contentDescription="@string/maximize_button_text"
+                 android:src="@drawable/mw_btn_maximize" />
+         <ImageButton
+                 android:id="@+id/close_window"
+-                android:layout_width="32dp"
+-                android:layout_height="32dp"
+-                android:layout_marginTop="5dp"
+-                android:layout_marginBottom="5dp"
+-                android:padding="4dp"
+-                android:background="@null"
+-                android:layout_gravity="center_vertical|end"
++                style="@style/caption_style"
++                android:layout_marginRight="@dimen/caption_close_margin_right"
+                 android:contentDescription="@string/close_button_text"
+                 android:src="@drawable/mw_btn_close" />
+     </LinearLayout>
+diff --git a/core/res/res/layout/decor_caption_popupwindow.xml b/core/res/res/layout/decor_caption_popupwindow.xml
+new file mode 100644
+index 0000000..f800996
+--- /dev/null
++++ b/core/res/res/layout/decor_caption_popupwindow.xml
+@@ -0,0 +1,77 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:orientation="vertical"
++    android:layout_width="154dp"
++    android:background="@drawable/caption_setting_popup_bkg"
++    android:paddingBottom="12dp"
++    android:paddingTop="12dp"
++    android:translationZ="10dp"
++    android:layout_height="wrap_content">
++    <FrameLayout
++        android:layout_width="match_parent"
++        android:layout_height="36dp">
++        <LinearLayout
++            style="@style/caption_setting">
++            <ImageView
++                style="@style/caption_setting_img"
++                android:src="@drawable/normal_model"/>
++            <TextView
++                style="@style/caption_setting_text"
++                android:text="@string/normal_model" />
++        </LinearLayout>
++        <FrameLayout
++            android:id="@+id/item_normal"
++            style="@style/caption_setting_cover" />
++    </FrameLayout>
++    <FrameLayout
++        android:layout_width="match_parent"
++        android:layout_height="36dp">
++        <LinearLayout
++            style="@style/caption_setting">
++            <ImageView
++                style="@style/caption_setting_img"
++                android:src="@drawable/fullscreen_model"/>
++            <TextView
++                style="@style/caption_setting_text"
++                android:text="@string/fullscreen_model" />
++        </LinearLayout>
++        <FrameLayout
++            android:id="@+id/item_fullscreen"
++            style="@style/caption_setting_cover" />
++    </FrameLayout>
++    <FrameLayout
++        android:id="@+id/layout_phone_portrait"
++        android:layout_width="match_parent"
++        android:layout_height="36dp">
++        <LinearLayout
++            style="@style/caption_setting">
++            <ImageView
++                style="@style/caption_setting_img"
++                android:src="@drawable/phone_portrait_model"/>
++            <TextView
++                style="@style/caption_setting_text"
++                android:text="@string/phone_portrait_model" />
++        </LinearLayout>
++        <FrameLayout
++            android:id="@+id/item_phone_portrait"
++            style="@style/caption_setting_cover" />
++    </FrameLayout>
++    <FrameLayout
++        android:id="@+id/layout_phone_landscape"
++        android:layout_width="match_parent"
++        android:layout_height="36dp">
++        <LinearLayout
++            style="@style/caption_setting">
++            <ImageView
++                style="@style/caption_setting_img"
++                android:src="@drawable/phone_landscape_model"/>
++            <TextView
++                style="@style/caption_setting_text"
++                android:text="@string/phone_landscape_model"
++            />
++        </LinearLayout>
++        <FrameLayout
++            android:id="@+id/item_phone_landscape"
++            style="@style/caption_setting_cover" />
++    </FrameLayout>
++</LinearLayout>
+diff --git a/core/res/res/values-zh-rCN/strings.xml b/core/res/res/values-zh-rCN/strings.xml
+index 78e1c46..59ac77e 100644
+--- a/core/res/res/values-zh-rCN/strings.xml
++++ b/core/res/res/values-zh-rCN/strings.xml
+@@ -1769,4 +1769,10 @@
+     <string name="mmcc_illegal_ms" msgid="2769452751852211112">"不受允许的 SIM 卡"</string>
+     <string name="mmcc_illegal_me" msgid="4438696681169345015">"不受允许的手机"</string>
+     <string name="popup_window_default_title" msgid="4874318849712115433">"弹出式窗口"</string>
++    <string name="normal_model">标准模式</string>
++    <string name="fullscreen_model">全屏模式</string>
++    <string name="phone_portrait_model">手机模式（竖屏）</string>
++    <string name="phone_landscape_model">手机模式（横屏）</string>
++    <string name="caption_setting_msg">切换运行模式，会强行停止当前应用，在下一次打开时生效。</string>
++    <string name="caption_setting_title">要切换兼容模式吗？</string>
+ </resources>
+diff --git a/core/res/res/values/colors.xml b/core/res/res/values/colors.xml
+index fd78500..91fee23 100644
+--- a/core/res/res/values/colors.xml
++++ b/core/res/res/values/colors.xml
+@@ -202,4 +202,9 @@
+     <!-- FloatingToolbar -->
+     <color name="floating_popup_divider_dark">#2F2F2F</color>
+     <color name="floating_popup_divider_light">#E9E9E9</color>
++
++    <!-- DecorCaption -->
++    <color name="caption_setting_dark">#18000000</color>
++    <color name="caption_setting_light">#4DFFFFFF</color>
++    <color name="colorBackground">#FFFFFF</color>
+ </resources>
+diff --git a/core/res/res/values/dimens.xml b/core/res/res/values/dimens.xml
+index b7ac94f..bd8d981 100644
+--- a/core/res/res/values/dimens.xml
++++ b/core/res/res/values/dimens.xml
+@@ -32,7 +32,7 @@
+ 
+     <dimen name="toast_y_offset">24dp</dimen>
+     <!-- Height of the status bar -->
+-    <dimen name="status_bar_height">1px</dimen>
++    <dimen name="status_bar_height">1dp</dimen>
+     <!-- Height of the bottom navigation / system bar. -->
+     <dimen name="navigation_bar_height">48dp</dimen>
+     <!-- Height of the bottom navigation bar in portrait; often the same as @dimen/navigation_bar_height -->
+@@ -611,4 +611,13 @@
+     -->
+     <dimen name="autofill_save_icon_max_size">300dp</dimen>
+ 
++    <!-- The decor caption dimens -->
++    <dimen name="caption_button_width">15dp</dimen>
++    <dimen name="caption_button_height">15dp</dimen>
++    <dimen name="caption_height">30dp</dimen>
++    <dimen name="caption_text_size">14sp</dimen>
++    <dimen name="caption_margin_right">14dp</dimen>
++    <dimen name="caption_close_margin_right">20dp</dimen>
++    <dimen name="caption_setting_margin_right">32dp</dimen>
++    <dimen name="caption_margin_left">10dp</dimen>
+ </resources>
+diff --git a/core/res/res/values/strings.xml b/core/res/res/values/strings.xml
+index 80b5c47..8fa279f 100644
+--- a/core/res/res/values/strings.xml
++++ b/core/res/res/values/strings.xml
+@@ -4457,7 +4457,7 @@
+     <!-- Accessibility text for the fullscreen window button -->
+     <string name="fullscreen_button_text">Fullscreen</string>
+     <!-- Accessibility text for the rotate window button -->
+-    <string name="rotate_button_text">Rotate</string>
++    <string name="setting_button_text">Setting</string>
+     <!-- Accessibility text for the minimize window button -->
+     <string name="minimize_button_text">Minimize</string>
+     <!-- Accessibility text for the maximize window button -->
+@@ -4465,6 +4465,14 @@
+     <!-- Accessibility text for the close window button -->
+     <string name="close_button_text">Close</string>
+ 
++    <!-- Caption setting PopupWindow strings -->
++    <string name="normal_model">Normal</string>
++    <string name="fullscreen_model">Fullscreen</string>
++    <string name="phone_portrait_model">Portrait</string>
++    <string name="phone_landscape_model">Landscape</string>
++    <string name="caption_setting_msg">If you switch app compatible run mode, the app will force stop.</string>
++    <string name="caption_setting_title">Switch compatible mode?</string>
++
+     <!-- Ellipsis character to appear in notification templates, e.g.
+          notification_template_material_inbox.xml.
+          DO NOT TRANSLATE -->
+diff --git a/core/res/res/values/styles.xml b/core/res/res/values/styles.xml
+index e14aa14..7b9d462 100644
+--- a/core/res/res/values/styles.xml
++++ b/core/res/res/values/styles.xml
+@@ -1510,4 +1510,40 @@ please see styles_device_defaults.xml.
+         <item name="gravity">top</item>
+     </style>
+ 
++    <!-- The style for decor caption -->
++    <style name="caption_style">
++        <item name="android:layout_width">@dimen/caption_button_width</item>
++        <item name="android:layout_height">@dimen/caption_button_height</item>
++        <item name="android:layout_gravity">center_vertical</item>
++        <item name="android:background">@null</item>
++    </style>
++    <style name="caption_setting">
++        <item name="android:layout_width">match_parent</item>
++        <item name="android:layout_height">36dp</item>
++        <item name="android:gravity">center_vertical</item>
++        <item name="android:orientation">horizontal</item>
++        <item name="android:background">#4DFFFFFF</item>
++    </style>
++    <style name="caption_setting_cover">
++        <item name="android:layout_width">match_parent</item>
++        <item name="android:layout_height">36dp</item>
++        <item name="android:background">@drawable/caption_setting_item_selector</item>
++    </style>
++    <style name="caption_setting_img">
++        <item name="android:layout_width">20dp</item>
++        <item name="android:layout_height">20dp</item>
++        <item name="android:layout_marginLeft">11dp</item>
++    </style>
++    <style name="caption_setting_text">
++        <item name="android:layout_width">wrap_content</item>
++        <item name="android:layout_height">wrap_content</item>
++        <item name="android:layout_marginLeft">11dp</item>
++        <item name="android:layout_marginRight">11dp</item>
++        <item name="android:textSize">14sp</item>
++        <item name="android:textColor">#646464</item>
++    </style>
++	<style name="CaptionAlertDialogStyle" parent="@android:style/Theme.Material.Light.Dialog.Alert">
++	    <!-- Seen in buttons on alert dialog: -->
++        <item name="android:colorAccent">#212121</item>
++    </style>
+ </resources>
+diff --git a/core/res/res/values/symbols.xml b/core/res/res/values/symbols.xml
+index 64de0e0..9527940 100644
+--- a/core/res/res/values/symbols.xml
++++ b/core/res/res/values/symbols.xml
+@@ -2107,26 +2107,36 @@
+   <java-symbol type="bool" name="config_built_in_sip_phone" />
+   <java-symbol type="id" name="icon_window" />
+   <java-symbol type="id" name="title_window" />
+-  <java-symbol type="id" name="fullscreen_window" />
+-  <java-symbol type="id" name="rotate_window" />
++  <java-symbol type="id" name="setting_window" />
+   <java-symbol type="id" name="minimize_window" />
+   <java-symbol type="id" name="maximize_window" />
+   <java-symbol type="id" name="back_window" />
+   <java-symbol type="id" name="close_window" />
++  <java-symbol type="id" name="item_normal" />
++  <java-symbol type="id" name="item_fullscreen" />
++  <java-symbol type="id" name="item_phone_portrait" />
++  <java-symbol type="id" name="item_phone_landscape" />
++  <java-symbol type="id" name="layout_phone_portrait" />
++  <java-symbol type="id" name="layout_phone_landscape" />
+   <java-symbol type="layout" name="decor_caption" />
++  <java-symbol type="layout" name="decor_caption_popupwindow" />
+   <java-symbol type="drawable" name="decor_caption_title_focused" />
+   <java-symbol type="drawable" name="decor_back_button_dark" />
+   <java-symbol type="drawable" name="decor_back_button_light" />
+-  <java-symbol type="drawable" name="decor_rotate_button_dark" />
+-  <java-symbol type="drawable" name="decor_rotate_button_light" />
++  <java-symbol type="drawable" name="decor_setting_button_dark" />
++  <java-symbol type="drawable" name="decor_setting_button_light" />
+   <java-symbol type="drawable" name="decor_close_button_dark" />
+   <java-symbol type="drawable" name="decor_close_button_light" />
+   <java-symbol type="drawable" name="decor_minimize_button_dark" />
+   <java-symbol type="drawable" name="decor_minimize_button_light" />
+   <java-symbol type="drawable" name="decor_maximize_button_dark" />
+   <java-symbol type="drawable" name="decor_maximize_button_light" />
++  <java-symbol type="color" name="caption_setting_dark" />
++  <java-symbol type="color" name="caption_setting_light" />
+   <java-symbol type="color" name="decor_button_dark_color" />
+   <java-symbol type="color" name="decor_button_light_color" />
++  <java-symbol type="string" name="caption_setting_msg" />
++  <java-symbol type="string" name="caption_setting_title" />
+ 
+   <!-- From TelephonyProvider -->
+   <java-symbol type="xml" name="apns" />
+@@ -3092,4 +3102,5 @@
+ 
+   <java-symbol type="integer" name="config_stableDeviceDisplayWidth" />
+   <java-symbol type="integer" name="config_stableDeviceDisplayHeight" />
++  <java-symbol type="style" name="CaptionAlertDialogStyle" />
+ </resources>
+diff --git a/core/res/res/values/themes.xml b/core/res/res/values/themes.xml
+index 9c3d8eb..500e238 100644
+--- a/core/res/res/values/themes.xml
++++ b/core/res/res/values/themes.xml
+@@ -889,5 +889,4 @@ please see themes_device_defaults.xml.
+         <item name="windowContentTransitions">false</item>
+         <item name="windowActivityTransitions">false</item>
+     </style>
+-
+ </resources>
+diff --git a/packages/SystemUI/res/drawable/mw_btn_close.png b/packages/SystemUI/res/drawable/mw_btn_close.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..ed31654973bf056d57ca5cddaed9c8bca48fa9a9
+GIT binary patch
+literal 698
+zcmeAS@N?(olHy`uVBq!ia0vp^av;pX1|+Qw)-7USVD!!mi71Ki^|4CM&(%vz$xlkv
+ztH><?$}=$7*jE%JCTFLXC?ut(XXe=|z2CiGNg*@ERw>-n*TA>HIW;5GqpB!1xXLdi
+zxhgx^GDXSWj?1RP3TQxXYDuC(MQ%=Bu~mhw64+cTAR8pCucQE0Qj%?}<Os4*A;LF6
+z!8yMuRl!uxOgGuk#7M#1QqR!Lz|zP>N5ROz&|KfZT;I@G*TB%qz|6|nQUMB-?6?$c
+zic-?7f?V97mH~OTN*N_31y=g{<>lpi<;HsXMd|v6mX?<K21fcuM!G;1y2X`wC5aWf
+zdBw^gBOqqDq!uR^WfqiV=I1GZ%uGzmFD<cEQql)mq7StN=skV7|9~8L2&Lu$gQW=Q
+z|9LVA?}5Rp<>}%W;?eo`%Gsc11Ch3e=6&C+Vl3~?^h?*cmUr^inzg!DU(NkmRKPfM
+znW3f1i&clWCpHwwec~>D78C9B%Js4d!}$Zs8`yR=&6<C}(}nNYk<RF)2ZVk|a7jK;
+zWi~%h_~YTZDDHv|(>;M*HU)AMMK?H0E@UYE{(a>!sXc5_@9S9K2v>A4?dd*|#&zc+
+z|N8!LL7TQb*C(MX*Ph$h?|eVGo%zb)ui{)P)w8(!A96ofDRQ>8_D)5H=$4aij`JT&
+z#0lS*bIs6vv#G;oxAXn1`X=5FN1x8wbtLTf{sV?3r=M;Re`wjQ-I`~k5>sHReEfAp
+zzp2P0?sZJxu0?HqE@jiU%jb~kj~R`94|i*R==^N+^vz{~_ia)~3%u*2_NFdSyvO7%
+i`19PKymNE3Pw@Xf7aX$kt=|JslJj)+b6Mw<&;$TS-3ku?
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/drawable/mw_btn_close_default.png b/packages/SystemUI/res/drawable/mw_btn_close_default.png
+deleted file mode 100644
+index e71f471fb2053488be8e833b687dfc5bd01e8129..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 415
+zcmV;Q0bu@#P)<h;3K|Lk000e1NJLTq001Na001Ni1^@s6;Q*MJ00001b5ch_0Itp)
+z=>Px$SxH1eR9Fe^l`(3=KoCVGOLvIf8bVy;3=R%XBZ1na${}))Tq2!Ifz%40A&pHA
+zU^`t3cLL>qMGnid8#7DX&4SSG%<RtN?~D{hI#dBwKow90Q~_1sUloX@r{#J6+I8J6
+z_C42iy?5=;vTPj3@f&>aRaL#XVtlrd&+&)-9=-=8Y?#=N8(<nhFX3C*{&Q<FP?98%
+zICO`EGaJf)nK1^jPv-z^zxc{{Kv5JoZQC}OP5`w5T(1NH2@3lzP18kLmRrV4Mi3Aa
+zSWq9d0p=R7U>Kee48+X?)Ed((t}zZ!<}O5;pY2g3uA$RLzHx0|xTd3FJJM#X#nWIQ
+zqkyN#`Z+vPyU?XXK|lt~setFWsyUK7yH5fot|14^Z#P+m-glqx<LQGGD}*aq`C6OB
+z%yu`FTKN+D>|!7s#NS1q*wsx26u&`?)u9Tg0;+&2pbA`4fp74Ql@d>D{S5#B002ov
+JPDHLkV1iR_t|0&b
+
+diff --git a/packages/SystemUI/res/layout/task_item.xml b/packages/SystemUI/res/layout/task_item.xml
+index f54f0a1..bf4e834 100644
+--- a/packages/SystemUI/res/layout/task_item.xml
++++ b/packages/SystemUI/res/layout/task_item.xml
+@@ -24,7 +24,7 @@
+ 	        android:layout_width="@dimen/padding_thirty"
+ 	        android:layout_height="@dimen/padding_thirty"
+ 	        android:layout_alignParentRight="true"
+-	        android:src="@drawable/mw_btn_close_default" />
++	        android:src="@drawable/mw_btn_close" />
+     </RelativeLayout>
+ 
+     <LinearLayout
+diff --git a/packages/SystemUI/res/values/arrays.xml b/packages/SystemUI/res/values/arrays.xml
+index 82b7132..a06655f 100644
+--- a/packages/SystemUI/res/values/arrays.xml
++++ b/packages/SystemUI/res/values/arrays.xml
+@@ -26,23 +26,17 @@
+ 
+     <string-array name="list_menu">
+         <item>@string/open</item>
+-        <item>@string/phone_mode</item>
+-        <item>@string/desktop_mode</item>
+         <item>@string/remove_from_list</item>
+     </string-array>
+ 
+     <string-array name="grid_menu_lock">
+         <item>@string/open</item>
+-        <item>@string/phone_mode</item>
+-        <item>@string/desktop_mode</item>
+         <item>@string/unlock_from_task_bar</item>
+         <item>@string/uninstall</item>
+     </string-array>
+ 
+     <string-array name="grid_menu_unlock">
+         <item>@string/open</item>
+-        <item>@string/phone_mode</item>
+-        <item>@string/desktop_mode</item>
+         <item>@string/lock_to_task_bar</item>
+         <item>@string/uninstall</item>
+     </string-array>
+@@ -50,8 +44,6 @@
+     <string-array name="bar_menu_lock_close">
+         <item>@string/open</item>
+         <item>@string/unlock_from_task_bar</item>
+-        <item>@string/phone_mode</item>
+-        <item>@string/desktop_mode</item>
+     </string-array>
+ 
+     <string-array name="bar_menu_lock_open">
+diff --git a/packages/SystemUI/res/values/strings.xml b/packages/SystemUI/res/values/strings.xml
+index ff38770..bc3d8f8 100644
+--- a/packages/SystemUI/res/values/strings.xml
++++ b/packages/SystemUI/res/values/strings.xml
+@@ -2071,8 +2071,6 @@
+     <string name="default_sort">Default</string>
+     <string name="open">Open</string>
+     <string name="close">Close</string>
+-    <string name="phone_mode">Phone mode</string>
+-    <string name="desktop_mode">Desktop mode</string>
+     <string name="lock_to_task_bar">Lock to task bar</string>
+     <string name="unlock_from_task_bar">Unlock from task bar</string>
+     <string name="uninstall">Uninstall</string>
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+index a2457a2..5e6de80 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+@@ -1,23 +1,9 @@
+ package com.android.systemui.startupmenu;
+ 
+-import android.app.ActivityOptions;
+ import android.content.ComponentName;
+ import android.content.Context;
+ import android.content.Intent;
+ import android.content.SharedPreferences;
+-import android.graphics.Rect;
+-import android.os.Bundle;
+-import android.util.DisplayMetrics;
+-import android.view.Display;
+-import android.view.WindowManager;
+-
+-import com.android.systemui.R;
+-
+-import java.lang.reflect.Method;
+-
+-/**
+- * Created by ljh on 17-9-25.
+- */
+ 
+ public class LaunchAppUtil {
+ 
+@@ -47,87 +33,35 @@ public class LaunchAppUtil {
+     }
+ 
+     /**
+-     * launch app by compententName
+-     * @param context
+-     * @param componentName
+-     */
+-    public static void launchApp(Context context, ComponentName componentName) {
+-        launchApp(context, componentName, Display.STANDARD_MODE);
+-    }
+-
+-    /**
+      * launch app by packageName
+      * @param context
+      * @param packageName
+      */
+     public static void launchApp(Context context, String packageName) {
+-        launchApp(context, context.getPackageManager().
+-                getLaunchIntentForPackage(packageName), Display.DESKTOP_MODE);
++        launchApp(context, context.getPackageManager().getLaunchIntentForPackage(packageName));
+     }
+ 
+     /**
+      * launch app by CompententName and select starting mode
+      * @param context
+      * @param componentName
+-     * @param startMode
+      */
+-    public static void launchApp(Context context, ComponentName componentName, int startMode) {
++    public static void launchApp(Context context, ComponentName componentName) {
+         Intent intent = new Intent();
+         intent.setComponent(componentName);
+-        launchApp(context, intent, startMode);
+-    }
+-
+-    /**
+-     * launch app by intent
+-     * @param context
+-     * @param intent
+-     */
+-    public static void launchApp(Context context, Intent intent) {
+-        launchApp(context, intent, Display.DESKTOP_MODE);
++        launchApp(context, intent);
+     }
+ 
+     /**
+      * launch app by intent and select starting mode
+      * @param context
+      * @param intent
+-     * @param startMode
+      */
+-    public static void launchApp(Context context, Intent intent, int startMode) {
++    public static void launchApp(Context context, Intent intent) {
+         intent.setAction(Intent.ACTION_MAIN);
+         intent.addCategory(Intent.CATEGORY_LAUNCHER);
+         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+         intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+-        context.startActivity(intent, getBundle(context, startMode));
+-    }
+-
+-    /**
+-     * get bundle by starting mode
+-     * @param context
+-     * @param startMode
+-     * @return
+-     */
+-    private static Bundle getBundle(Context context, int startMode) {
+-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+-            ActivityOptions options = ActivityOptions.makeBasic();
+-            try {
+-                options.setLaunchStackId(FREEFORM_WORKSPACE_STACK_ID);
+-                switch (startMode) {
+-                    case Display.STANDARD_MODE:
+-                        options.setFreeformBoundsMode(Display.STANDARD_MODE);
+-                        break;
+-                    case Display.DESKTOP_MODE:
+-                        options.setFreeformBoundsMode(Display.DESKTOP_MODE);
+-                        break;
+-                    case Display.PHONE_MODE:
+-                        options.setFreeformBoundsMode(Display.PHONE_MODE);
+-                        break;
+-                }
+-                return options.toBundle();
+-            } catch (Exception e) { /* Gracefully fail */
+-                return null;
+-            }
+-        } else {
+-            return null;
+-        }
++        context.startActivity(intent, null);
+     }
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/StartupMenuView.java b/packages/SystemUI/src/com/android/systemui/startupmenu/StartupMenuView.java
+index d586711..6674cfc 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/StartupMenuView.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/StartupMenuView.java
+@@ -455,10 +455,6 @@ public class StartupMenuView extends FrameLayout
+         public void menuClick(View view, Dialog dialog, AppInfo appInfo, String menu, int taskId) {
+             if (menu.equals(getContext().getString(R.string.open))) {
+                 mOperateManager.openApplication(appInfo.getComponentName());
+-            } else if (menu.equals(getContext().getString(R.string.phone_mode))) {
+-                mOperateManager.runPhoneMode(appInfo.getComponentName());
+-            } else if (menu.equals(getContext().getString(R.string.desktop_mode))) {
+-                mOperateManager.runDesktopMode(appInfo.getComponentName());
+             } else if (menu.equals(getContext().getString(R.string.lock_to_task_bar))) {
+                 mOperateManager.addToTaskbar(-1, appInfo.getComponentName());
+             } else if (menu.equals(getContext().getString(R.string.unlock_from_task_bar))) {
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/utils/AppOperateManager.java b/packages/SystemUI/src/com/android/systemui/startupmenu/utils/AppOperateManager.java
+index c0b8c95..3ce33a8 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/utils/AppOperateManager.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/utils/AppOperateManager.java
+@@ -74,18 +74,6 @@ public class AppOperateManager {
+         dismissStartupMenuDialog();
+     }
+ 
+-    public void runPhoneMode(ComponentName componentName) {
+-        LaunchAppUtil.launchApp(mContext, componentName, Display.PHONE_MODE);
+-        updateClick(componentName.getPackageName());
+-        dismissStartupMenuDialog();
+-    }
+-
+-    public void runDesktopMode(ComponentName componentName) {
+-        LaunchAppUtil.launchApp(mContext, componentName, Display.DESKTOP_MODE);
+-        updateClick(componentName.getPackageName());
+-        dismissStartupMenuDialog();
+-    }
+-
+     public void addToTaskbar(int taskId, ComponentName componentName) {
+         mStatusBar.addToTaskbar(taskId, componentName);
+     }
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java b/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java
+index df3c893..2e9fc19 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java
+@@ -156,10 +156,6 @@ public class TaskBarIcon extends FrameLayout implements View.OnTouchListener, Se
+     public void menuClick(View view, Dialog dialog, AppInfo appInfo, String menu, int taskId) {
+         if (menu.equals(getContext().getString(R.string.open))) {
+             mOperateManager.openApplication(appInfo.getComponentName());
+-        } else if (menu.equals(getContext().getString(R.string.phone_mode))) {
+-            mOperateManager.runPhoneMode(appInfo.getComponentName());
+-        } else if (menu.equals(getContext().getString(R.string.desktop_mode))) {
+-            mOperateManager.runDesktopMode(appInfo.getComponentName());
+         } else if (menu.equals(getContext().getString(R.string.lock_to_task_bar))) {
+             mOperateManager.addToTaskbar(taskId, appInfo.getComponentName());
+         } else if (menu.equals(getContext().getString(R.string.unlock_from_task_bar))) {
+-- 
+2.7.4
+

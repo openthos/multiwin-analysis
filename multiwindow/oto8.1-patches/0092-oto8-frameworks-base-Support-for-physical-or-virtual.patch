@@ -1,0 +1,543 @@
+From c004c454ad119d12c393f58c4a5236d756b73450 Mon Sep 17 00:00:00 2001
+From: Midysen <miaodexing@openthos.org>
+Date: Wed, 14 Aug 2019 02:29:14 +0000
+Subject: [PATCH 092/110] oto8: frameworks: base: Support for physical or
+ virtual device switching
+
+Has as camera, audio
+
+Signed-off-by: Miao Dexing <miaodexing@openthos.org>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ core/java/android/app/ActivityThread.java          |   7 ++
+ .../android/app/ApplicationPackageManager.java     |   9 ++
+ core/java/android/content/pm/IPackageManager.aidl  |   2 +
+ core/java/android/content/pm/PackageManager.java   |   4 +
+ core/java/android/hardware/Camera.java             |  55 ++++++++++-
+ .../android/hardware/camera2/CameraManager.java    |  20 ++++
+ core/jni/android_hardware_Camera.cpp               |   2 +-
+ media/java/android/media/AudioRecord.java          |  21 ++++
+ media/java/android/media/MediaRecorder.java        |  19 ++++
+ .../android/server/pm/PackageManagerService.java   | 106 +++++++++++++++++++++
+ 10 files changed, 243 insertions(+), 2 deletions(-)
+
+diff --git a/core/java/android/app/ActivityThread.java b/core/java/android/app/ActivityThread.java
+index 28d44a7..3511549 100644
+--- a/core/java/android/app/ActivityThread.java
++++ b/core/java/android/app/ActivityThread.java
+@@ -158,6 +158,7 @@ import java.util.Locale;
+ import java.util.Map;
+ import java.util.Objects;
+ import java.util.TimeZone;
++import android.Manifest;
+ 
+ final class RemoteServiceException extends AndroidRuntimeException {
+     public RemoteServiceException(String msg) {
+@@ -227,6 +228,7 @@ public final class ActivityThread {
+     private ContextImpl mSystemContext;
+     private ContextImpl mSystemUiContext;
+ 
++    private PackageManager mPackageManager;
+     static volatile IPackageManager sPackageManager;
+ 
+     final ApplicationThread mAppThread = new ApplicationThread();
+@@ -1919,6 +1921,11 @@ public final class ActivityThread {
+             ? am.mBoundApplication.appInfo.packageName : null;
+     }
+ 
++    public static Context currentContext() {
++        ActivityThread am = currentActivityThread();
++        return am.getApplication();
++    }
++
+     public static String currentProcessName() {
+         ActivityThread am = currentActivityThread();
+         return (am != null && am.mBoundApplication != null)
+diff --git a/core/java/android/app/ApplicationPackageManager.java b/core/java/android/app/ApplicationPackageManager.java
+index 0eafdec..8c416c4 100644
+--- a/core/java/android/app/ApplicationPackageManager.java
++++ b/core/java/android/app/ApplicationPackageManager.java
+@@ -621,6 +621,15 @@ public class ApplicationPackageManager extends PackageManager {
+     }
+ 
+     @Override
++    public boolean hasVirtualPermission(String permission, String name) {
++        try {
++            return mPM.hasVirtualPermission(permission, name);
++        } catch (RemoteException e) {
++            throw e.rethrowFromSystemServer();
++        }
++    }
++
++    @Override
+     public void grantRuntimePermission(String packageName, String permissionName,
+             UserHandle user) {
+         try {
+diff --git a/core/java/android/content/pm/IPackageManager.aidl b/core/java/android/content/pm/IPackageManager.aidl
+index 0e70645..00f9ab3 100644
+--- a/core/java/android/content/pm/IPackageManager.aidl
++++ b/core/java/android/content/pm/IPackageManager.aidl
+@@ -101,6 +101,8 @@ interface IPackageManager {
+ 
+     void removePermission(String name);
+ 
++    boolean hasVirtualPermission(String permission, String name);
++
+     void grantRuntimePermission(String packageName, String permissionName, int userId);
+ 
+     void revokeRuntimePermission(String packageName, String permissionName, int userId);
+diff --git a/core/java/android/content/pm/PackageManager.java b/core/java/android/content/pm/PackageManager.java
+index ef8f84b..4288268 100644
+--- a/core/java/android/content/pm/PackageManager.java
++++ b/core/java/android/content/pm/PackageManager.java
+@@ -3410,6 +3410,10 @@ public abstract class PackageManager {
+      */
+     public abstract void removePermission(String name);
+ 
++    public boolean hasVirtualPermission(String permission, String name) {
++        return false;
++    };
++
+     /**
+      * Permission flags set when granting or revoking a permission.
+      *
+diff --git a/core/java/android/hardware/Camera.java b/core/java/android/hardware/Camera.java
+index 26b7d7f..0eae484 100644
+--- a/core/java/android/hardware/Camera.java
++++ b/core/java/android/hardware/Camera.java
+@@ -42,12 +42,16 @@ import android.text.TextUtils;
+ import android.util.Log;
+ import android.view.Surface;
+ import android.view.SurfaceHolder;
++import android.app.Activity;
++import android.Manifest;
++import android.content.pm.PackageManager;
+ 
+ import java.io.IOException;
+ import java.lang.ref.WeakReference;
+ import java.util.ArrayList;
+ import java.util.LinkedHashMap;
+ import java.util.List;
++import android.os.SystemProperties;
+ 
+ /**
+  * The Camera class is used to set image capture settings, start/stop preview,
+@@ -156,6 +160,13 @@ public class Camera {
+     private static final int CAMERA_MSG_PREVIEW_METADATA = 0x400;
+     private static final int CAMERA_MSG_FOCUS_MOVE       = 0x800;
+ 
++    private static final String PHY_CAMERA = "phy_camera";
++    private static final String VIR_CAMERA = "vir_camera";
++    private static final String CAMERA_USE_FAKE = "persist.camera.use_fake";
++
++    private PackageManager mPackageManager;
++    private static int camera_id = 1;
++
+     private long mNativeContext; // accessed by native methods
+     private EventHandler mEventHandler;
+     private ShutterCallback mShutterCallback;
+@@ -513,7 +524,18 @@ public class Camera {
+ 
+     /** used by Camera#open, Camera#open(int) */
+     Camera(int cameraId) {
++
++        camera_id = cameraId;
+         int err = cameraInitNormal(cameraId);
++
++        mPackageManager = (PackageManager) ActivityThread.currentContext().getPackageManager();
++        if (mPackageManager.hasVirtualPermission(ActivityThread.currentPackageName()
++                    + ".permission.camera", Manifest.permission.CAMERA)) {
++            SystemProperties.set(CAMERA_USE_FAKE, VIR_CAMERA);
++        } else {
++            SystemProperties.set(CAMERA_USE_FAKE, PHY_CAMERA);
++        }
++
+         if (checkInitErrors(err)) {
+             if (err == -EACCES) {
+                 throw new RuntimeException("Fail to connect to camera service");
+@@ -1580,7 +1602,38 @@ public class Camera {
+      *    release() has been called on this Camera instance.
+      * @see #setPreviewDisplay(SurfaceHolder)
+      */
+-    public native final void setDisplayOrientation(int degrees);
++
++    public void setDisplayOrientation(int d) {
++        int rotation = SystemProperties.getInt("ro.sf.hwrotation", 0);
++        int degrees = 0;
++        switch (rotation) {
++            case Surface.ROTATION_0:
++                degrees = 0;
++                break;
++            case Surface.ROTATION_90:
++                degrees = 90;
++                break;
++            case Surface.ROTATION_180:
++                degrees = 180;
++                break;
++            case Surface.ROTATION_270:
++                degrees = 270;
++                break;
++        }
++        int result = 0;
++        CameraInfo cameraInfo = new CameraInfo();
++        getCameraInfo(camera_id, cameraInfo);
++        if (cameraInfo.facing == CameraInfo.CAMERA_FACING_BACK) {
++            result = (cameraInfo.orientation - degrees + 360) % 360;
++        } else if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
++            result = (cameraInfo.orientation + degrees) % 360;
++            result = (360 - result) % 360;
++        }
++        _setDisplayOrientation(result);
++    }
++
++
++    public native final void _setDisplayOrientation(int degrees);
+ 
+     /**
+      * <p>Enable or disable the default shutter sound when taking a picture.</p>
+diff --git a/core/java/android/hardware/camera2/CameraManager.java b/core/java/android/hardware/camera2/CameraManager.java
+index 90bf896..56071e9 100644
+--- a/core/java/android/hardware/camera2/CameraManager.java
++++ b/core/java/android/hardware/camera2/CameraManager.java
+@@ -39,6 +39,12 @@ import android.os.ServiceSpecificException;
+ import android.os.SystemProperties;
+ import android.util.ArrayMap;
+ import android.util.Log;
++import android.provider.Settings;
++import android.content.ContentResolver;
++import android.Manifest;
++import android.content.pm.PackageManager;
++import android.Manifest;
++import android.app.ActivityThread;
+ 
+ import java.util.ArrayList;
+ 
+@@ -55,6 +61,11 @@ public final class CameraManager {
+ 
+     private static final String TAG = "CameraManager";
+     private final boolean DEBUG = false;
++    /** Use for virtual camera */
++    private static final String CAMERA = ".permission.camera";
++    private static final String PHY_CAMERA = "phy_camera";
++    private static final String VIR_CAMERA = "vir_camera";
++    private static final String CAMERA_USE_FAKE = "persist.camera.use_fake";
+ 
+     private static final int USE_CALLING_UID = -1;
+ 
+@@ -68,6 +79,7 @@ public final class CameraManager {
+     private ArrayList<String> mDeviceIdList;
+ 
+     private final Context mContext;
++    private PackageManager mPackageManager;
+     private final Object mLock = new Object();
+ 
+     /**
+@@ -295,6 +307,14 @@ public final class CameraManager {
+ 
+             ICameraDeviceCallbacks callbacks = deviceImpl.getCallbacks();
+ 
++            mPackageManager = (PackageManager) ActivityThread.currentContext().getPackageManager();
++            if (mPackageManager.hasVirtualPermission(ActivityThread.currentPackageName()
++                        + ".permission.camera", Manifest.permission.CAMERA)) {
++                SystemProperties.set(CAMERA_USE_FAKE, VIR_CAMERA);
++            } else {
++                SystemProperties.set(CAMERA_USE_FAKE, PHY_CAMERA);
++            }
++
+             try {
+                 if (supportsCamera2ApiLocked(cameraId)) {
+                     // Use cameraservice's cameradeviceclient implementation for HAL3.2+ devices
+diff --git a/core/jni/android_hardware_Camera.cpp b/core/jni/android_hardware_Camera.cpp
+index d6f8dc4..43a91c3 100644
+--- a/core/jni/android_hardware_Camera.cpp
++++ b/core/jni/android_hardware_Camera.cpp
+@@ -1087,7 +1087,7 @@ static const JNINativeMethod camMethods[] = {
+   { "stopSmoothZoom",
+     "()V",
+     (void *)android_hardware_Camera_stopSmoothZoom },
+-  { "setDisplayOrientation",
++  { "_setDisplayOrientation",
+     "(I)V",
+     (void *)android_hardware_Camera_setDisplayOrientation },
+   { "_enableShutterSound",
+diff --git a/media/java/android/media/AudioRecord.java b/media/java/android/media/AudioRecord.java
+index 0906ba5..07c5a52 100644
+--- a/media/java/android/media/AudioRecord.java
++++ b/media/java/android/media/AudioRecord.java
+@@ -36,6 +36,14 @@ import android.os.RemoteException;
+ import android.os.ServiceManager;
+ import android.util.ArrayMap;
+ import android.util.Log;
++import android.Manifest;
++import android.content.pm.PackageManager;
++
++import android.content.Context;
++import android.content.ContentResolver;
++import android.provider.Settings;
++import android.os.SystemProperties;
++import android.os.Binder;
+ 
+ import com.android.internal.annotations.GuardedBy;
+ 
+@@ -121,6 +129,11 @@ public class AudioRecord implements AudioRouting
+ 
+     private final static String TAG = "android.media.AudioRecord";
+ 
++    private final static String AUDIO_USE_FAKE = "persist.audio.use_fake";
++    private final static String VIR_AUDIO = "vir_audio";
++    private final static String PHY_AUDIO = "phy_audio";
++
++    private PackageManager mPackageManager;
+     /** @hide */
+     public final static String SUBMIX_FIXED_VOLUME = "fixedVolume";
+ 
+@@ -978,6 +991,14 @@ public class AudioRecord implements AudioRouting
+                     + "uninitialized AudioRecord.");
+         }
+ 
++        mPackageManager = (PackageManager) ActivityThread.currentContext().getPackageManager();
++        if (mPackageManager.hasVirtualPermission(ActivityThread.currentPackageName()
++                    + ".permission.audio", Manifest.permission.RECORD_AUDIO)) {
++            SystemProperties.set(AUDIO_USE_FAKE, VIR_AUDIO);
++        } else {
++            SystemProperties.set(AUDIO_USE_FAKE, PHY_AUDIO);
++        }
++
+         // start recording
+         synchronized(mRecordingStateLock) {
+             if (native_start(MediaSyncEvent.SYNC_EVENT_NONE, 0) == SUCCESS) {
+diff --git a/media/java/android/media/MediaRecorder.java b/media/java/android/media/MediaRecorder.java
+index 59a124f..7d72818 100644
+--- a/media/java/android/media/MediaRecorder.java
++++ b/media/java/android/media/MediaRecorder.java
+@@ -28,6 +28,13 @@ import android.os.PersistableBundle;
+ import android.util.Log;
+ import android.view.Surface;
+ 
++import android.content.Context;
++import android.content.ContentResolver;
++import android.provider.Settings;
++import android.os.SystemProperties;
++import android.Manifest;
++import android.content.pm.PackageManager;
++
+ import java.io.File;
+ import java.io.FileDescriptor;
+ import java.io.IOException;
+@@ -83,7 +90,11 @@ public class MediaRecorder
+         native_init();
+     }
+     private final static String TAG = "MediaRecorder";
++    private final static String AUDIO_USE_FAKE = "persist.audio.use_fake";
++    private final static String VIR_AUDIO = "vir_audio";
++    private final static String PHY_AUDIO = "phy_audio";
+ 
++    private PackageManager mPackageManager;
+     // The two fields below are accessed by native methods
+     @SuppressWarnings("unused")
+     private long mNativeContext;
+@@ -961,6 +972,14 @@ public class MediaRecorder
+             throw new IOException("No valid output file");
+         }
+ 
++        mPackageManager = (PackageManager) ActivityThread.currentContext().getPackageManager();
++        if (mPackageManager.hasVirtualPermission(ActivityThread.currentPackageName()
++                    + ".permission.audio", Manifest.permission.RECORD_AUDIO)) {
++            SystemProperties.set(AUDIO_USE_FAKE, VIR_AUDIO);
++        } else {
++            SystemProperties.set(AUDIO_USE_FAKE, PHY_AUDIO);
++        }
++
+         _prepare();
+     }
+ 
+diff --git a/services/core/java/com/android/server/pm/PackageManagerService.java b/services/core/java/com/android/server/pm/PackageManagerService.java
+index b37f56a..5f92901 100644
+--- a/services/core/java/com/android/server/pm/PackageManagerService.java
++++ b/services/core/java/com/android/server/pm/PackageManagerService.java
+@@ -248,6 +248,7 @@ import android.util.Xml;
+ import android.util.jar.StrictJarFile;
+ import android.util.proto.ProtoOutputStream;
+ import android.view.Display;
++import android.provider.Settings.Global;
+ 
+ import com.android.internal.R;
+ import com.android.internal.annotations.GuardedBy;
+@@ -550,6 +551,23 @@ public class PackageManagerService extends IPackageManager.Stub
+     /** Permission grant: grant as runtime a permission that was granted as an install time one. */
+     private static final int GRANT_UPGRADE = 4;
+ 
++    private static final String[] PHY = {"phy_camera", "phy_audio"};
++    private static final String[] VIR = {"vir_camera", "vir_audio"};
++    private static final String[] PERMISSION = {".permission.camera", ".permission.audio"};
++    private static final List<Map<String,String>> PERMISSION_LIST = new ArrayList<Map<String,String>>();
++
++    static {
++        for(int i = 0; i < PHY.length; i++) {
++            Map<String,String> PERMISSION_MAP = new HashMap<String, String>();
++
++            PERMISSION_MAP.put("phy", PHY[i]);
++            PERMISSION_MAP.put("vir", VIR[i]);
++            PERMISSION_MAP.put("permission", PERMISSION[i]);
++
++            PERMISSION_LIST.add(PERMISSION_MAP);
++        }
++    }
++
+     /** Canonical intent used to identify what counts as a "web browser" app */
+     private static final Intent sBrowserIntent;
+     static {
+@@ -1325,6 +1343,8 @@ public class PackageManagerService extends IPackageManager.Stub
+     static final int INTENT_FILTER_VERIFIED = 18;
+     static final int WRITE_PACKAGE_LIST = 19;
+     static final int INSTANT_APP_RESOLUTION_PHASE_TWO = 20;
++    static final int ACCESS_MANAGE_CAMERA = 21;
++    static final int ACCESS_MANAGE_AUDIO = 22;
+ 
+     static final int WRITE_SETTINGS_DELAY = 10*1000;  // 10 seconds
+ 
+@@ -1452,6 +1472,7 @@ public class PackageManagerService extends IPackageManager.Stub
+         }
+ 
+         void doHandleMessage(Message msg) {
++            Bundle bundle = msg.getData();
+             switch (msg.what) {
+                 case INIT_COPY: {
+                     HandlerParams params = (HandlerParams) msg.obj;
+@@ -1900,6 +1921,12 @@ public class PackageManagerService extends IPackageManager.Stub
+ 
+                     break;
+                 }
++                case ACCESS_MANAGE_CAMERA:
++                case ACCESS_MANAGE_AUDIO:{
++                    Global.putString(mContext.getContentResolver(),
++                            bundle.getString("permission"), bundle.getString("msg"));
++                    break;
++                }
+                 case INSTANT_APP_RESOLUTION_PHASE_TWO: {
+                     InstantAppResolver.doInstantAppResolutionPhaseTwo(mContext,
+                             mInstantAppResolverConnection,
+@@ -3866,6 +3893,20 @@ public class PackageManagerService extends IPackageManager.Stub
+ 
+         packageInfo.packageName = packageInfo.applicationInfo.packageName =
+                 resolveExternalPackageNameLPr(p);
++        ContentResolver resolver = mContext.getContentResolver();
++        if (userId != 0 ) {
++            if (!permissions.isEmpty()
++                    && PERMISSION_LIST.get(0).get("vir").equals(Global.getString(resolver,
++                            packageInfo.packageName + PERMISSION_LIST.get(0).get("permission")))) {
++                permissions.remove(Manifest.permission.CAMERA);
++            }
++
++            if (!permissions.isEmpty()
++                    && PERMISSION_LIST.get(1).get("vir").equals(Global.getString(resolver,
++                            packageInfo.packageName + PERMISSION_LIST.get(1).get("permission")))) {
++                permissions.remove(Manifest.permission.RECORD_AUDIO);
++            }
++        }
+ 
+         return packageInfo;
+     }
+@@ -5615,6 +5656,23 @@ public class PackageManagerService extends IPackageManager.Stub
+         }
+     }
+ 
++    private void handlerPermissionOfPhyOrVir(String permission, String message, final int type) {
++        Bundle data = new Bundle();
++        data.putString("permission", permission);
++        data.putString("msg", message);
++        Message msg = null;
++        switch (type) {
++            case 0:
++                msg = mHandler.obtainMessage(ACCESS_MANAGE_CAMERA);
++                break;
++            case 1:
++                msg = mHandler.obtainMessage(ACCESS_MANAGE_AUDIO);
++                break;
++        }
++        msg.setData(data);
++        mHandler.sendMessage(msg);
++    }
++
+     private static void enforceDeclaredAsUsedAndRuntimeOrDevelopmentPermission(
+             PackageParser.Package pkg, BasePermission bp) {
+         int index = pkg.requestedPermissions.indexOf(bp.name);
+@@ -5633,6 +5691,21 @@ public class PackageManagerService extends IPackageManager.Stub
+         grantRuntimePermission(packageName, name, userId, false /* Only if not fixed by policy */);
+     }
+ 
++    @Override
++    public boolean hasVirtualPermission(String permission, String name) {
++        ContentResolver resolver = mContext.getContentResolver();
++        String result = Global.getString(resolver, permission);
++        if ((name.contains(Manifest.permission.CAMERA)
++                    && PERMISSION_LIST.get(0).get("vir").equals(result))
++                || (name.contains(Manifest.permission.RECORD_AUDIO)
++                    && PERMISSION_LIST.get(1).get("vir").equals(result))
++                ) {
++            return true;
++        } else {
++            return false;
++        }
++    }
++
+     private void grantRuntimePermission(String packageName, String name, final int userId,
+             boolean overridePolicy) {
+         if (!sUserManager.exists(userId)) {
+@@ -5667,6 +5740,15 @@ public class PackageManagerService extends IPackageManager.Stub
+                 throw new IllegalArgumentException("Unknown package: " + packageName);
+             }
+ 
++            if (name.contains(Manifest.permission.CAMERA)) {
++                handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(0).get("permission"),
++                        PERMISSION_LIST.get(0).get("phy"), 0);
++            }
++            if (name.contains(Manifest.permission.RECORD_AUDIO)) {
++                handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(1).get("permission"),
++                        PERMISSION_LIST.get(1).get("phy"), 1);
++            }
++
+             enforceDeclaredAsUsedAndRuntimeOrDevelopmentPermission(pkg, bp);
+ 
+             // If a permission review is required for legacy apps we represent
+@@ -5796,6 +5878,17 @@ public class PackageManagerService extends IPackageManager.Stub
+                 throw new IllegalArgumentException("Unknown permission: " + name);
+             }
+ 
++            if (name.contains(Manifest.permission.CAMERA)) {
++                handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(0).get("permission"),
++                        PERMISSION_LIST.get(0).get("vir"), 0);
++                return;
++            }
++            if (name.contains(Manifest.permission.RECORD_AUDIO)) {
++                handlerPermissionOfPhyOrVir(packageName + PERMISSION_LIST.get(1).get("permission"),
++                        PERMISSION_LIST.get(1).get("vir"), 1);
++                return;
++            }
++
+             enforceDeclaredAsUsedAndRuntimeOrDevelopmentPermission(pkg, bp);
+ 
+             // If a permission review is required for legacy apps we represent
+@@ -6087,6 +6180,19 @@ public class PackageManagerService extends IPackageManager.Stub
+                 throw new IllegalArgumentException("Unknown permission: " + name);
+             }
+ 
++            ContentResolver resolver =  mContext.getContentResolver();
++            if (name.contains(Manifest.permission.CAMERA)
++                    && PERMISSION_LIST.get(0).get("vir").equals(Global.getString(resolver,
++                            packageName + PERMISSION_LIST.get(0).get("permission")))) {
++                return;
++            }
++
++            if (name.contains(Manifest.permission.RECORD_AUDIO)
++                    && PERMISSION_LIST.get(1).get("vir").equals(Global.getString(resolver,
++                            packageName + PERMISSION_LIST.get(1).get("permission")))) {
++                return;
++            }
++
+             PermissionsState permissionsState = ps.getPermissionsState();
+ 
+             boolean hadState = permissionsState.getRuntimePermissionState(name, userId) != null;
+-- 
+2.7.4
+

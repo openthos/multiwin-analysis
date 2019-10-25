@@ -1,0 +1,382 @@
+From f1b20cb615a3240fad4c63191ba2748b0b15c09f Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Thu, 21 Mar 2019 06:55:05 +0000
+Subject: [PATCH 080/110] oto8: frameworks: base: Support auto-hide/show window
+ caption when window is maximized or docked
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Reviewed-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ core/java/android/app/Activity.java                |  9 ++++
+ core/java/android/app/IActivityManager.aidl        |  1 +
+ core/java/android/view/IWindowSession.aidl         |  2 -
+ core/java/android/view/View.java                   | 17 -------
+ core/java/android/view/ViewRootImpl.java           |  4 --
+ core/java/android/view/Window.java                 |  3 ++
+ .../com/android/internal/policy/DecorView.java     | 56 +++++++---------------
+ .../android/internal/widget/DecorCaptionView.java  | 23 +++++----
+ .../android/server/am/ActivityManagerService.java  |  8 ++++
+ .../java/com/android/server/am/TaskRecord.java     |  5 ++
+ .../core/java/com/android/server/wm/Session.java   | 10 ----
+ services/core/java/com/android/server/wm/Task.java |  1 +
+ .../android/server/wm/WindowManagerService.java    |  9 ----
+ 13 files changed, 58 insertions(+), 90 deletions(-)
+
+diff --git a/core/java/android/app/Activity.java b/core/java/android/app/Activity.java
+index 6a24199..4025dd0 100644
+--- a/core/java/android/app/Activity.java
++++ b/core/java/android/app/Activity.java
+@@ -3262,6 +3262,15 @@ public class Activity extends ContextThemeWrapper
+         }
+     }
+ 
++    @Override
++    public boolean isWindowMaximize() {
++        try {
++            return ActivityManager.getService().isTaskMaximize(mToken);
++        } catch (Exception e) {
++            return false;
++        }
++    }
++
+     /**
+      * Puts the activity in picture-in-picture mode if the activity supports.
+      * @see android.R.attr#supportsPictureInPicture
+diff --git a/core/java/android/app/IActivityManager.aidl b/core/java/android/app/IActivityManager.aidl
+index 2e307c7..270389f 100644
+--- a/core/java/android/app/IActivityManager.aidl
++++ b/core/java/android/app/IActivityManager.aidl
+@@ -490,6 +490,7 @@ interface IActivityManager {
+     void positionTaskInStack(int taskId, int stackId, int position);
+     int getActivityStackId(in IBinder token);
+     boolean getIsHome(in IBinder token);
++    boolean isTaskMaximize(in IBinder token);
+     void exitFreeformMode(in IBinder token);
+     void switchTaskFreeformAndFullscreen(in IBinder token);
+     void moveTaskMaximize(in IBinder token);
+diff --git a/core/java/android/view/IWindowSession.aidl b/core/java/android/view/IWindowSession.aidl
+index 7ee2f73..51d6514 100644
+--- a/core/java/android/view/IWindowSession.aidl
++++ b/core/java/android/view/IWindowSession.aidl
+@@ -232,7 +232,5 @@ interface IWindowSession {
+      */
+     boolean startMovingTask(IWindow window, float startX, float startY);
+ 
+-    boolean isTaskDocked(IWindow window);
+-
+     void updatePointerIcon(IWindow window);
+ }
+diff --git a/core/java/android/view/View.java b/core/java/android/view/View.java
+index 3e973b1..166d6b7 100644
+--- a/core/java/android/view/View.java
++++ b/core/java/android/view/View.java
+@@ -23054,23 +23054,6 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
+     }
+ 
+     /**
+-     * When the window finish positioning, judge whether is docked.
+-     * @return whether the window is docked.
+-     * @hide
+-     */
+-    public final boolean isTaskDocked() {
+-        if (ViewDebug.DEBUG_POSITIONING) Log.d(VIEW_LOG_TAG, "isTaskDocked");
+-        if (mAttachInfo != null) {
+-            try {
+-                return mAttachInfo.mSession.isTaskDocked(mAttachInfo.mWindow);
+-            } catch (RemoteException e) {
+-                Log.e(VIEW_LOG_TAG, "Unable to ensure Task isDocked", e);
+-            }
+-        }
+-        return false;
+-    }
+-
+-    /**
+      * Handles drag events sent by the system following a call to
+      * {@link android.view.View#startDragAndDrop(ClipData,DragShadowBuilder,Object,int)
+      * startDragAndDrop()}.
+diff --git a/core/java/android/view/ViewRootImpl.java b/core/java/android/view/ViewRootImpl.java
+index b2e4406..3f1ea34 100644
+--- a/core/java/android/view/ViewRootImpl.java
++++ b/core/java/android/view/ViewRootImpl.java
+@@ -7695,10 +7695,6 @@ public final class ViewRootImpl implements ViewParent,
+         }
+     }
+ 
+-    public Rect getWinFrame() {
+-        return mWinFrame;
+-    }
+-
+     /**
+      * Tells this instance that its corresponding activity has just relaunched. In this case, we
+      * need to force a relayout of the window to make sure we get the correct bounds from window
+diff --git a/core/java/android/view/Window.java b/core/java/android/view/Window.java
+index 1c156d9..31e43d1 100644
+--- a/core/java/android/view/Window.java
++++ b/core/java/android/view/Window.java
+@@ -626,6 +626,9 @@ public abstract class Window {
+         /** Returns whether the window belongs to the home task. */
+         boolean getIsHome();
+ 
++        /** Returns whether the window is maximize*/
++        boolean isWindowMaximize();
++
+         /** Returns the current stack Id for the window. */
+         int getWindowStackId() throws RemoteException;
+ 
+diff --git a/core/java/com/android/internal/policy/DecorView.java b/core/java/com/android/internal/policy/DecorView.java
+index 3daaf54..b2c921b 100644
+--- a/core/java/com/android/internal/policy/DecorView.java
++++ b/core/java/com/android/internal/policy/DecorView.java
+@@ -1899,34 +1899,31 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+     @Override
+     protected void onConfigurationChanged(Configuration newConfig) {
+         super.onConfigurationChanged(newConfig);
+-        int workspaceId = getStackId();
+-        if (mStackId != workspaceId) {
+-            mStackId = workspaceId;
+-            if (mDecorCaptionView == null && StackId.hasWindowDecor(mStackId)) {
+-                // Configuration now requires a caption.
+-                final LayoutInflater inflater = mWindow.getLayoutInflater();
+-                mDecorCaptionView = createDecorCaptionView(inflater);
+-                if (mDecorCaptionView != null) {
+-                    if (mDecorCaptionView.getParent() == null) {
+-                        addView(mDecorCaptionView, 0,
+-                                new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
+-                    }
+-                    removeView(mContentRoot);
+-                    mDecorCaptionView.addView(mContentRoot,
+-                            new ViewGroup.MarginLayoutParams(MATCH_PARENT, MATCH_PARENT));
++        mStackId = getStackId();
++        if (mDecorCaptionView == null && StackId.hasWindowDecor(mStackId)) {
++            // Configuration now requires a caption.
++            final LayoutInflater inflater = mWindow.getLayoutInflater();
++            mDecorCaptionView = createDecorCaptionView(inflater);
++            if (mDecorCaptionView != null) {
++                if (mDecorCaptionView.getParent() == null) {
++                    addView(mDecorCaptionView, 0,
++                            new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
+                 }
+-            } else if (mDecorCaptionView != null) {
+-                // We might have to change the kind of surface before we do anything else.
+-                mDecorCaptionView.onConfigurationChanged(StackId.hasWindowDecor(mStackId));
+-                enableCaption(StackId.hasWindowDecor(workspaceId));
++                removeView(mContentRoot);
++                mDecorCaptionView.addView(mContentRoot,
++                        new ViewGroup.MarginLayoutParams(MATCH_PARENT, MATCH_PARENT));
+             }
++        } else if (mDecorCaptionView != null) {
++            // We might have to change the kind of surface before we do anything else.
++            mDecorCaptionView.onConfigurationChanged(mDecorCaptionView.hasCaption());
++            enableCaption(mDecorCaptionView.hasCaption());
+         }
+         updateAvailableWidth();
+         initializeElevation();
+     }
+ 
+     boolean processCaptionEvent(MotionEvent event) {
+-        if (!isFullscreen()) {
++        if (mDecorCaptionView == null || mDecorCaptionView.hasCaption()) {
+             return false;
+         }
+         int y = (int) event.getRawY();
+@@ -1940,9 +1937,6 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+     }
+ 
+     void setCaptionVisiblity(boolean visible) {
+-        if (mDecorCaptionView == null) {
+-            return;
+-        }
+         mDecorCaptionView.onConfigurationChanged(visible);
+         enableCaption(visible);
+ 
+@@ -1970,9 +1964,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+             }
+             mDecorCaptionView.addView(root,
+                     new ViewGroup.MarginLayoutParams(MATCH_PARENT, MATCH_PARENT));
+-            if (!StackId.hasWindowDecor(mStackId)) {
+-                setCaptionVisiblity(false);
+-            }
++            setCaptionVisiblity(mDecorCaptionView.hasCaption());
+         } else {
+ 
+             // Put it below the color views.
+@@ -2363,18 +2355,6 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+         return isShowingCaption() ? mDecorCaptionView.getCaptionHeight() : 0;
+     }
+ 
+-    boolean isFullscreen() {
+-        WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
+-        Point point = new Point();
+-        wm.getDefaultDisplay().getSize(point);
+-        Rect winframe = new Rect();
+-        if (getViewRootImpl() != null) {
+-            winframe = getViewRootImpl().getWinFrame();
+-        }
+-        Rect fullscreen = new Rect(0, 0, point.x, point.y);
+-        return winframe.equals(fullscreen) || getStackId() == 1;
+-    }
+-
+     /**
+      * Converts a DIP measure into physical pixels.
+      * @param dip The dip value.
+diff --git a/core/java/com/android/internal/widget/DecorCaptionView.java b/core/java/com/android/internal/widget/DecorCaptionView.java
+index fc5a227..3e358f3 100644
+--- a/core/java/com/android/internal/widget/DecorCaptionView.java
++++ b/core/java/com/android/internal/widget/DecorCaptionView.java
+@@ -158,12 +158,6 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     public void setPhoneWindow(PhoneWindow owner, boolean show) {
+         mOwner = owner;
+         mShow = show;
+-        mOverlayWithAppContent = owner.isOverlayWithDecorCaptionEnabled();
+-        if (mOverlayWithAppContent) {
+-            // The caption is covering the content, so we make its background transparent to make
+-            // the content visible.
+-            mCaption.setBackgroundColor(Color.TRANSPARENT);
+-        }
+         updateCaptionVisibility();
+         // By changing the outline provider to BOUNDS, the window can remove its
+         // background without removing the shadow.
+@@ -216,7 +210,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+                 mClickTarget = mClose;
+             }
+         }
+-        return mClickTarget != null;
++        return mClickTarget != null || (mShow && !hasCaption());
+     }
+ 
+     @Override
+@@ -229,7 +223,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+             }
+             return true;
+         }
+-        return false;
++        return onTouch(mCaption, event);
+     }
+ 
+     @Override
+@@ -404,6 +398,8 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         // Don't show the caption if the window has e.g. entered full screen.
+         //boolean invisible = isFillingScreen() || !mShow;
+         boolean invisible = !mShow;
++        mOverlayWithAppContent = !hasCaption();
++        mOwner.setOverlayWithDecorCaptionEnabled(mOverlayWithAppContent);
+         mCaption.setVisibility(invisible ? GONE : VISIBLE);
+         mCaption.setOnTouchListener(this);
+     }
+@@ -470,6 +466,14 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         }
+     }
+ 
++    public boolean hasCaption() {
++        Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
++        if (callback != null) {
++            return !callback.isWindowMaximize() && getStackId() != FULLSCREEN_WORKSPACE_STACK_ID;
++        }
++        return false;
++    }
++
+     /**
+      * Check that the requested orientation can resize.
+      *
+@@ -534,8 +538,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     }
+ 
+     private boolean updateRotateState() {
+-        return !isTaskDocked() && canResizeOrientation()
+-                    && getStackId() == FREEFORM_WORKSPACE_STACK_ID;
++        return hasCaption() && canResizeOrientation();
+     }
+ 
+     @Override
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index 85209f2..ffd9d10 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -10650,6 +10650,14 @@ public class ActivityManagerService extends IActivityManager.Stub
+     }
+ 
+     @Override
++    public boolean isTaskMaximize(IBinder token) throws RemoteException {
++        synchronized (this) {
++            final ActivityRecord r = ActivityRecord.forTokenLocked(token);
++            return r != null ? r.getTask().isTaskMaximize() : false;
++        }
++    }
++
++    @Override
+     public int getActivityStackId(IBinder token) throws RemoteException {
+         synchronized (this) {
+             ActivityStack stack = ActivityRecord.getStackLocked(token);
+diff --git a/services/core/java/com/android/server/am/TaskRecord.java b/services/core/java/com/android/server/am/TaskRecord.java
+index 9e221fc..f3905cc 100644
+--- a/services/core/java/com/android/server/am/TaskRecord.java
++++ b/services/core/java/com/android/server/am/TaskRecord.java
+@@ -2357,6 +2357,11 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+         }
+     }
+ 
++    boolean isTaskMaximize() {
++        getUniqueTaskBounds();
++        return Objects.equals(mMaximizeBounds, mBounds);
++    }
++
+     void changeTaskOrientation() {
+         if (mBounds != null) {
+             getUniqueTaskBounds();
+diff --git a/services/core/java/com/android/server/wm/Session.java b/services/core/java/com/android/server/wm/Session.java
+index 0f74120..4dd147e 100644
+--- a/services/core/java/com/android/server/wm/Session.java
++++ b/services/core/java/com/android/server/wm/Session.java
+@@ -409,16 +409,6 @@ public class Session extends IWindowSession.Stub
+         }
+     }
+ 
+-    public boolean isTaskDocked(IWindow window) {
+-        if (DEBUG_TASK_POSITIONING) Slog.d(TAG_WM, "isTaskDocked");
+-        long ident = Binder.clearCallingIdentity();
+-        try {
+-            return mService.isTaskDocked(window);
+-        } finally {
+-            Binder.restoreCallingIdentity(ident);
+-        }
+-    }
+-
+     @Override
+     public void reportDropResult(IWindow window, boolean consumed) {
+         IBinder token = window.asBinder();
+diff --git a/services/core/java/com/android/server/wm/Task.java b/services/core/java/com/android/server/wm/Task.java
+index a4bbc24..219b3aa 100644
+--- a/services/core/java/com/android/server/wm/Task.java
++++ b/services/core/java/com/android/server/wm/Task.java
+@@ -331,6 +331,7 @@ class Task extends WindowContainer<AppWindowToken> implements DimLayer.DimLayerU
+         }
+         onOverrideConfigurationChanged(mFillsParent ? Configuration.EMPTY : overrideConfig);
+         setUniqueBounds();
++        mIsDocked = false;
+         if (mBounds.equals(mMaxTmpRect) || mBounds.equals(mLeftDockedTmpRect)
+                     || mBounds.equals(mRightDockedTmpRect)) {
+             mIsDocked = true;
+diff --git a/services/core/java/com/android/server/wm/WindowManagerService.java b/services/core/java/com/android/server/wm/WindowManagerService.java
+index 8bc079a..4861c47 100644
+--- a/services/core/java/com/android/server/wm/WindowManagerService.java
++++ b/services/core/java/com/android/server/wm/WindowManagerService.java
+@@ -4559,15 +4559,6 @@ public class WindowManagerService extends IWindowManager.Stub
+         return true;
+     }
+ 
+-    boolean isTaskDocked(IWindow window) {
+-        WindowState win = null;
+-        synchronized (mWindowMap) {
+-            win = windowForClientLocked(null, window, false);
+-            if (win == null) return false;
+-        }
+-        return win.getTask().mIsDocked;
+-    }
+-
+     private void handleTapOutsideTask(DisplayContent displayContent, int x, int y) {
+         int taskId = -1;
+         synchronized (mWindowMap) {
+-- 
+2.7.4
+

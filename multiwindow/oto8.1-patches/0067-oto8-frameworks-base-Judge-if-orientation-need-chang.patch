@@ -1,0 +1,44 @@
+From 7488b16022eb5c1afc9d48d85f9bc6a5cb2dec95 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Wed, 27 Feb 2019 08:25:51 +0000
+Subject: [PATCH 067/110] oto8: frameworks: base: Judge if orientation need
+ change before request.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ .../core/java/com/android/server/am/ActivityRecord.java  | 16 +++++++++++++++-
+ 1 file changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/services/core/java/com/android/server/am/ActivityRecord.java b/services/core/java/com/android/server/am/ActivityRecord.java
+index a419f82..a1474f1 100644
+--- a/services/core/java/com/android/server/am/ActivityRecord.java
++++ b/services/core/java/com/android/server/am/ActivityRecord.java
+@@ -2190,8 +2190,22 @@ final class ActivityRecord extends ConfigurationContainer implements AppWindowCo
+         return mWindowContainerController.getOrientation();
+     }
+ 
++    boolean orientationNeedChange(int requestedOrientation) {
++        Configuration config = getConfiguration();
++        if (isFixedOrientationPortrait(requestedOrientation)
++                && config.orientation != ORIENTATION_PORTRAIT) {
++            return true;
++        }
++        if (isFixedOrientationLandscape(requestedOrientation)
++                && config.orientation != ORIENTATION_LANDSCAPE) {
++            return true;
++        }
++        return false;
++    }
++
+     void setRequestedOrientation(int requestedOrientation) {
+-        if (task.getStackId() == FREEFORM_WORKSPACE_STACK_ID) {
++        if (task.getStackId() == FREEFORM_WORKSPACE_STACK_ID
++                && orientationNeedChange(requestedOrientation)) {
+             Rect taskBounds = service.getTaskBounds(task.taskId);
+             task.changeTaskOrientation(task.taskId, taskBounds);
+             return;
+-- 
+2.7.4
+

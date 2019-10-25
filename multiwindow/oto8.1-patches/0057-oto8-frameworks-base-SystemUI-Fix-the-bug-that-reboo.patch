@@ -1,0 +1,71 @@
+From 49ea4900d9d46376840e3c7626f56d47540c2aeb Mon Sep 17 00:00:00 2001
+From: Lu Ning <luning@openthos.org>
+Date: Sun, 30 Sep 2018 01:50:27 +0000
+Subject: [PATCH 057/110] oto8: frameworks: base: SystemUI: Fix the bug that
+ reboot device cause stutter
+
+Signed-off-by: Lu Ning <luning@openthos.org>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ .../com/android/systemui/power/PowerSourceActivity.java | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java b/packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java
+index 92b20d5..b94a1a0 100644
+--- a/packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java
++++ b/packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java
+@@ -6,8 +6,10 @@ import android.content.Context;
+ import android.content.Intent;
+ import android.content.ComponentName;
+ import android.os.Bundle;
+-import android.os.SystemClock;
+ import android.os.PowerManager;
++import android.os.RemoteException;
++import android.os.ServiceManager;
++import android.os.SystemClock;
+ import android.view.MotionEvent;
+ import android.view.View;
+ import android.widget.ImageView;
+@@ -15,6 +17,7 @@ import android.widget.LinearLayout;
+ import android.util.Log;
+ import java.lang.reflect.Method;
+ 
++import com.android.internal.statusbar.IStatusBarService;
+ import com.android.systemui.LockReceiver;
+ import com.android.systemui.R;
+ 
+@@ -26,12 +29,16 @@ public class PowerSourceActivity extends Activity implements View.OnClickListene
+     private LinearLayout mPowerLock;
+     private LinearLayout mPowerRestart;
+     private ImageView mPowerClose;
++    private IStatusBarService mBarService;
+ 
+     @Override
+     protected void onCreate(Bundle context) {
+         super.onCreate(context);
+         setContentView(R.layout.activity_power_source);
+ 
++        mBarService = IStatusBarService.Stub.asInterface(
++                ServiceManager.getService(Context.STATUS_BAR_SERVICE));
++
+         initView();
+         initListener();
+ 
+@@ -147,9 +154,11 @@ public class PowerSourceActivity extends Activity implements View.OnClickListene
+                 finish();
+                 break;
+             case R.id.power_restart:
+-                PowerManager pm = (PowerManager) this.getSystemService(Context.POWER_SERVICE);
+-                pm.reboot("true");
+-                //Runtime.getRuntime().exec("su -c \"/system/bin/reboot\"");
++                try {
++                    mBarService.reboot(false);
++                } catch (RemoteException e) {
++                    e.printStackTrace();
++                }
+                 break;
+             case R.id.power_lock:
+                 DevicePolicyManager mDevicePolicyManager = (DevicePolicyManager)
+-- 
+2.7.4
+

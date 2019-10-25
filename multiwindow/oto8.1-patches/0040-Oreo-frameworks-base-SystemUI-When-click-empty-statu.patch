@@ -1,0 +1,234 @@
+From 515efc019f9c934ae716b9868f64b978f8bca9aa Mon Sep 17 00:00:00 2001
+From: CaoYongren <m18410261910@163.com>
+Date: Thu, 2 Nov 2017 07:07:07 +0000
+Subject: [PATCH 040/110] Oreo: frameworks: base: SystemUI: When click empty
+ status bar , dismiss dialog(battery/input/..)
+
+Change-Id: I22d249531b001a2d8f3ca4e382b6acf150c06431
+Signed-off-by: CaoYongren <m18410261910@163.com>
+---
+ .../SystemUI/res/layout/openthos_status_bar.xml    |  2 +-
+ .../statusbar/phone/OpenthosStatusBarView.java     | 54 ++++++++++++++++++++--
+ .../systemui/statusbar/phone/StatusBar.java        | 32 ++-----------
+ 3 files changed, 56 insertions(+), 32 deletions(-)
+
+diff --git a/packages/SystemUI/res/layout/openthos_status_bar.xml b/packages/SystemUI/res/layout/openthos_status_bar.xml
+index a6785f7..9d27051 100644
+--- a/packages/SystemUI/res/layout/openthos_status_bar.xml
++++ b/packages/SystemUI/res/layout/openthos_status_bar.xml
+@@ -38,7 +38,7 @@
+         </HorizontalScrollView>
+ 
+         <View
+-            android:id="@+id/show_statusbar"
++            android:id="@+id/empty_statusbar"
+             android:layout_width="0dp"
+             android:layout_height="match_parent"
+             android:layout_marginRight="@dimen/startupmenu_small_padding"
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+index c9568e6..fbed3b4 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+@@ -13,6 +13,7 @@ import android.widget.Toast;
+ import android.widget.ImageView;
+ import android.widget.ImageView;
+ import android.widget.HorizontalScrollView;
++import android.widget.LinearLayout;
+ 
+ import com.android.systemui.SysUiServiceProvider;
+ import com.android.systemui.DejankUtils;
+@@ -23,7 +24,9 @@ import com.android.systemui.dialog.CalendarDisplayView;
+ import com.android.systemui.dialog.InputMethodDialog;
+ import com.android.systemui.dialog.StartupMenuDialog;
+ import com.android.systemui.dialog.VolumeDialog;
++import com.android.systemui.dialog.MenuDialog;
+ import com.android.systemui.dialog.WifiDialog;
++import com.android.systemui.startupmenu.DialogType;
+ 
+ import com.android.systemui.R;
+ 
+@@ -36,8 +39,6 @@ public class OpenthosStatusBarView extends PanelBar {
+ 
+     private StatusBar mStatusBar;
+     private Context mContext;
+-
+-    //==================================================== Openthos Status bar
+     private ImageView mStartupMenu;
+     private OpenthosStatusBarView mOpenthosStatusBarView;
+     private ImageView mInputView;
+@@ -47,6 +48,9 @@ public class OpenthosStatusBarView extends PanelBar {
+     private ImageView mNotificationView;
+     private CalendarDisplayView mCalendarView;
+     private ImageView mHomeView;
++    private HorizontalScrollView mScrollStatusBar;
++    private LinearLayout mllScrollContents;
++    private View mEmptyStatusBar;
+     private BaseDialog mStartupMenuDialog;
+     private BaseDialog mInputManagerDialog;
+     private BaseDialog mBatteryDialog;
+@@ -55,6 +59,9 @@ public class OpenthosStatusBarView extends PanelBar {
+     private BaseDialog mCalendarDialog;
+     private BaseDialog mCurrentDialog;
+ 
++    private int mDownX = 0;
++    private int mDownY = 0;
++
+     public OpenthosStatusBarView(Context context, AttributeSet attrs) {
+         super(context, attrs);
+         mContext = context;
+@@ -90,7 +97,9 @@ public class OpenthosStatusBarView extends PanelBar {
+         mNotificationView = (ImageView) findViewById(R.id.iv_notification_status_bar);
+         mCalendarView = (CalendarDisplayView) findViewById(R.id.iv_date_status_bar);
+         mHomeView = (ImageView) findViewById(R.id.iv_home_status_bar);
+-        //mSrollStatusBar = (HorizontalScrollView) findViewById(R.id.sroll_status_bar);
++        mScrollStatusBar = (HorizontalScrollView) findViewById(R.id.sroll_status_bar);
++        mEmptyStatusBar = (View) findViewById(R.id.empty_statusbar);
++        mllScrollContents = (LinearLayout) findViewById(R.id.ll_scroll_icon_contents);
+         initDialog();
+         mStartupMenuDialog = StartupMenuDialog.getInstance(getContext());
+         openthosStatusBarClickListener();
+@@ -113,6 +122,9 @@ public class OpenthosStatusBarView extends PanelBar {
+         mNotificationView.setOnClickListener(mOpenthosStatusbarListener);
+         mCalendarView.setOnClickListener(mOpenthosStatusbarListener);
+         mHomeView.setOnClickListener(mOpenthosStatusbarListener);
++        mEmptyStatusBar.setOnClickListener(mOpenthosStatusbarListener);
++        mScrollStatusBar.setOnClickListener(mOpenthosStatusbarListener);
++        mllScrollContents.setOnClickListener(mOpenthosStatusbarListener);
+     }
+ 
+     private View.OnClickListener mOpenthosStatusbarListener = new View.OnClickListener() {
+@@ -148,10 +160,45 @@ public class OpenthosStatusBarView extends PanelBar {
+                     home.addCategory(Intent.CATEGORY_HOME);
+                     mContext.startActivity(home);
+                     break;
++		case R.id.sroll_status_bar:
++                    //Handle events
++                    break;
++		case R.id.ll_scroll_icon_contents:
++		    //Handle events
++		    break;
++		case R.id.empty_statusbar:
++                    //click empty status bar ,then dismiss all dialog and hide notification panel.
++                    if (mCurrentDialog != null && mCurrentDialog.isShowing()) {
++                        mCurrentDialog.dismiss();
++                    }
++		    setCustomStatusBar();
++                    mStatusBar.hideCustomNotificationPanel();
++		    break;
+             }
+         }
+     };
+ 
++    //show / hide status bar.
++    private void setCustomStatusBar() {
++        mEmptyStatusBar.setOnTouchListener(new View.OnTouchListener() {
++            @Override
++            public boolean onTouch(View v, MotionEvent event) {
++                if (event.getAction() == MotionEvent.ACTION_DOWN) {
++                    mDownX = (int) event.getRawX();
++                    mDownY = (int) event.getRawY();
++                }
++                return false;
++            }
++        });
++        mEmptyStatusBar.setOnLongClickListener(new View.OnLongClickListener() {
++            @Override
++            public boolean onLongClick(View v) {
++                mStatusBar.mShowTaskbarDialog.show(DialogType.SHOW_TASKBAR, mDownX, mDownY);
++                return false;
++            }
++        });
++    }
++
+     private void showDialog(View view, BaseDialog dialog) {
+         if (view == null) {
+             return;
+@@ -214,7 +261,6 @@ public class OpenthosStatusBarView extends PanelBar {
+     @Override
+     protected void onConfigurationChanged(Configuration newConfig) {
+         super.onConfigurationChanged(newConfig);
+-        android.util.Log.i("ljh", "OpenthosStatusBarView onConfigurationChanged");
+         mStartupMenuDialog = StartupMenuDialog.reCreateStartupMenudialog(getContext());
+         initDialog();
+     }
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 48fd985..3859f73 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -813,9 +813,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     private NavigationBarFragment mNavigationBar;
+     private View mNavigationBarView;
+-    private int mDownX;
+-    private int mDownY;
+-    private MenuDialog mShowTaskbarDialog;
++    public MenuDialog mShowTaskbarDialog;
+ 
+     @Override
+     public void start() {
+@@ -1049,8 +1047,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+         mNotificationPanel.setStatusBar(this);
+         mNotificationPanel.setGroupManager(mGroupManager);
+         mAboveShelfObserver = new AboveShelfObserver(mStackScroller);
+-        mAboveShelfObserver.setListener(mStatusBarWindow.findViewById(
+-                R.id.notification_container_parent));
++        //mAboveShelfObserver.setListener(mStatusBarWindow.findViewById(
++        //        R.id.notification_container_parent));
+         mKeyguardStatusBar = (KeyguardStatusBarView) mStatusBarWindow.findViewById(R.id.keyguard_header);
+ 
+         mNotificationIconAreaController = SystemUIFactory.getInstance()
+@@ -1307,7 +1305,6 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     private WindowManager.LayoutParams getOpenthosStatusBarLayoutParams() {
+         mActivityLayout = (LinearLayout) mOpenthosStatusBarView.findViewById(R.id.ll_scroll_icon_contents);
+-        showCustomDialog(mOpenthosStatusBarView);
+         final Resources res = mContext.getResources();
+         WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                 WindowManager.LayoutParams.MATCH_PARENT, res.getDimensionPixelSize(R.dimen.navigation_bar_height),
+@@ -1342,27 +1339,6 @@ public class StatusBar extends SystemUI implements DemoMode,
+         });
+     }
+ 
+-    public void showCustomDialog(View view) {
+-        view.findViewById(R.id.show_statusbar).setOnTouchListener(new View.OnTouchListener() {
+-            @Override
+-            public boolean onTouch(View v, MotionEvent event) {
+-                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+-                    mDownX = (int) event.getRawX();
+-                    mDownY = (int) event.getRawY();
+-                }
+-                return false;
+-            }
+-        });
+-
+-        view.findViewById(R.id.show_statusbar).setOnLongClickListener(new View.OnLongClickListener() {
+-            @Override
+-            public boolean onLongClick(View v) {
+-                mShowTaskbarDialog.show(DialogType.SHOW_TASKBAR, mDownX, mDownY);
+-                return false;
+-            }
+-        });
+-    }
+-
+     /**
+      * Returns the {@link android.view.View.OnTouchListener} that will be invoked when the
+      * background window of the status bar is clicked.
+@@ -3274,6 +3250,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         if (false) postStartTracing();
+     }
+ 
++    // show notification panel view.
+     public void showCustomNotificationPanel() {
+         if (mNotificationPanel.isFullyCollapsed()) {
+             mNotificationPanel.expand(true);
+@@ -3282,6 +3259,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         }
+     }
+ 
++    // hide notification panel view.
+     public void hideCustomNotificationPanel() {
+         if (mNotificationPanel.isFullyExpanded()) {
+             mNotificationPanel.collapse(false, 1.0f);
+-- 
+2.7.4
+

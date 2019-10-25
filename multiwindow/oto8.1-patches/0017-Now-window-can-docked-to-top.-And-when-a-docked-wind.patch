@@ -1,0 +1,80 @@
+From 65766eb7d26a1595ece9e9f3bc56c0ce8b2ee706 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Wed, 20 Sep 2017 05:48:02 +0000
+Subject: [PATCH 017/110] Now window can docked to top. And when a docked
+ window be moved
+
+it will be set to the size before docked.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ services/core/java/com/android/server/wm/Task.java |  1 +
+ .../java/com/android/server/wm/TaskPositioner.java | 23 ++++++++++++++++------
+ 2 files changed, 18 insertions(+), 6 deletions(-)
+
+diff --git a/services/core/java/com/android/server/wm/Task.java b/services/core/java/com/android/server/wm/Task.java
+index f02942e..0427c09 100644
+--- a/services/core/java/com/android/server/wm/Task.java
++++ b/services/core/java/com/android/server/wm/Task.java
+@@ -61,6 +61,7 @@ class Task extends WindowContainer<AppWindowToken> implements DimLayer.DimLayerU
+     final int mUserId;
+     private boolean mDeferRemoval = false;
+     boolean mIsDocked = false;
++    int mDockedDimSide = -1;
+     final Rect mDockedTmpRect = new Rect();
+     final WindowManagerService mService;
+ 
+diff --git a/services/core/java/com/android/server/wm/TaskPositioner.java b/services/core/java/com/android/server/wm/TaskPositioner.java
+index 2a5e77e..ede28d1 100644
+--- a/services/core/java/com/android/server/wm/TaskPositioner.java
++++ b/services/core/java/com/android/server/wm/TaskPositioner.java
+@@ -233,6 +233,7 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+                             mTask.mStack.getDimBounds(mTmpRect);
+                             mTask.getDimBounds(mTask.mDockedTmpRect);
+                             mTask.mIsDocked = true;
++                            mTask.mDockedDimSide = mCurrentDimSide;
+                             if (mCurrentDimSide == CTRL_LEFT) {
+                                 mTmpRect.right = mTmpRect.centerX();
+                             } else if (mCurrentDimSide == CTRL_RIGHT) {
+@@ -462,13 +463,15 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+         int right = Math.max(mTmpRect.left, mTmpRect.right);
+         int bottom = Math.max(mTmpRect.top, mTmpRect.bottom);
+         mTask.mStack.getDimBounds(mTmpRect);
+-        if (right - left < mMinVisibleWidth && overWidth) {
+-            if ((mCtrlType & CTRL_RIGHT) != 0)
++        if (right - left < Math.max(mMinStackResizeWidth, mMinVisibleWidth) && overWidth) {
++            if ((mCtrlType & CTRL_RIGHT) != 0) {
+                 left = Math.max(right - Math.max(mMinVisibleWidth, mMinStackResizeWidth), 0);
++            }
+         }
+-        if (bottom - top < mMinVisibleHeight && overHeight) {
+-            if ((mCtrlType & CTRL_BOTTOM) != 0)
++        if (bottom - top < Math.max(mMinStackResizeHeight, mMinVisibleHeight) && overHeight) {
++            if ((mCtrlType & CTRL_BOTTOM) != 0) {
+                 top = Math.max(bottom - Math.max(mMinVisibleHeight, mMinStackResizeHeight), 0);
++            }
+         }
+         mWindowDragBounds.set(left, top, right, bottom);
+     }
+@@ -669,8 +672,16 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+             int width = mTask.mDockedTmpRect.width();
+             int height = mTask.mDockedTmpRect.height();
+             mWindowOriginalBounds.bottom = mWindowOriginalBounds.top + height;
+-            mWindowOriginalBounds.left = x - width/2;
+-            mWindowOriginalBounds.right = x + width/2;
++            if (mTask.mDockedDimSide == CTRL_TOP || mWindowOriginalBounds.width() > width) {
++                mWindowOriginalBounds.left = x - width/2;
++                mWindowOriginalBounds.right = x + width/2;
++            } else {
++                if (mTask.mDockedDimSide == CTRL_RIGHT) {
++                    mWindowOriginalBounds.left = mWindowOriginalBounds.right - width;
++                } else {
++                    mWindowOriginalBounds.right = mWindowOriginalBounds.left + width;
++                }
++            }
+             mTask.mIsDocked = false;
+         }
+         final int offsetX = Math.round(x - mStartDragX);
+-- 
+2.7.4
+

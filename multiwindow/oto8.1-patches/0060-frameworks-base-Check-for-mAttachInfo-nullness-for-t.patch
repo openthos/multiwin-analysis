@@ -1,0 +1,35 @@
+From e39a1b325865e03a0f0c111f8d2ce9f1dc1dd4cd Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Fri, 15 Feb 2019 07:10:45 +0000
+Subject: [PATCH 060/110] frameworks: base: Check for mAttachInfo nullness for
+ task docked
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ core/java/android/view/View.java | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/core/java/android/view/View.java b/core/java/android/view/View.java
+index e62ae12..3e973b1 100644
+--- a/core/java/android/view/View.java
++++ b/core/java/android/view/View.java
+@@ -23060,10 +23060,12 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
+      */
+     public final boolean isTaskDocked() {
+         if (ViewDebug.DEBUG_POSITIONING) Log.d(VIEW_LOG_TAG, "isTaskDocked");
+-        try {
+-            return mAttachInfo.mSession.isTaskDocked(mAttachInfo.mWindow);
+-        } catch (RemoteException e) {
+-            Log.e(VIEW_LOG_TAG, "Unable to ensure Task isDocked", e);
++        if (mAttachInfo != null) {
++            try {
++                return mAttachInfo.mSession.isTaskDocked(mAttachInfo.mWindow);
++            } catch (RemoteException e) {
++                Log.e(VIEW_LOG_TAG, "Unable to ensure Task isDocked", e);
++            }
+         }
+         return false;
+     }
+-- 
+2.7.4
+
