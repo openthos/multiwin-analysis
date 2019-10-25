@@ -1,0 +1,40 @@
+From e15882f0f50690551f4018139f3a3d45de99c429 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Wed, 11 Oct 2017 05:03:36 +0000
+Subject: [PATCH 015/110] Auto change to landscape when change to FullScreen.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ core/java/android/app/IActivityManager.aidl                          | 1 +
+ services/core/java/com/android/server/am/ActivityManagerService.java | 3 +--
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/core/java/android/app/IActivityManager.aidl b/core/java/android/app/IActivityManager.aidl
+index 1811748..3a04a46 100644
+--- a/core/java/android/app/IActivityManager.aidl
++++ b/core/java/android/app/IActivityManager.aidl
+@@ -447,6 +447,7 @@ interface IActivityManager {
+             in Bundle receiverExtras, in IBinder activityToken,
+             boolean focused, boolean newSessionId);
+     void resizeTask(int taskId, in Rect bounds, int resizeMode);
++    int getDefaultMinSizeOfResizeableTask();
+     int getLockTaskModeState();
+     void setDumpHeapDebugLimit(in String processName, int uid, long maxMemSize,
+             in String reportPackage);
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index 38f7c61..2241266 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -10605,8 +10605,7 @@ public class ActivityManagerService extends IActivityManager.Stub
+                     throw new IllegalStateException(
+                             "exitFreeformMode: You can only go fullscreen from freeform.");
+                 }
+-                mWindowManager.setAppOrientation(r.appToken,
+-                        ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
++                r.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+ 
+                 if (DEBUG_STACK) Slog.d(TAG_STACK, "exitFreeformMode: " + r);
+                 r.getTask().reparent(FULLSCREEN_WORKSPACE_STACK_ID, ON_TOP,
+-- 
+2.7.4
+

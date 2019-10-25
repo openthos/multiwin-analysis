@@ -1,0 +1,168 @@
+From 7048e70930cee2898c1b734fbe8647ed570f32f2 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Tue, 19 Sep 2017 07:57:33 +0000
+Subject: [PATCH 014/110] using new way to resize window more flexible.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ .../android/server/am/ActivityManagerService.java  | 10 ++++++
+ .../java/com/android/server/wm/ResizingFrame.java  | 14 ++++----
+ .../java/com/android/server/wm/TaskPositioner.java | 41 ++++++++++++++++++----
+ 3 files changed, 50 insertions(+), 15 deletions(-)
+
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index 1520b96..38f7c61 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -10187,6 +10187,14 @@ public class ActivityManagerService extends IActivityManager.Stub
+     }
+ 
+     @Override
++    public int getDefaultMinSizeOfResizeableTask() {
++        if (mStackSupervisor != null) {
++            return mStackSupervisor.mDefaultMinSizeOfResizeableTask;
++        }
++        return -1;
++    }
++
++    @Override
+     public void resizeTask(int taskId, Rect bounds, int resizeMode) {
+         enforceCallingPermission(MANAGE_ACTIVITY_STACKS, "resizeTask()");
+         long ident = Binder.clearCallingIdentity();
+@@ -10597,6 +10605,8 @@ public class ActivityManagerService extends IActivityManager.Stub
+                     throw new IllegalStateException(
+                             "exitFreeformMode: You can only go fullscreen from freeform.");
+                 }
++                mWindowManager.setAppOrientation(r.appToken,
++                        ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+ 
+                 if (DEBUG_STACK) Slog.d(TAG_STACK, "exitFreeformMode: " + r);
+                 r.getTask().reparent(FULLSCREEN_WORKSPACE_STACK_ID, ON_TOP,
+diff --git a/services/core/java/com/android/server/wm/ResizingFrame.java b/services/core/java/com/android/server/wm/ResizingFrame.java
+index 24a8ac3..1166b24 100644
+--- a/services/core/java/com/android/server/wm/ResizingFrame.java
++++ b/services/core/java/com/android/server/wm/ResizingFrame.java
+@@ -208,25 +208,23 @@ public class ResizingFrame {
+         mDimSurface.setSize(mBounds.width(), mBounds.height());
+     }
+ 
+-    public void reDraw() {
++    public void reDraw(Rect bounds) {
+         SurfaceControl.openTransaction();
+-        Slog.e("LADEHUNTER", "How to get reDraw: " + mBounds);
+         Paint mPaint = new Paint();
+         mCanvas = mSurface.lockCanvas(fullscreenBounds);
+         mCanvas.drawColor(0, Mode.CLEAR);
+-        mDrawLastBounds.set(mBounds);
+         mPaint.setColor(0xFF00D3FF);
+         mPaint.setAlpha(100);
+         mPaint.setStrokeJoin(Paint.Join.ROUND);
+         mPaint.setStrokeCap(Paint.Cap.ROUND);
+         mPaint.setStrokeWidth(3);
+-        mCanvas.drawRect(mBounds, mPaint);
++        mCanvas.drawRect(bounds, mPaint);
+         mPaint.setColor(0xFF0065DB);
+         mPaint.setAlpha(255);
+-        mCanvas.drawLine(mBounds.left, mBounds.top, mBounds.right, mBounds.top, mPaint);
+-        mCanvas.drawLine(mBounds.left, mBounds.bottom, mBounds.right, mBounds.bottom, mPaint);
+-        mCanvas.drawLine(mBounds.left, mBounds.top, mBounds.left, mBounds.bottom, mPaint);
+-        mCanvas.drawLine(mBounds.right, mBounds.top, mBounds.right, mBounds.bottom, mPaint);
++        mCanvas.drawLine(bounds.left, bounds.top, bounds.right, bounds.top, mPaint);
++        mCanvas.drawLine(bounds.left, bounds.bottom, bounds.right, bounds.bottom, mPaint);
++        mCanvas.drawLine(bounds.left, bounds.top, bounds.left, bounds.bottom, mPaint);
++        mCanvas.drawLine(bounds.right, bounds.top, bounds.right, bounds.bottom, mPaint);
+         mSurface.unlockCanvasAndPost(mCanvas);
+         SurfaceControl.closeTransaction();
+     }
+diff --git a/services/core/java/com/android/server/wm/TaskPositioner.java b/services/core/java/com/android/server/wm/TaskPositioner.java
+index f8896cb..c288fee 100644
+--- a/services/core/java/com/android/server/wm/TaskPositioner.java
++++ b/services/core/java/com/android/server/wm/TaskPositioner.java
+@@ -109,6 +109,8 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+     private int mSideMargin;
+     private int mMinVisibleWidth;
+     private int mMinVisibleHeight;
++    private int mMinStackResizeWidth;
++    private int mMinStackResizeHeight;
+ 
+     private Task mTask;
+     private boolean mResizing;
+@@ -182,10 +184,9 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+                                 } catch (RemoteException e) {
+                                 }
+                             } else {
+-                                mDimLayerForResize.setBounds(mWindowDragBounds);
+-                                mDimLayerForResize.show(mService.getDragLayerLocked(),
+-                                         DRAGRESIZING_HINT_ALPHA, RESIZING_HINT_DURATION_MS);
+-                                mDimLayerForResize.reDraw();
++                                //mDimLayerForResize.show(mService.getDragLayerLocked(),
++                                //         DRAGRESIZING_HINT_ALPHA, RESIZING_HINT_DURATION_MS);
++                                mDimLayerForResize.reDraw(mWindowDragBounds);
+                             }
+                             Trace.traceEnd(Trace.TRACE_TAG_WINDOW_MANAGER);
+                         }
+@@ -196,7 +197,6 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+                             Slog.w(TAG, "ACTION_UP @ {" + newX + ", " + newY + "}");
+                         }
+                         if (mResizing && mWindowDragBounds.width() != 0 && mWindowDragBounds.height() != 0) {
+-                            mDimLayerForResize.stopDragDraw();
+                             mDimLayerForResize.hide();
+                         }
+                         mDragEnded = true;
+@@ -335,6 +335,13 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+         mMinVisibleWidth = dipToPixel(MINIMUM_VISIBLE_WIDTH_IN_DP, mDisplayMetrics);
+         mMinVisibleHeight = dipToPixel(MINIMUM_VISIBLE_HEIGHT_IN_DP, mDisplayMetrics);
+         mDisplay.getRealSize(mMaxVisibleSize);
++        try {
++            mMinStackResizeWidth = mService.mActivityManager.getDefaultMinSizeOfResizeableTask();
++            mMinStackResizeHeight = mService.mActivityManager.getDefaultMinSizeOfResizeableTask();
++        } catch (RemoteException e) {
++            Slog.e(TAG, "Can't get resizeable size", e);
++        }
++
+ 
+         mDragEnded = false;
+     }
+@@ -419,10 +426,9 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+                 mCtrlType |= CTRL_BOTTOM;
+             }
+             mResizing = mCtrlType != CTRL_NONE;
+-            mDimLayerForResize.setBounds(mTmpRect);
+             mDimLayerForResize.show(mService.getDragLayerLocked(),
+                      DRAGRESIZING_HINT_ALPHA, RESIZING_HINT_DURATION_MS);
+-            mDimLayerForResize.reDraw();
++            mDimLayerForResize.reDraw(mTmpRect);
+         }
+ 
+         // In case of !isDockedInEffect we are using the union of all task bounds. These might be
+@@ -440,6 +446,27 @@ class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFra
+     private void endDragLocked() {
+         mResizing = false;
+         mTask.setDragResizing(false, DRAG_RESIZE_MODE_FREEFORM);
++        fitDragBounds();
++    }
++
++    private void fitDragBounds() {
++        mTmpRect.set(mWindowDragBounds);
++        boolean overWidth = mTmpRect.left > mTmpRect.right;
++        boolean overHeight = mTmpRect.top > mTmpRect.bottom;
++        int left = Math.min(mTmpRect.left, mTmpRect.right);
++        int top = Math.min(mTmpRect.top, mTmpRect.bottom);
++        int right = Math.max(mTmpRect.left, mTmpRect.right);
++        int bottom = Math.max(mTmpRect.top, mTmpRect.bottom);
++        mTask.mStack.getDimBounds(mTmpRect);
++        if (right - left < mMinVisibleWidth && overWidth) {
++            if ((mCtrlType & CTRL_RIGHT) != 0)
++                left = Math.max(right - Math.max(mMinVisibleWidth, mMinStackResizeWidth), 0);
++        }
++        if (bottom - top < mMinVisibleHeight && overHeight) {
++            if ((mCtrlType & CTRL_BOTTOM) != 0)
++                top = Math.max(bottom - Math.max(mMinVisibleHeight, mMinStackResizeHeight), 0);
++        }
++        mWindowDragBounds.set(left, top, right, bottom);
+     }
+ 
+     /** Returns true if the move operation should be ended. */
+-- 
+2.7.4
+

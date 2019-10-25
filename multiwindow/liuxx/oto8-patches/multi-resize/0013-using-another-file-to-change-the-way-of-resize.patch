@@ -1,0 +1,592 @@
+From c2d5145b9e097618576f2d5c7f993134ac2b101f Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Mon, 18 Sep 2017 08:20:56 +0000
+Subject: [PATCH 013/110] using another file to change the way of resize.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ .../java/com/android/server/wm/ResizingFrame.java  | 429 +++++++++++++++++++++
+ .../java/com/android/server/wm/TaskPositioner.java |  54 ++-
+ .../server/wm/WindowManagerDebugConfig.java        |   2 +-
+ 3 files changed, 473 insertions(+), 12 deletions(-)
+ create mode 100644 services/core/java/com/android/server/wm/ResizingFrame.java
+
+diff --git a/services/core/java/com/android/server/wm/ResizingFrame.java b/services/core/java/com/android/server/wm/ResizingFrame.java
+new file mode 100644
+index 0000000..24a8ac3
+--- /dev/null
++++ b/services/core/java/com/android/server/wm/ResizingFrame.java
+@@ -0,0 +1,429 @@
++/*
++ * Copyright (C) 2014 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.server.wm;
++
++import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_DIM_LAYER;
++import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_SURFACE_TRACE;
++import static com.android.server.wm.WindowManagerDebugConfig.SHOW_SURFACE_ALLOC;
++import static com.android.server.wm.WindowManagerDebugConfig.SHOW_TRANSACTIONS;
++import static com.android.server.wm.WindowManagerDebugConfig.TAG_WITH_CLASS_NAME;
++import static com.android.server.wm.WindowManagerDebugConfig.TAG_WM;
++
++import android.graphics.PixelFormat;
++import android.graphics.Rect;
++import android.graphics.Canvas;
++import android.graphics.Color;
++import android.graphics.Paint;
++import android.graphics.PorterDuff.Mode;
++import android.graphics.Region.Op;
++import android.os.SystemClock;
++import android.util.Slog;
++import android.view.DisplayInfo;
++import android.view.SurfaceControl;
++import android.view.Surface;
++
++import java.io.PrintWriter;
++
++public class ResizingFrame {
++    private static final String TAG = TAG_WITH_CLASS_NAME ? "ResizingFrame" : TAG_WM;
++    private final WindowManagerService mService;
++
++    /** Actual surface that dims */
++    private SurfaceControl mDimSurface;
++    private Surface mSurface = new Surface();
++    private Canvas mCanvas;
++    private boolean hasSize = false;
++    private Rect fullscreenBounds = new Rect();
++    private Rect mDrawLastBounds = new Rect();
++
++    /** Last value passed to mDimSurface.setAlpha() */
++    private float mAlpha = 0;
++
++    /** Last value passed to mDimSurface.setLayer() */
++    private int mLayer = -1;
++
++    /** Next values to pass to mDimSurface.setPosition() and mDimSurface.setSize() */
++    private final Rect mBounds = new Rect();
++
++    /** Last values passed to mDimSurface.setPosition() and mDimSurface.setSize() */
++    private final Rect mLastBounds = new Rect();
++
++    /** True after mDimSurface.show() has been called, false after mDimSurface.hide(). */
++    private boolean mShowing = false;
++
++    /** Value of mAlpha when beginning transition to mTargetAlpha */
++    private float mStartAlpha = 0;
++
++    /** Final value of mAlpha following transition */
++    private float mTargetAlpha = 0;
++
++    /** Time in units of SystemClock.uptimeMillis() at which the current transition started */
++    private long mStartTime;
++
++    /** Time in milliseconds to take to transition from mStartAlpha to mTargetAlpha */
++    private long mDuration;
++
++    private boolean mDestroyed = false;
++
++    private final int mDisplayId;
++
++
++    /** Interface implemented by users of the dim layer */
++    interface ResizingFrameUser {
++        /** Returns true if the  dim should be fullscreen. */
++        boolean dimFullscreen();
++        /** Returns the display info. of the dim layer user. */
++        DisplayInfo getDisplayInfo();
++        /** Gets the bounds of the dim layer user. */
++        void getDimBounds(Rect outBounds);
++        String toShortString();
++    }
++    /** The user of this dim layer. */
++    private final ResizingFrameUser mUser;
++
++    private final String mName;
++
++    ResizingFrame(WindowManagerService service, ResizingFrameUser user, int displayId, String name) {
++        mUser = user;
++        mDisplayId = displayId;
++        mService = service;
++        mName = name;
++        if (DEBUG_DIM_LAYER) Slog.v(TAG, "Ctor: displayId=" + displayId);
++    }
++
++    private void constructSurface(WindowManagerService service) {
++        SurfaceControl.openTransaction();
++        try {
++            if (DEBUG_SURFACE_TRACE) {
++                mDimSurface = new WindowSurfaceController.SurfaceTrace(service.mFxSession,
++                    "DimSurface",
++                    16, 16, PixelFormat.OPAQUE,
++                    SurfaceControl.FX_SURFACE_DIM | SurfaceControl.HIDDEN);
++            } else {
++                mDimSurface = new SurfaceControl(service.mFxSession, mName,
++                    16, 16, PixelFormat.TRANSLUCENT,
++                    //16, 16, PixelFormat.OPAQUE,
++                    //SurfaceControl.FX_SURFACE_DIM | SurfaceControl.HIDDEN);
++                    SurfaceControl.HIDDEN);
++            }
++            if (SHOW_TRANSACTIONS || SHOW_SURFACE_ALLOC) Slog.i(TAG,
++                    "  DIM " + mDimSurface + ": CREATE");
++            mDimSurface.setLayerStack(mDisplayId);
++            adjustBounds();
++            adjustAlpha(mAlpha);
++            adjustLayer(mLayer);
++            mSurface.copyFrom(mDimSurface);
++        } catch (Exception e) {
++            Slog.e(TAG_WM, "Exception creating Dim surface", e);
++        } finally {
++            SurfaceControl.closeTransaction();
++        }
++    }
++
++    /** Return true if dim layer is showing */
++    boolean isDimming() {
++        return mTargetAlpha != 0;
++    }
++
++    /** Return true if in a transition period */
++    boolean isAnimating() {
++        return mTargetAlpha != mAlpha;
++    }
++
++    float getTargetAlpha() {
++        return mTargetAlpha;
++    }
++
++    void setLayer(int layer) {
++        if (mLayer == layer) {
++            return;
++        }
++        mLayer = layer;
++        adjustLayer(layer);
++    }
++
++    private void adjustLayer(int layer) {
++        if (mDimSurface != null) {
++            mDimSurface.setLayer(layer);
++        }
++    }
++
++    int getLayer() {
++        return mLayer;
++    }
++
++    private void setAlpha(float alpha) {
++        if (mAlpha == alpha) {
++            return;
++        }
++        mAlpha = alpha;
++        adjustAlpha(alpha);
++    }
++
++    private void adjustAlpha(float alpha) {
++        if (DEBUG_DIM_LAYER) Slog.v(TAG, "setAlpha alpha=" + alpha);
++        try {
++            if (mDimSurface != null) {
++                mDimSurface.setAlpha(alpha);
++            }
++            if (alpha == 0 && mShowing) {
++                if (DEBUG_DIM_LAYER) Slog.v(TAG, "setAlpha hiding");
++                if (mDimSurface != null) {
++                    mDimSurface.hide();
++                    mShowing = false;
++                }
++            } else if (alpha > 0 && !mShowing) {
++                if (DEBUG_DIM_LAYER) Slog.v(TAG, "setAlpha showing");
++                if (mDimSurface != null) {
++                    mDimSurface.show();
++                    mShowing = true;
++                }
++            }
++        } catch (RuntimeException e) {
++            Slog.w(TAG, "Failure setting alpha immediately", e);
++        }
++    }
++
++    public void startDragDraw() {
++        mDimSurface.setPosition(0, 0);
++        mDimSurface.setSize(fullscreenBounds.width(), fullscreenBounds.height());
++    }
++
++    public void stopDragDraw() {
++        mDimSurface.setPosition(mBounds.left, mBounds.top);
++        mDimSurface.setSize(mBounds.width(), mBounds.height());
++    }
++
++    public void reDraw() {
++        SurfaceControl.openTransaction();
++        Slog.e("LADEHUNTER", "How to get reDraw: " + mBounds);
++        Paint mPaint = new Paint();
++        mCanvas = mSurface.lockCanvas(fullscreenBounds);
++        mCanvas.drawColor(0, Mode.CLEAR);
++        mDrawLastBounds.set(mBounds);
++        mPaint.setColor(0xFF00D3FF);
++        mPaint.setAlpha(100);
++        mPaint.setStrokeJoin(Paint.Join.ROUND);
++        mPaint.setStrokeCap(Paint.Cap.ROUND);
++        mPaint.setStrokeWidth(3);
++        mCanvas.drawRect(mBounds, mPaint);
++        mPaint.setColor(0xFF0065DB);
++        mPaint.setAlpha(255);
++        mCanvas.drawLine(mBounds.left, mBounds.top, mBounds.right, mBounds.top, mPaint);
++        mCanvas.drawLine(mBounds.left, mBounds.bottom, mBounds.right, mBounds.bottom, mPaint);
++        mCanvas.drawLine(mBounds.left, mBounds.top, mBounds.left, mBounds.bottom, mPaint);
++        mCanvas.drawLine(mBounds.right, mBounds.top, mBounds.right, mBounds.bottom, mPaint);
++        mSurface.unlockCanvasAndPost(mCanvas);
++        SurfaceControl.closeTransaction();
++    }
++
++    /**
++     * NOTE: Must be called with Surface transaction open.
++     */
++    private void adjustBounds() {
++        if (mUser.dimFullscreen()) {
++            getBoundsForFullscreen(mBounds);
++        }
++
++        if (mDimSurface != null && !hasSize) {
++            hasSize = true;
++            getBoundsForFullscreen(fullscreenBounds);
++            mDrawLastBounds.set(fullscreenBounds);
++            //mDimSurface.setPosition(mBounds.left, mBounds.top);
++            //mDimSurface.setSize(mBounds.width(), mBounds.height());
++            mDimSurface.setPosition(0, 0);
++            mDimSurface.setSize(fullscreenBounds.width(), fullscreenBounds.height());
++            if (DEBUG_DIM_LAYER) Slog.v(TAG,
++                    "adjustBounds user=" + mUser.toShortString() + " mBounds=" + mBounds);
++        }
++
++        mLastBounds.set(mBounds);
++    }
++
++    private void getBoundsForFullscreen(Rect outBounds) {
++        final int dw, dh;
++        final float xPos, yPos;
++        // Set surface size to screen size.
++        final DisplayInfo info = mUser.getDisplayInfo();
++        // Multiply by 1.5 so that rotating a frozen surface that includes this does not expose
++        // a corner.
++        dw = (int) (info.logicalWidth * 1.5);
++        dh = (int) (info.logicalHeight * 1.5);
++        // back off position so 1/4 of Surface is before and 1/4 is after.
++        xPos = -1 * dw / 6;
++        yPos = -1 * dh / 6;
++        outBounds.set((int) xPos, (int) yPos, (int) xPos + dw, (int) yPos + dh);
++    }
++
++    void setBoundsForFullscreen() {
++        getBoundsForFullscreen(mBounds);
++        setBounds(mBounds);
++    }
++
++    /** @param bounds The new bounds to set */
++    void setBounds(Rect bounds) {
++        mBounds.set(bounds);
++        if (isDimming() && !mLastBounds.equals(bounds)) {
++            try {
++                SurfaceControl.openTransaction();
++                adjustBounds();
++            } catch (RuntimeException e) {
++                Slog.w(TAG, "Failure setting size", e);
++            } finally {
++                SurfaceControl.closeTransaction();
++            }
++        }
++    }
++
++    /**
++     * @param duration The time to test.
++     * @return True if the duration would lead to an earlier end to the current animation.
++     */
++    private boolean durationEndsEarlier(long duration) {
++        return SystemClock.uptimeMillis() + duration < mStartTime + mDuration;
++    }
++
++    /** Jump to the end of the animation.
++     * NOTE: Must be called with Surface transaction open. */
++    void show() {
++        if (isAnimating()) {
++            if (DEBUG_DIM_LAYER) Slog.v(TAG, "show: immediate");
++            show(mLayer, mTargetAlpha, 0);
++        }
++    }
++
++    /**
++     * Begin an animation to a new dim value.
++     * NOTE: Must be called with Surface transaction open.
++     *
++     * @param layer The layer to set the surface to.
++     * @param alpha The dim value to end at.
++     * @param duration How long to take to get there in milliseconds.
++     */
++    void show(int layer, float alpha, long duration) {
++        if (DEBUG_DIM_LAYER) Slog.v(TAG, "show: layer=" + layer + " alpha=" + alpha
++                + " duration=" + duration + ", mDestroyed=" + mDestroyed);
++        if (mDestroyed) {
++            Slog.e(TAG, "show: no Surface");
++            // Make sure isAnimating() returns false.
++            mTargetAlpha = mAlpha = 0;
++            return;
++        }
++
++        if (mDimSurface == null) {
++            constructSurface(mService);
++        }
++
++        if (!mLastBounds.equals(mBounds)) {
++            adjustBounds();
++        }
++        setLayer(layer);
++
++        long curTime = SystemClock.uptimeMillis();
++        final boolean animating = isAnimating();
++        if ((animating && (mTargetAlpha != alpha || durationEndsEarlier(duration)))
++                || (!animating && mAlpha != alpha)) {
++            if (duration <= 0) {
++                // No animation required, just set values.
++                setAlpha(alpha);
++            } else {
++                // Start or continue animation with new parameters.
++                mStartAlpha = mAlpha;
++                mStartTime = curTime;
++                mDuration = duration;
++            }
++        }
++        mTargetAlpha = alpha;
++        if (DEBUG_DIM_LAYER) Slog.v(TAG, "show: mStartAlpha=" + mStartAlpha + " mStartTime="
++                + mStartTime + " mTargetAlpha=" + mTargetAlpha);
++    }
++
++    /** Immediate hide.
++     * NOTE: Must be called with Surface transaction open. */
++    void hide() {
++        if (mShowing) {
++            if (DEBUG_DIM_LAYER) Slog.v(TAG, "hide: immediate");
++            hide(0);
++        }
++    }
++
++    /**
++     * Gradually fade to transparent.
++     * NOTE: Must be called with Surface transaction open.
++     *
++     * @param duration Time to fade in milliseconds.
++     */
++    void hide(long duration) {
++        if (mShowing && (mTargetAlpha != 0 || durationEndsEarlier(duration))) {
++            if (DEBUG_DIM_LAYER) Slog.v(TAG, "hide: duration=" + duration);
++            show(mLayer, 0, duration);
++        }
++    }
++
++    /**
++     * Advance the dimming per the last #show(int, float, long) call.
++     * NOTE: Must be called with Surface transaction open.
++     *
++     * @return True if animation is still required after this step.
++     */
++    boolean stepAnimation() {
++        if (mDestroyed) {
++            Slog.e(TAG, "stepAnimation: surface destroyed");
++            // Ensure that isAnimating() returns false;
++            mTargetAlpha = mAlpha = 0;
++            return false;
++        }
++        if (isAnimating()) {
++            final long curTime = SystemClock.uptimeMillis();
++            final float alphaDelta = mTargetAlpha - mStartAlpha;
++            float alpha = mStartAlpha + alphaDelta * (curTime - mStartTime) / mDuration;
++            if (alphaDelta > 0 && alpha > mTargetAlpha ||
++                    alphaDelta < 0 && alpha < mTargetAlpha) {
++                // Don't exceed limits.
++                alpha = mTargetAlpha;
++            }
++            if (DEBUG_DIM_LAYER) Slog.v(TAG, "stepAnimation: curTime=" + curTime + " alpha=" + alpha);
++            setAlpha(alpha);
++        }
++
++        return isAnimating();
++    }
++
++    /** Cleanup */
++    void destroySurface() {
++        if (DEBUG_DIM_LAYER) Slog.v(TAG, "destroySurface.");
++        if (mDimSurface != null) {
++            mDimSurface.destroy();
++            mDimSurface = null;
++        }
++        mDestroyed = true;
++    }
++
++    public void printTo(String prefix, PrintWriter pw) {
++        pw.print(prefix); pw.print("mDimSurface="); pw.print(mDimSurface);
++                pw.print(" mLayer="); pw.print(mLayer);
++                pw.print(" mAlpha="); pw.println(mAlpha);
++        pw.print(prefix); pw.print("mLastBounds="); pw.print(mLastBounds.toShortString());
++                pw.print(" mBounds="); pw.println(mBounds.toShortString());
++        pw.print(prefix); pw.print("Last animation: ");
++                pw.print(" mDuration="); pw.print(mDuration);
++                pw.print(" mStartTime="); pw.print(mStartTime);
++                pw.print(" curTime="); pw.println(SystemClock.uptimeMillis());
++        pw.print(prefix); pw.print(" mStartAlpha="); pw.print(mStartAlpha);
++                pw.print(" mTargetAlpha="); pw.println(mTargetAlpha);
++    }
++}
+diff --git a/services/core/java/com/android/server/wm/TaskPositioner.java b/services/core/java/com/android/server/wm/TaskPositioner.java
+index c58212c..f8896cb 100644
+--- a/services/core/java/com/android/server/wm/TaskPositioner.java
++++ b/services/core/java/com/android/server/wm/TaskPositioner.java
+@@ -60,7 +60,7 @@ import com.android.server.wm.WindowManagerService.H;
+ import java.lang.annotation.Retention;
+ import java.lang.annotation.RetentionPolicy;
+ 
+-class TaskPositioner implements DimLayer.DimLayerUser {
++class TaskPositioner implements DimLayer.DimLayerUser, ResizingFrame.ResizingFrameUser {
+     private static final boolean DEBUG_ORIENTATION_VIOLATIONS = false;
+     private static final String TAG_LOCAL = "TaskPositioner";
+     private static final String TAG = TAG_WITH_CLASS_NAME ? TAG_LOCAL : TAG_WM;
+@@ -87,6 +87,7 @@ class TaskPositioner implements DimLayer.DimLayerUser {
+     private static final int CTRL_BOTTOM = 0x8;
+ 
+     public static final float RESIZING_HINT_ALPHA = 0.5f;
++    public static final float DRAGRESIZING_HINT_ALPHA = 1.0f;
+ 
+     public static final int RESIZING_HINT_DURATION_MS = 0;
+ 
+@@ -101,6 +102,7 @@ class TaskPositioner implements DimLayer.DimLayerUser {
+     private Display mDisplay;
+     private final DisplayMetrics mDisplayMetrics = new DisplayMetrics();
+     private DimLayer mDimLayer;
++    private ResizingFrame mDimLayerForResize;
+     @CtrlType
+     private int mCurrentDimSide;
+     private Rect mTmpRect = new Rect();
+@@ -158,6 +160,8 @@ class TaskPositioner implements DimLayer.DimLayerUser {
+                         if (DEBUG_TASK_POSITIONING) {
+                             Slog.w(TAG, "ACTION_DOWN @ {" + newX + ", " + newY + "}");
+                         }
++                        if (mResizing) {
++                        }
+                     } break;
+ 
+                     case MotionEvent.ACTION_MOVE: {
+@@ -171,10 +175,17 @@ class TaskPositioner implements DimLayer.DimLayerUser {
+                         if (!mTmpRect.equals(mWindowDragBounds)) {
+                             Trace.traceBegin(TRACE_TAG_WINDOW_MANAGER,
+                                     "wm.TaskPositioner.resizeTask");
+-                            try {
+-                                mService.mActivityManager.resizeTask(
+-                                        mTask.mTaskId, mWindowDragBounds, RESIZE_MODE_USER);
+-                            } catch (RemoteException e) {
++                            if (!mResizing) {
++                                try {
++                                    mService.mActivityManager.resizeTask(
++                                            mTask.mTaskId, mWindowDragBounds, RESIZE_MODE_USER);
++                                } catch (RemoteException e) {
++                                }
++                            } else {
++                                mDimLayerForResize.setBounds(mWindowDragBounds);
++                                mDimLayerForResize.show(mService.getDragLayerLocked(),
++                                         DRAGRESIZING_HINT_ALPHA, RESIZING_HINT_DURATION_MS);
++                                mDimLayerForResize.reDraw();
+                             }
+                             Trace.traceEnd(Trace.TRACE_TAG_WINDOW_MANAGER);
+                         }
+@@ -184,6 +195,10 @@ class TaskPositioner implements DimLayer.DimLayerUser {
+                         if (DEBUG_TASK_POSITIONING) {
+                             Slog.w(TAG, "ACTION_UP @ {" + newX + ", " + newY + "}");
+                         }
++                        if (mResizing && mWindowDragBounds.width() != 0 && mWindowDragBounds.height() != 0) {
++                            mDimLayerForResize.stopDragDraw();
++                            mDimLayerForResize.hide();
++                        }
+                         mDragEnded = true;
+                     } break;
+ 
+@@ -210,12 +225,20 @@ class TaskPositioner implements DimLayer.DimLayerUser {
+                         }
+ 
+                         if (mCurrentDimSide != CTRL_NONE) {
+-                            final int createMode = mCurrentDimSide == CTRL_LEFT
+-                                    ? DOCKED_STACK_CREATE_MODE_TOP_OR_LEFT
+-                                    : DOCKED_STACK_CREATE_MODE_BOTTOM_OR_RIGHT;
+-                            mService.mActivityManager.moveTaskToDockedStack(
+-                                    mTask.mTaskId, createMode, true /*toTop*/, true /* animate */,
+-                                    null /* initialBounds */);
++                            //final int createMode = mCurrentDimSide == CTRL_LEFT
++                            //        ? DOCKED_STACK_CREATE_MODE_TOP_OR_LEFT
++                            //        : DOCKED_STACK_CREATE_MODE_BOTTOM_OR_RIGHT;
++                            mTask.mStack.getDimBounds(mTmpRect);
++                            if (mCurrentDimSide == CTRL_LEFT) {
++                                mTmpRect.right = mTmpRect.centerX();
++                            } else {
++                                mTmpRect.left = mTmpRect.centerX();
++                            }
++                            mService.mActivityManager.resizeTask(
++                                    mTask.mTaskId, mTmpRect, RESIZE_MODE_USER_FORCED);
++                            //mService.mActivityManager.moveTaskToDockedStack(
++                            //        mTask.mTaskId, createMode, true /*toTop*/, true /* animate */,
++                            //        null /* initialBounds */, false /* moveHomeStackFront */);
+                         }
+                     } catch(RemoteException e) {}
+ 
+@@ -307,6 +330,7 @@ class TaskPositioner implements DimLayer.DimLayerUser {
+         mService.pauseRotationLocked();
+ 
+         mDimLayer = new DimLayer(mService, this, mDisplay.getDisplayId(), TAG_LOCAL);
++        mDimLayerForResize = new ResizingFrame(mService, this, mDisplay.getDisplayId(), TAG_LOCAL);
+         mSideMargin = dipToPixel(SIDE_MARGIN_DIP, mDisplayMetrics);
+         mMinVisibleWidth = dipToPixel(MINIMUM_VISIBLE_WIDTH_IN_DP, mDisplayMetrics);
+         mMinVisibleHeight = dipToPixel(MINIMUM_VISIBLE_HEIGHT_IN_DP, mDisplayMetrics);
+@@ -342,6 +366,10 @@ class TaskPositioner implements DimLayer.DimLayerUser {
+             mDimLayer.destroySurface();
+             mDimLayer = null;
+         }
++        if (mDimLayerForResize != null) {
++            mDimLayerForResize.destroySurface();
++            mDimLayerForResize = null;
++        }
+         mCurrentDimSide = CTRL_NONE;
+         mDragEnded = true;
+ 
+@@ -391,6 +419,10 @@ class TaskPositioner implements DimLayer.DimLayerUser {
+                 mCtrlType |= CTRL_BOTTOM;
+             }
+             mResizing = mCtrlType != CTRL_NONE;
++            mDimLayerForResize.setBounds(mTmpRect);
++            mDimLayerForResize.show(mService.getDragLayerLocked(),
++                     DRAGRESIZING_HINT_ALPHA, RESIZING_HINT_DURATION_MS);
++            mDimLayerForResize.reDraw();
+         }
+ 
+         // In case of !isDockedInEffect we are using the union of all task bounds. These might be
+diff --git a/services/core/java/com/android/server/wm/WindowManagerDebugConfig.java b/services/core/java/com/android/server/wm/WindowManagerDebugConfig.java
+index 6d5673e..b809c32 100644
+--- a/services/core/java/com/android/server/wm/WindowManagerDebugConfig.java
++++ b/services/core/java/com/android/server/wm/WindowManagerDebugConfig.java
+@@ -63,7 +63,7 @@ public class WindowManagerDebugConfig {
+     static final boolean DEBUG_SURFACE_TRACE = false;
+     static final boolean DEBUG_WINDOW_TRACE = false;
+     static final boolean DEBUG_TASK_MOVEMENT = false;
+-    static final boolean DEBUG_TASK_POSITIONING = false;
++    static final boolean DEBUG_TASK_POSITIONING = true;
+     static final boolean DEBUG_STACK = false;
+     static final boolean DEBUG_DISPLAY = false;
+     static final boolean DEBUG_POWER = false;
+-- 
+2.7.4
+
