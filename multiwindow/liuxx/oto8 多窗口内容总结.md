@@ -2,13 +2,13 @@
 
 ## 多窗口
 
-1.设计toto8窗口resize方式
+1.设计oto8 窗口resize方式
 
-2.设计窗口移动到屏幕左、右、上方Docked，且unDocked后，恢复窗口Docked之前Rect。
+2.设计oto8 窗口移动到屏幕左、右、上方Docked，且unDocked后，恢复窗口Docked之前Rect。
 
-3.设计窗口大小resize的最小Rect，同时关闭窗口resize触发的应用relaunched
+3.设计oto8 窗口大小resize的最小Rect，同时关闭窗口resize触发的应用relaunched
 
-4.设计oto8窗口DecorCaption，完成窗口回退、窗口Rotate、窗口设置、最小化、最大化、关闭功能需求。
+4.设计oto8 窗口DecorCaption，完成窗口回退、窗口Rotate、窗口设置、最小化、最大化、关闭功能需求。
 
 5.设计oto8 launcher在FreeformStack中显示且始终保持在屏幕最底层。
 
