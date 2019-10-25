@@ -5,29 +5,62 @@
 1.设计oto8 窗口resize方式
   - frameworks/base代码结构
   
-  `
+  ```
   core/java/android/app/IActivityManager.aidl
   services/core/java/com/android/server/am/ActivityManagerService.java
   services/core/java/com/android/server/wm/ResizingFrame.java
   services/core/java/com/android/server/wm/TaskPositioner.java
   services/core/java/com/android/server/wm/WindowManagerDebugConfig.java
   services/core/java/com/android/server/wm/WindowState.java
-  `
+  ```
   - [相关提交的patches](https://github.com/openthos/multiwin-analysis/tree/master/multiwindow/liuxx/oto8-patches/multi-resize)
     
 2.设计oto8 窗口移动到屏幕左、右、上方Docked，且unDocked后，恢复窗口Docked之前Rect。
   - frameworks/base代码结构
   
-  `
+  ```
   services/core/java/com/android/server/wm/Task.java
   services/core/java/com/android/server/wm/TaskPositioner.java
-  `
+  ```
   - [相关提交的patches](https://github.com/openthos/multiwin-analysis/tree/master/multiwindow/liuxx/oto8-patches/multi-docked)
     
 3.设计oto8 窗口大小resize的最小Rect，关闭窗口resize触发的应用relaunched。
+  - frameworks/base代码结构
+  
+  ```
+  core/java/android/view/WindowManager.java
+  core/java/com/android/internal/statusbar/IStatusBar.aidl
+  packages/SystemUI/src/com/android/systemui/statusbar/CommandQueue.java
+  packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+  services/core/java/com/android/server/am/ActivityStack.java
+  services/core/java/com/android/server/am/ActivityManagerService.java
+  services/core/java/com/android/server/statusbar/StatusBarManagerInternal.java
+  services/core/java/com/android/server/statusbar/StatusBarManagerService.java
+  ```
   - [相关提交的patches](https://github.com/openthos/multiwin-analysis/tree/master/multiwindow/liuxx/oto8-patches/multi-bounds)
     
 4.设计oto8 窗口DecorCaption，完成窗口回退、窗口Rotate、窗口设置、最小化、最大化、关闭功能需求。
+  - frameworks/base代码结构
+  
+  ```
+  core/java/android/app/Activity.java
+  core/java/android/app/IActivityManager.aidl
+  core/java/android/view/IWindowSession.aidl
+  core/java/android/view/Window.java
+  core/java/android/view/View.java
+  core/java/android/view/ViewRootImpl.java
+  core/java/com/android/internal/policy/DecorView.java
+  core/java/com/android/internal/widget/DecorCaptionView.java
+  services/core/java/com/android/server/am/ActivityManagerService.java
+  services/core/java/com/android/server/am/ActivityRecord.java
+  services/core/java/com/android/server/am/ActivityStarter.java
+  services/core/java/com/android/server/am/LaunchingTaskPositioner.java
+  services/core/java/com/android/server/am/TaskRecord.java
+  services/core/java/com/android/server/wm/TaskPositioner.java
+  services/core/java/com/android/server/wm/Session.java
+  services/core/java/com/android/server/wm/WindowManagerService.java
+  services/core/java/com/android/server/wm/WindowState.java
+  ```
   - [相关提交的patches](https://github.com/openthos/multiwin-analysis/tree/master/multiwindow/liuxx/oto8-patches/multi-decorcaption)
     
 5.设计oto8 launcher在FreeformStack中显示且始终保持在屏幕最底层。
