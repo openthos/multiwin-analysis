@@ -1,0 +1,145 @@
+From 6fdc6951e8a3d0ac8d00c2abebb657726c3331b5 Mon Sep 17 00:00:00 2001
+From: luojunhuan <forward_m@126.com>
+Date: Wed, 1 Nov 2017 08:13:41 +0000
+Subject: [PATCH 041/110] Oreo: frameworks: base: SystemUI: Modify the pop up
+ position of startupmenu's dialog
+
+Signed-off-by: luojunhuan <forward_m@126.com>
+---
+ .../com/android/systemui/dialog/MenuDialog.java    | 34 +++++-----------------
+ .../systemui/startupmenu/LaunchAppUtil.java        |  2 --
+ .../systemui/startupmenu/StartMenuAdapter.java     |  5 +++-
+ .../systemui/statusbar/phone/StatusBar.java        |  2 +-
+ 4 files changed, 13 insertions(+), 30 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
+index 0378d15..d8b996c 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
+@@ -36,7 +36,6 @@ import java.util.List;
+  */
+ 
+ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickListener {
+-    private static MenuDialog listDialog;
+     private List<String> mDatas;
+     private DialogAdapter mAdapter;
+     private ListView mListView;
+@@ -47,19 +46,6 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+     private int mStatusBarHeight;
+     private StatusBar mStatusBar;
+ 
+-    public static MenuDialog getInstance(Context context) {
+-        if (listDialog == null) {
+-            listDialog = new MenuDialog(context);
+-        }
+-        return listDialog;
+-    }
+-
+-    public static void dismissMenuDialog() {
+-        if (listDialog != null && listDialog.isShowing()) {
+-            listDialog.dismiss();
+-        }
+-    }
+-
+     public MenuDialog(@NonNull Context context) {
+         super(context);
+         mContentView = LayoutInflater.from(getContext()).inflate(R.layout.menu_dialog, null, false);
+@@ -82,6 +68,8 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+         mAdapter = new DialogAdapter();
+         mListView.setAdapter(mAdapter);
+         mStatusBar = SysUiServiceProvider.getComponent(getContext(), StatusBar.class);
++        mStatusBarHeight = getContext().getResources().
++                getDimensionPixelSize(com.android.internal.R.dimen.navigation_bar_height);
+     }
+ 
+     public void show(DialogType type, AppEntry appEntry, int x, int y) {
+@@ -105,24 +93,18 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+         lp.dimAmount = 0;
+         switch (type) {
+             case SHOW_TASKBAR:
+-            case BAR_LOCK_OPEN:
+-            case BAR_LOCK_CLOSE:
+-            case BAR_NORMAL:
++                dialogWindow.setWindowAnimations(R.style.ShowDialog);
+                 dialogWindow.setGravity(Gravity.LEFT | Gravity.BOTTOM);
+                 lp.x = x - mWidth / 2;
+                 lp.y = 0;
+                 break;
+             default:
+-                dialogWindow.setGravity(Gravity.CENTER);
+-                if (x > mPoint.x - mWidth) {
+-                    lp.x = x - mWidth / 2 - mPoint.x / 2;
+-                } else {
+-                    lp.x = x + mWidth / 2 - mPoint.x / 2;
+-                }
+-                if (y < mPoint.y - mStatusBarHeight - mHeight) {
+-                    lp.y = y + mHeight / 2 - mPoint.y / 2;
++                dialogWindow.setGravity(Gravity.LEFT | Gravity.TOP);
++                lp.x = x;
++                if (y > mPoint.y - mHeight - mStatusBarHeight) {
++                    lp.y = y - mHeight;
+                 } else {
+-                    lp.y = y - mHeight / 2 - mPoint.y / 2;
++                    lp.y = y;
+                 }
+                 break;
+         }
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+index 448dae1..f2a5330 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+@@ -12,7 +12,6 @@ import android.view.Display;
+ import android.view.WindowManager;
+ 
+ import com.android.systemui.R;
+-import com.android.systemui.dialog.MenuDialog;
+ import com.android.systemui.dialog.StartupMenuDialog;
+ 
+ import java.lang.reflect.Method;
+@@ -51,7 +50,6 @@ public class LaunchAppUtil {
+ 
+     public static void launchApp(Context context, ComponentName componentName, int startMode) {
+         StartupMenuDialog.dismissDialog();
+-        MenuDialog.dismissMenuDialog();
+         Intent intent = new Intent();
+         intent.setComponent(componentName);
+         launchApp(context, intent, startMode);
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java b/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
+index 31f9239..b9814cc 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
+@@ -51,7 +51,7 @@ public class StartMenuAdapter extends BaseAdapter
+         mType = type;
+         mDatas = datas;
+         isGrid = mType == ShowType.GRID;
+-        mMenuDialog = MenuDialog.getInstance(context);
++        mMenuDialog = new MenuDialog(context);
+     }
+ 
+     @Override
+@@ -156,6 +156,9 @@ public class StartMenuAdapter extends BaseAdapter
+     private void openApplication(AppEntry appInfo) {
+         LaunchAppUtil.launchApp(mContext, appInfo.getComponentName());
+         SqliteOperate.updateDataStorage(mContext, appInfo);
++        if (mMenuDialog.isShowing()){
++            mMenuDialog.dismiss();
++        }
+     }
+ 
+     private class ViewHolder {
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 3859f73..e7b0895 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -1295,7 +1295,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         mButtonNotificationManager.setOnClickListener(mNotificationClickListener);
+         mButtonNotificationClearAll.setOnClickListener(mNotificationClickListener);
+ 
+-        mShowTaskbarDialog = MenuDialog.getInstance(mContext);
++        mShowTaskbarDialog = new MenuDialog(mContext);
+     }
+ 
+     //add openthos status bar view.
+-- 
+2.7.4
+

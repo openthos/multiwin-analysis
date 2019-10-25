@@ -1,0 +1,102 @@
+From 5a52c3ec6c8c666116af8ce59013852c9b564ed4 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Wed, 18 Sep 2019 01:53:09 +0000
+Subject: [PATCH 105/110] oto8: frameworks: base: Change touch insets of
+ StatusBar When showing headsup and
+
+remove all headsup could be shown as top before expand notification panel.
+
+Also control status bar height by headsup's visibility and state "addEntry" should
+
+be removed.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ .../src/com/android/systemui/statusbar/phone/StatusBar.java       | 2 --
+ .../android/systemui/statusbar/phone/StatusBarWindowManager.java  | 8 +-------
+ .../src/com/android/systemui/statusbar/policy/HeadsUpManager.java | 6 ++++--
+ 3 files changed, 5 insertions(+), 11 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index d2641c3..190c886 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -1826,7 +1826,6 @@ public class StatusBar extends SystemUI implements DemoMode,
+         addNotificationViews(shadeEntry);
+         // Recalculate the position of the sliding windows and the titles.
+         setAreThereNotifications();
+-        mStatusBarWindowManager.setAddEntry(true);
+     }
+ 
+     @Override
+@@ -3283,7 +3282,6 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     // show notification panel view.
+     public void showCustomNotificationPanel() {
+-        mStatusBarWindowManager.setAddEntry(false);
+         mHeadsUpManager.removeTopNotification();
+         if (mNotificationPanel.isFullyCollapsed()) {
+             mNotificationPanel.expand(true);
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
+index 4085f41..ab40bb4 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
+@@ -213,7 +213,7 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
+         if (expanded) {
+             int expandedHeight = mStatusBarView.getMeasuredHeightAndState();
+             int displayHeight = mContext.getDisplay().getHeight();
+-            setHeight(state.addEntry && expandedHeight != displayHeight);
++            setHeight(state.headsUpShowing);
+         } else {
+             mLpChanged.height = mBarHeight;
+             mStatusBarView.setBackgroundColor(0);
+@@ -324,11 +324,6 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
+         }
+     }
+ 
+-    public void setAddEntry(boolean addEntry) {
+-        mCurrentState.addEntry = addEntry;
+-        apply(mCurrentState);
+-    }
+-
+     public void setKeyguardShowing(boolean showing) {
+         mCurrentState.keyguardShowing = showing;
+         apply(mCurrentState);
+@@ -477,7 +472,6 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
+         boolean forceDozeBrightness;
+         boolean forceUserActivity;
+         boolean backdropShowing;
+-        boolean addEntry;
+ 
+         /**
+          * The {@link StatusBar} state from the status bar.
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/policy/HeadsUpManager.java b/packages/SystemUI/src/com/android/systemui/statusbar/policy/HeadsUpManager.java
+index 0ce3e1e..a568dd2 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/policy/HeadsUpManager.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/policy/HeadsUpManager.java
+@@ -298,8 +298,9 @@ public class HeadsUpManager implements ViewTreeObserver.OnComputeInternalInsetsL
+ 
+     public void removeTopNotification() {
+         HeadsUpEntry top = getTopEntry();
+-        if (top != null) {
++        while (top != null) {
+             removeHeadsUpEntry(top.entry);
++            top = getTopEntry();
+         }
+     }
+ 
+@@ -427,7 +428,8 @@ public class HeadsUpManager implements ViewTreeObserver.OnComputeInternalInsetsL
+             int maxX = mTmpTwoArray[0] + topEntry.getWidth();
+             int maxY = topEntry.getIntrinsicHeight();
+ 
+-            info.setTouchableInsets(ViewTreeObserver.InternalInsetsInfo.TOUCHABLE_INSETS_REGION);
++            //info.setTouchableInsets(ViewTreeObserver.InternalInsetsInfo.TOUCHABLE_INSETS_REGION);
++            info.setTouchableInsets(ViewTreeObserver.InternalInsetsInfo.TOUCHABLE_INSETS_VISIBLE);
+             info.touchableRegion.set(minX, 0, maxX, maxY);
+         } else if (mHeadsUpGoingAway || mWaitingOnCollapseWhenGoingAway) {
+             info.setTouchableInsets(ViewTreeObserver.InternalInsetsInfo.TOUCHABLE_INSETS_REGION);
+-- 
+2.7.4
+

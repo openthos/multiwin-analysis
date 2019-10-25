@@ -1,0 +1,625 @@
+From b9740f5f3df82184ddcf29f1e098143cdcbe0278 Mon Sep 17 00:00:00 2001
+From: Your Name <you@example.com>
+Date: Wed, 18 Oct 2017 10:08:29 +0000
+Subject: [PATCH 004/110] Oreo: frameworks: base: SystemUI: add simple layout
+ to openthos status bar.
+
+Signed-off-by: Your Name <you@example.com>
+---
+ .../res/drawable/statusbar_img_hover_select.xml    |   5 +
+ packages/SystemUI/res/layout/navigation_bar.xml    |   2 +
+ .../SystemUI/res/layout/openthos_status_bar.xml    | 114 ++++++++++++
+ .../res/mipmap-hdpi/statusbar_action_center.png    | Bin 0 -> 426 bytes
+ .../SystemUI/res/mipmap-hdpi/statusbar_battery.png | Bin 0 -> 415 bytes
+ .../SystemUI/res/mipmap-hdpi/statusbar_sound.png   | Bin 0 -> 627 bytes
+ .../mipmap-hdpi/statusbar_switch_input_method.png  | Bin 0 -> 16973 bytes
+ .../res/mipmap-hdpi/statusbar_sysbar_menu.png      | Bin 0 -> 4208 bytes
+ .../SystemUI/res/mipmap-hdpi/statusbar_wifi.png    | Bin 0 -> 512 bytes
+ packages/SystemUI/res/values/colors.xml            |   5 +-
+ .../statusbar/phone/OpenthosStatusBarView.java     | 206 +++++++++++++++++++++
+ 11 files changed, 330 insertions(+), 2 deletions(-)
+ create mode 100644 packages/SystemUI/res/drawable/statusbar_img_hover_select.xml
+ create mode 100644 packages/SystemUI/res/layout/openthos_status_bar.xml
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/statusbar_action_center.png
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/statusbar_battery.png
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/statusbar_sound.png
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/statusbar_switch_input_method.png
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/statusbar_sysbar_menu.png
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/statusbar_wifi.png
+ create mode 100644 packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+
+diff --git a/packages/SystemUI/res/drawable/statusbar_img_hover_select.xml b/packages/SystemUI/res/drawable/statusbar_img_hover_select.xml
+new file mode 100644
+index 0000000..5c4fa94
+--- /dev/null
++++ b/packages/SystemUI/res/drawable/statusbar_img_hover_select.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:drawable="@color/gray_text" android:state_hovered="true"/>
++    <item android:drawable="@drawable/system_bar_background" android:state_hovered="false"/>
++</selector>
+\ No newline at end of file
+diff --git a/packages/SystemUI/res/layout/navigation_bar.xml b/packages/SystemUI/res/layout/navigation_bar.xml
+index 8ba4c9c..f7b0e21 100644
+--- a/packages/SystemUI/res/layout/navigation_bar.xml
++++ b/packages/SystemUI/res/layout/navigation_bar.xml
+@@ -29,4 +29,6 @@
+         android:layout_width="match_parent"
+         android:layout_height="match_parent" />
+ 
++    <include layout="@layout/openthos_status_bar" />
++
+ </com.android.systemui.statusbar.phone.NavigationBarView>
+diff --git a/packages/SystemUI/res/layout/openthos_status_bar.xml b/packages/SystemUI/res/layout/openthos_status_bar.xml
+new file mode 100644
+index 0000000..dc55b5e
+--- /dev/null
++++ b/packages/SystemUI/res/layout/openthos_status_bar.xml
+@@ -0,0 +1,114 @@
++<?xml version="1.0" encoding="utf-8"?>
++<com.android.systemui.statusbar.phone.OpenthosStatusBarView
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@+id/openthos_status_bar"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    android:background="@drawable/system_bar_background">
++
++    <LinearLayout
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        android:orientation="horizontal">
++
++        <ImageView
++            android:id="@+id/iv_startupmenu_status_bar"
++            android:layout_width="64dp"
++            android:layout_height="match_parent"
++            android:layout_gravity="center_vertical"
++            android:layout_margin="5dp"
++            android:src="@mipmap/statusbar_sysbar_menu"/>
++
++        <!--  icon scroll layout-->
++        <HorizontalScrollView
++            android:id="@+id/sroll_status_bar"
++            android:layout_width="0dp"
++            android:layout_height="match_parent"
++            android:layout_gravity="center_vertical"
++            android:layout_margin="5dp"
++            android:layout_weight="1">
++
++            <LinearLayout
++                android:id="@+id/ll_scroll_icon_contents"
++                android:layout_width="match_parent"
++                android:layout_height="match_parent"
++                android:orientation="horizontal">
++
++            </LinearLayout>
++
++        </HorizontalScrollView>
++
++        <!-- input/battery/wifi/volume/notification/date/home -->
++        <LinearLayout
++            android:layout_width="wrap_content"
++            android:layout_height="match_parent"
++            android:layout_gravity="end"
++            android:orientation="horizontal">
++
++            <ImageView
++                android:id="@+id/iv_input_status_bar"
++                android:layout_width="32dp"
++                android:layout_height="match_parent"
++                android:layout_gravity="center_vertical"
++                android:layout_margin="5dp"
++                android:background="@drawable/statusbar_img_hover_select"
++                android:src="@mipmap/statusbar_switch_input_method"/>
++
++            <ImageView
++                android:id="@+id/iv_battery_status_bar"
++                android:layout_width="32dp"
++                android:layout_height="match_parent"
++                android:layout_gravity="center_vertical"
++                android:layout_margin="5dp"
++                android:background="@drawable/statusbar_img_hover_select"
++                android:src="@mipmap/statusbar_battery"/>
++
++            <ImageView
++                android:id="@+id/iv_wifi_status_bar"
++                android:layout_width="32dp"
++                android:layout_height="match_parent"
++                android:layout_gravity="center_vertical"
++                android:layout_margin="5dp"
++                android:background="@drawable/statusbar_img_hover_select"
++                android:src="@mipmap/statusbar_wifi"/>
++
++            <ImageView
++                android:id="@+id/iv_volume_status_bar"
++                android:layout_width="32dp"
++                android:layout_height="match_parent"
++                android:layout_gravity="center_vertical"
++                android:layout_margin="5dp"
++                android:background="@drawable/statusbar_img_hover_select"
++                android:src="@mipmap/statusbar_sound"/>
++
++            <ImageView
++                android:id="@+id/iv_notification_status_bar"
++                android:layout_width="32dp"
++                android:layout_height="match_parent"
++                android:layout_gravity="center_vertical"
++                android:layout_margin="5dp"
++                android:background="@drawable/statusbar_img_hover_select"
++                android:src="@mipmap/statusbar_action_center"/>
++
++            <com.android.systemui.dialog.CalendarDisplayView
++                android:id="@+id/iv_date_status_bar"
++                android:textAppearance="@style/TextAppearance.StatusBar.Clock"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:textSize="@dimen/systemui_date_text_size"
++                android:layout_gravity="center_vertical"
++                android:paddingLeft="@dimen/startupmenu_small_padding"
++                android:paddingRight="@dimen/startupmenu_small_padding"
++                android:gravity="center" />
++
++            <ImageView
++                android:id="@+id/iv_home_status_bar"
++                android:layout_width="10dp"
++                android:layout_height="match_parent"
++                android:layout_gravity="center_vertical"
++                android:layout_margin="5dp"
++                />
++        </LinearLayout>
++    </LinearLayout>
++
++</com.android.systemui.statusbar.phone.OpenthosStatusBarView>
+diff --git a/packages/SystemUI/res/mipmap-hdpi/statusbar_action_center.png b/packages/SystemUI/res/mipmap-hdpi/statusbar_action_center.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..5ea4b061a0ea09bf460c70c8a305be93957da522
+GIT binary patch
+literal 426
+zcmV;b0agBqP)<h;3K|Lk000e1NJLTq000*N000*V1^@s6;40Lh00001b5ch_0Itp)
+z=>Px$WJyFpR7efglub$lK@f#!;!l=BJVZoy-bR;h{K4#kZgk@f;=+~Sjl6;=xKt1n
+z)G@T*8>@%z`60=S2o}6lz1LMQopjG6$$yPh8+XnrZ-X`Qj`70$ZJMTT*^I8qd*B&l
+zrnN~c3=O~ykYB#@cXof8la3$woPdwQ2BO$1gboEhn=+F{&wO&y!LxSMo7XOO75~IM
+zzmnlj`P+J6Skg91e5k%qtJE|oq639ba@Dy54N#vMKR3Q_{4z8|s~l*!?&~{>SMX@U
+z1NjZy8<(zi^@R~%4%<Prb9JLHMN>1l&CIp)ghzN9n$O~4uWEl7@lPptwdCHsa$8#Z
+zMPuGvqJN1+4J}CF;|rbohy%PJf7Tdg{NGPrr*EBFZ@_Y_B8-4;)lbko1{r9IFBW#y
+zP2K_GO(CDLSr=c>M;tWZ7+phGmc^TT`;qZH1hYdh1xNGrFWiH1<w0B6<hKUC0rX8T
+UyTXk=KmY&$07*qoM6N<$f(mHBBme*a
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/mipmap-hdpi/statusbar_battery.png b/packages/SystemUI/res/mipmap-hdpi/statusbar_battery.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..e3f257af358b189e81b40cc565e2a3a4005c3cca
+GIT binary patch
+literal 415
+zcmV;Q0bu@#P)<h;3K|Lk000e1NJLTq000*N000*V1^@s6;40Lh00001b5ch_0Itp)
+z=>Px$SxH1eR7ef&ls!uWK@f&#O(Lj4gxFaKb|OdwK@bZY!O}kv|APJo8w(pN8yiK?
+z*1|5ewVjQnAQJqnVl<cWS&qfqC7UbGLL>t(lX-Xc*}dJnhz#Rjoq$o*6`trA&HciY
+zJ;K;E##~vJh2M~m(7848<7q@>x)<qN!@oc^7El5Hil!pXo~_!MSN+=b%%I5f%E4H)
+z1iT<pxfE&DqfOyJcBOF4)qodOdo9((-p#;(*GAW<l)H1)&n1y^6Jia$t9BbH{iA72
+z)m~s2qZq4bX5g6vUS`KHh>c{G9EL<!)0iL|vpMklG1ceERLM!YKyu(f{W8!Fx<i$L
+za5q`?VI1%qo7#6?ECc;{`@AADgLB>nycZevY>!8Ai?+Oupy1tJ53If=oI2vtwPYLY
+z7rH?{Lse@Oj4tzc_&QH5$2b^^Ot{|#avN~$ub}{TIQ37Qz&E8t?#fKq9<=}f002ov
+JPDHLkV1la)y1W1Y
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/mipmap-hdpi/statusbar_sound.png b/packages/SystemUI/res/mipmap-hdpi/statusbar_sound.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..d66d35124334b35b4f9fcd47f87c15f8be994bfc
+GIT binary patch
+literal 627
+zcmV-(0*w8MP)<h;3K|Lk000e1NJLTq000*N000*V1^@s6;40Lh00001b5ch_0Itp)
+z=>Px%ElET{R7ef&l+R04Q5c5LH5!{R!N8&xQ7#h9HiFn9Dq6OPR3ul?Ul8Q3Hnnvj
+z*dj;_!c7plYN5~~T18;BDAa|BK^CS4VUDBY%zb;lJ2P_c_39|JFz~=L=R4nd&wGB}
+zac;lt$rF&2hNm$6PZx;cNf?7XD9K#Po|61G(!!B&e^s~<kMU|HHwGTujrUty`j&RC
+zca{*%(I-ioO*xFaVFg}*9ZLuJVWBj0h}4p_)+A-vp^rY-64o%guE8+8D)E}yhX-J*
+zHciAFlQ!#<3cX0*Ne`=tAHz`Gd=cRYJc54cgDYVXZ8I;Fa~Mw2?6G4Zp5aPvO6!-2
+zf2y>gKug0`*;O8xRMX!HA@ke?hOJ5SHKYe%NE%O(D{#T5%_DrFi7z2(BFlMR>OIw*
+zb9HvcpUE_M-nks{qH_n1Q*W5tx$eX~u35&E=cf$gQ)Wn6CwI_--K;#gSQ})8*KvZX
+z(Ye)+n4Ks7&as)M-nqg&^{&iKA1diVrg-joH5`q1k@&51Ih!Q!-1OHCAv1n}Ec_|)
+zoBAajD~pJ`fGrmb7kJ0MNM6Y;E^$`+RZH$Z@n~5S)C@Wd_SSEdFrzPETfJl=>WFzU
+zH&u-p&p3Zw3gREc?SbibKbYBs&%pju?g8&u_8KCE&0MtvtLFRgKcR`-O+*}TAifP5
+zVC$RBi^kbA7%xeyXXE25wlQsn31cg<o%vRM74sPL-=X0BRuupDg1@y4)UJ^B;e-GH
+N002ovPDHLkV1muyCI<ij
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/mipmap-hdpi/statusbar_switch_input_method.png b/packages/SystemUI/res/mipmap-hdpi/statusbar_switch_input_method.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..478b3adb678dbe4ae2681ec318227f01615388d7
+GIT binary patch
+literal 16973
+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
+CwQ-mL
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/mipmap-hdpi/statusbar_sysbar_menu.png b/packages/SystemUI/res/mipmap-hdpi/statusbar_sysbar_menu.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..ace56e18928562d6ef5c781a9ffc865808ff5e4b
+GIT binary patch
+literal 4208
+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
+GLSTZDeBl28
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/mipmap-hdpi/statusbar_wifi.png b/packages/SystemUI/res/mipmap-hdpi/statusbar_wifi.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..f3f87b7768f00f1e34fc4f4f790becf157716849
+GIT binary patch
+literal 512
+zcmV+b0{{JqP)<h;3K|Lk000e1NJLTq000*N000*V1^@s6;40Lh00001b5ch_0Itp)
+z=>Px$x=BPqR7ef&)ITVMVI08m_q}rpxfm{z5K7ePawY~7Sq`%@Fd0q;83_}E)oqfA
+zh$7BnGcec;%9Vlq?Sw=^=lgr}+@JToyL#PvzxsIo{GLDW`#kT_w0z`p0<l<3N2#4P
+z^h|?UsD<1BdQpo?6yg)NxI`G+x~@kkEn!)lMSB>v03WWfi*wu{3J<CvoA*IBJ;o%P
+z98p?>MXRw7i4C+{N2T^KMvkfjdyv?KY@P@@ytu|0IujX9qg?<$`Z0n4d~lk^b<-EY
+z1saSTl~z3C5N<VrdNY<0g~T@=@goi59wF2x&GFDa!GqDypC(K}E=!)&g++Yf6l17^
+z<1g=|-iQgvn|@#hDql=}4mE01qokt<a_%n}hULPOCy<wof_TRoT*>*AI>}kctNT@g
+zdO1e1iZE6n8^^zS>RounxSD4vNxBigZR&$~g1pHVmav02+(AA?BdAxPM76V)3><=l
+ze3mJbXqVvta>;?L3#CgkNiKC7Y0sU0Iq!J{)6KWl$081Rk#;j%i<t+r=sF}q=3J(>
+z@oi>Gn)=l*QkAB34o#j|{tdLj&I9GJV}9y?PT&^>0mPC|CIfr`0000<MNUMnLSTZk
+C1K-vF
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/values/colors.xml b/packages/SystemUI/res/values/colors.xml
+index 1bc50ec..cd1d3de 100644
+--- a/packages/SystemUI/res/values/colors.xml
++++ b/packages/SystemUI/res/values/colors.xml
+@@ -20,7 +20,7 @@
+     <drawable name="notification_number_text_color">#ffffffff</drawable>
+     <drawable name="ticker_background_color">#ff1d1d1d</drawable>
+     <drawable name="system_bar_background">@color/system_bar_background_opaque</drawable>
+-    <color name="system_bar_background_opaque">#ff000000</color>
++    <color name="system_bar_background_opaque">#ff402080</color>
+     <color name="system_bar_background_transparent">#00000000</color>
+     <color name="notification_panel_solid_background">#ff000000</color>
+     <drawable name="status_bar_notification_row_background_color">#ff090909</drawable>
+@@ -151,7 +151,7 @@
+ 
+     <color name="instant_apps_color">#ff4d5a64</color>
+ 
+-    <!--systemui: startupmenu: colors  -->
++    <!--systemui: startupmenu: status bar: colors  -->
+     <color name="black">#000000</color>
+     <color name="white">#ffffff</color>
+     <color name="common_hover_bg">#5a41a2</color>
+@@ -162,4 +162,5 @@
+ 
+     <color name="zen_introduction">#ffffffff</color>
+ 
++    <color name="gray_text">#939aa3</color>
+ </resources>
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+new file mode 100644
+index 0000000..36da406
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+@@ -0,0 +1,206 @@
++package com.android.systemui.statusbar.phone;
++
++import android.content.Context;
++import android.graphics.Canvas;
++import android.view.MotionEvent;
++import android.view.ViewGroup;
++import android.view.View;
++import android.util.Log;
++import android.util.AttributeSet;
++import android.widget.Toast;
++import android.widget.ImageView;
++import android.widget.ImageView;
++import android.widget.HorizontalScrollView;
++
++import com.android.systemui.SysUiServiceProvider;
++import com.android.systemui.DejankUtils;
++import com.android.systemui.dialog.BaseDialog;
++import com.android.systemui.dialog.BatteryDialog;
++import com.android.systemui.dialog.CalendarDialog;
++import com.android.systemui.dialog.CalendarDisplayView;
++import com.android.systemui.dialog.InputMethodDialog;
++import com.android.systemui.dialog.StartupMenuDialog;
++import com.android.systemui.dialog.VolumeDialog;
++import com.android.systemui.dialog.WifiDialog;
++
++import com.android.systemui.R;
++
++/**
++ * Created by cao on 17-9-26.
++ */
++
++public class OpenthosStatusBarView extends PanelBar{
++    private static final String TAG = "OpenthosStatusBarView";
++
++    private StatusBar mStatusBar;
++    private Context mContext;
++
++    //==================================================== Openthos Status bar
++    private ImageView mStartupMenu;
++    private OpenthosStatusBarView mOpenthosStatusBarView;
++    private ImageView mInputView;
++    private ImageView mBatteryView;
++    private ImageView mWifiView;
++    private ImageView mVolumeView;
++    private ImageView mNotificationView;
++    private CalendarDisplayView mCalendarView;
++    private ImageView mHomeView;
++    private BaseDialog mStartupMenuDialog;
++    private BaseDialog mInputManagerDialog;
++    private BaseDialog mBatteryDialog;
++    private BaseDialog mWifiDialog;
++    private BaseDialog mVolumeDialog;
++    private BaseDialog mCalendarDialog;
++    private BaseDialog mCurrentDialog;
++
++    public OpenthosStatusBarView(Context context, AttributeSet attrs) {
++        super(context, attrs);
++        mContext = context;
++        mStatusBar = SysUiServiceProvider.getComponent(mContext, StatusBar.class);
++    }
++
++    @Override
++    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
++        super.onLayout(changed, left, top, right, bottom);
++    }
++
++    @Override
++    protected void onDraw(Canvas canvas) {
++        super.onDraw(canvas);
++    }
++
++    @Override
++    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
++        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
++    }
++
++    @Override
++    protected void onFinishInflate() {
++        initView();
++    }
++
++    private void initView() {
++        mStartupMenu = (ImageView) findViewById(R.id.iv_startupmenu_status_bar);
++        mInputView = (ImageView) findViewById(R.id.iv_input_status_bar);
++        mBatteryView = (ImageView) findViewById(R.id.iv_battery_status_bar);
++        mWifiView = (ImageView) findViewById(R.id.iv_wifi_status_bar);
++        mVolumeView = (ImageView) findViewById(R.id.iv_volume_status_bar);
++        mNotificationView = (ImageView) findViewById(R.id.iv_notification_status_bar);
++        mCalendarView = (CalendarDisplayView) findViewById(R.id.iv_date_status_bar);
++        mHomeView = (ImageView) findViewById(R.id.iv_home_status_bar);
++        //mSrollStatusBar = (HorizontalScrollView) findViewById(R.id.sroll_status_bar);
++
++        //init dialog.
++        mStartupMenuDialog = StartupMenuDialog.getInstance(getContext());
++        mInputManagerDialog = new InputMethodDialog(getContext());
++        mBatteryDialog = new BatteryDialog(getContext());
++        mWifiDialog = new WifiDialog(getContext());
++        mVolumeDialog = new VolumeDialog(getContext());
++        mCalendarDialog = new CalendarDialog(getContext());
++
++        openthosStatusBarClickListener();
++    }
++
++    private void openthosStatusBarClickListener() {
++        mStartupMenu.setOnClickListener(mOpenthosStatusbarListener);
++        mInputView.setOnClickListener(mOpenthosStatusbarListener);
++        mBatteryView.setOnClickListener(mOpenthosStatusbarListener);
++        mWifiView.setOnClickListener(mOpenthosStatusbarListener);
++        mVolumeView.setOnClickListener(mOpenthosStatusbarListener);
++        mNotificationView.setOnClickListener(mOpenthosStatusbarListener);
++        mCalendarView.setOnClickListener(mOpenthosStatusbarListener);
++        mHomeView.setOnClickListener(mOpenthosStatusbarListener);
++    }
++
++    private View.OnClickListener mOpenthosStatusbarListener = new View.OnClickListener() {
++        @Override
++        public void onClick(View v) {
++            switch (v.getId()) {
++               case R.id.iv_startupmenu_status_bar:
++                   showDialog(mStartupMenu, mStartupMenuDialog);
++                   break;
++               case R.id.iv_input_status_bar:
++                   showDialog(mInputView, mInputManagerDialog);
++                   break;
++               case R.id.iv_battery_status_bar:
++                   showDialog(mBatteryView, mBatteryDialog);
++                   break;
++               case R.id.iv_wifi_status_bar:
++                   showDialog(mWifiView, mWifiDialog);
++                   break;
++               case R.id.iv_volume_status_bar:
++                   showDialog(mVolumeView, mVolumeDialog);
++                   break;
++               case R.id.iv_notification_status_bar:
++                   if (mCurrentDialog != null && mCurrentDialog.isShowing()) {
++                       mCurrentDialog.dismiss();
++                   }
++                   mStatusBar.showCustomNotificationPanel();
++                   break;
++               case R.id.iv_date_status_bar:
++                   showDialog(mCalendarView, mCalendarDialog);
++                   break;
++               case R.id.iv_home_status_bar:
++                   break;
++            }
++        }
++    };
++
++    private void showDialog(View view, BaseDialog dialog) {
++        if (view == null) {
++            return;
++        }
++        if (mCurrentDialog == null) {
++            dialog.show(view);
++            mCurrentDialog = dialog;
++        } else {
++            if (mCurrentDialog == dialog) {
++                if (mCurrentDialog.isShowing()) {
++                    dialog.dismiss();
++                } else {
++                    dialog.show(view);
++                }
++            } else {
++                if (mCurrentDialog.isShowing()) {
++                    mCurrentDialog.dismiss();
++                }
++                dialog.show(view);
++                mCurrentDialog = dialog;
++            }
++        }
++    }
++
++    @Override
++    protected void onAttachedToWindow() {
++        super.onAttachedToWindow();
++    }
++
++    @Override
++    public void onTrackingStarted() {
++        super.onTrackingStarted();
++    }
++
++    @Override
++    public void panelExpansionChanged(float frac, boolean expanded) {
++        super.panelExpansionChanged(frac, expanded);
++    }
++
++    @Override
++    public boolean onTouchEvent(MotionEvent event) {
++        return super.onTouchEvent(event);
++    }
++
++    @Override
++    public void panelScrimMinFractionChanged(float minFraction) {
++
++    }
++
++    public void onDensityOrFontScaleChanged() {
++        ViewGroup.LayoutParams layoutParams = getLayoutParams();
++        layoutParams.height = getResources().getDimensionPixelSize(
++                R.dimen.status_bar_height);
++        layoutParams.width = getResources().getDimensionPixelSize(
++                R.dimen.status_bar_height);
++        setLayoutParams(layoutParams);
++    }
++}
+-- 
+2.7.4
+

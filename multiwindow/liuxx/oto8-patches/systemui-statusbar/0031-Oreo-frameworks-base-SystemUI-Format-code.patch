@@ -1,0 +1,2189 @@
+From 1e98afa455522b2f448e6bf68394d90680a925a7 Mon Sep 17 00:00:00 2001
+From: luojunhuan <forward_m@126.com>
+Date: Tue, 24 Oct 2017 10:50:41 +0000
+Subject: [PATCH 031/110] Oreo: frameworks: base: SystemUI: Format code
+
+Signed-off-by: luojunhuan <forward_m@126.com>
+---
+ packages/SystemUI/AndroidManifest.xml              |   4 +-
+ .../res/layout/openthos_notification_panel.xml     | 103 +++---
+ packages/SystemUI/res/values/colors.xml            |   4 +-
+ packages/SystemUI/res/values/strings.xml           | 143 ++++----
+ .../statusbar/phone/NavigationBarFragment.java     |  16 +-
+ .../statusbar/phone/NavigationBarFrame.java        |   2 +-
+ .../statusbar/phone/NotificationPanelView.java     |  72 ++--
+ .../statusbar/phone/OpenthosStatusBarView.java     |  60 ++--
+ .../android/systemui/statusbar/phone/PanelBar.java |   4 +-
+ .../systemui/statusbar/phone/PanelView.java        |  50 +--
+ .../systemui/statusbar/phone/StatusBar.java        | 366 +++++++++++----------
+ 11 files changed, 433 insertions(+), 391 deletions(-)
+
+diff --git a/packages/SystemUI/AndroidManifest.xml b/packages/SystemUI/AndroidManifest.xml
+index f491802..72274cf 100644
+--- a/packages/SystemUI/AndroidManifest.xml
++++ b/packages/SystemUI/AndroidManifest.xml
+@@ -578,8 +578,8 @@
+         <receiver
+             android:name=".statusbar.KeyboardShortcutsReceiver">
+             <intent-filter>
+-                <action android:name="com.android.intent.action.DISMISS_KEYBOARD_SHORTCUTS" />
+-                <action android:name="com.android.intent.action.SHOW_KEYBOARD_SHORTCUTS" />
++                <action android:name="com.android.intent.action.DISMISS_KEYBOARD_SHORTCUTS"/>
++                <action android:name="com.android.intent.action.SHOW_KEYBOARD_SHORTCUTS"/>
+             </intent-filter>
+         </receiver>
+     </application>
+diff --git a/packages/SystemUI/res/layout/openthos_notification_panel.xml b/packages/SystemUI/res/layout/openthos_notification_panel.xml
+index 4b2735f..684bf2d 100644
+--- a/packages/SystemUI/res/layout/openthos_notification_panel.xml
++++ b/packages/SystemUI/res/layout/openthos_notification_panel.xml
+@@ -1,37 +1,41 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <LinearLayout
+     xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@+id/notification_container_parent"
+     android:layout_width="@dimen/notification_panel_width"
+     android:layout_height="match_parent"
+-    android:weightSum = "3"
+     android:layout_gravity="@integer/notification_panel_layout_gravity"
+-    android:id="@+id/notification_container_parent"
+     android:background="@drawable/system_bar_background"
+-    android:orientation="vertical"
++    android:clipChildren="false"
+     android:clipToPadding="false"
+-    android:clipChildren="false">
++    android:orientation="vertical"
++    android:weightSum="3">
++
+     <RelativeLayout
+         android:layout_width="match_parent"
+         android:layout_height="0dp"
+         android:layout_weight="0.2"
+         android:background="#1Affffff">
++
+         <TextView
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:layout_alignParentLeft="true"
+             android:layout_centerInParent="true"
+-            android:textColor="#99ffffff"
+             android:text="@string/notification_info"
+-            android:textStyle="bold"
+-            android:textSize="@dimen/qs_font_size_sixteen" />
++            android:textColor="#99ffffff"
++            android:textSize="@dimen/qs_font_size_sixteen"
++            android:textStyle="bold"/>
++
+         <Button
+-	    android:id="@+id/notification_manager"
++            android:id="@+id/notification_manager"
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+-            android:layout_toLeftOf="@+id/notification_clear_all"
+             android:layout_marginRight="20dp"
++            android:layout_toLeftOf="@+id/notification_clear_all"
+             android:background="@null"
+             android:text="@string/notification_manager"/>
++
+         <Button
+             android:id="@+id/notification_clear_all"
+             android:layout_width="wrap_content"
+@@ -47,15 +51,17 @@
+         android:layout_height="0dp"
+         android:layout_weight="1.6"
+         android:orientation="vertical">
++
+         <FrameLayout
+             android:layout_width="@dimen/notification_panel_width"
+             android:layout_height="match_parent"
+             android:orientation="vertical">
++
+             <com.android.systemui.statusbar.stack.NotificationStackScrollLayout
+                 android:id="@+id/notification_stack_scroller"
+                 android:layout_width="match_parent"
+                 android:layout_height="match_parent"
+-                android:importantForAccessibility="no" />
++                android:importantForAccessibility="no"/>
+         </FrameLayout>
+     </LinearLayout>
+     <!-- end of notification panel -->
+@@ -76,32 +82,33 @@
+                 android:id="@+id/print_message"
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+-                android:layout_marginLeft="16dp"
+                 android:layout_centerVertical="true"
++                android:layout_marginLeft="16dp"
+                 android:text="@string/print_message"
+                 android:textColor="#99ffffff"
+-                android:textStyle="bold"
+-                android:textSize="16sp" />
++                android:textSize="16sp"
++                android:textStyle="bold"/>
+ 
+             <Button
+                 android:id="@+id/printManager"
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+                 android:layout_alignParentRight="true"
+-                android:layout_marginRight="16dp"
+                 android:layout_centerVertical="true"
+-                android:paddingRight="8dp"
++                android:layout_marginRight="16dp"
+                 android:background="@null"
++                android:paddingRight="8dp"
+                 android:text="@string/print_manager"
+-                android:textSize="12sp" />
++                android:textSize="12sp"/>
+ 
+         </RelativeLayout>
+ 
+         <!-- printer job layout -->
+         <ScrollView
+             android:layout_width="match_parent"
+-            android:layout_marginTop="8dp"
+-            android:layout_height="200dp" >
++            android:layout_height="200dp"
++            android:layout_marginTop="8dp">
++
+             <LinearLayout
+                 android:id="@+id/printer_job_layout"
+                 android:layout_width="match_parent"
+@@ -114,89 +121,101 @@
+ 
+     <!-- start qs panel-->
+     <com.android.systemui.statusbar.phone.QSView
+-        android:weightSum = "4"
+-        android:layout_weight="0.2"
++        android:id="@+id/qs_panel_layout"
+         android:layout_width="@dimen/notification_panel_width"
+         android:layout_height="0dp"
+-        android:orientation="horizontal"
+         android:layout_marginBottom="@dimen/qs_margin_fifty"
+-        android:id="@+id/qs_panel_layout"
+-        android:background="#1Affffff">
++        android:layout_weight="0.2"
++        android:background="#1Affffff"
++        android:orientation="horizontal"
++        android:weightSum="4">
++
+         <LinearLayout
+             android:layout_width="0dp"
+             android:layout_height="wrap_content"
+-            android:orientation="vertical"
+             android:layout_weight="1"
+-            android:gravity="center">
++            android:gravity="center"
++            android:orientation="vertical">
++
+             <ImageView
+                 android:id="@+id/qs_shot_screen"
+                 android:layout_width="30dp"
+                 android:layout_height="30dp"
+                 android:src="@mipmap/ic_notification_screen_shot"/>
++
+             <TextView
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
++                android:text="@string/notification_shot_screen"
+                 android:textColor="#99ffffff"
+-                android:textStyle="bold"
+                 android:textSize="@dimen/qs_font_size_sixteen"
+-                android:text="@string/notification_shot_screen"/>
++                android:textStyle="bold"/>
+         </LinearLayout>
++
+         <LinearLayout
+             android:layout_width="0dp"
+             android:layout_height="wrap_content"
+-            android:orientation="vertical"
+             android:layout_weight="1"
+-            android:gravity="center">
++            android:gravity="center"
++            android:orientation="vertical">
++
+             <ImageView
+                 android:id="@+id/qs_isolation"
+                 android:layout_width="30dp"
+                 android:layout_height="30dp"
+                 android:src="@mipmap/ic_notification_isolation_off"/>
++
+             <TextView
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+-                android:textSize="@dimen/qs_font_size_sixteen"
++                android:text="@string/notification_isolation_on"
+                 android:textColor="#99ffffff"
+-                android:textStyle="bold"
+-                android:text="@string/notification_isolation_on"/>
++                android:textSize="@dimen/qs_font_size_sixteen"
++                android:textStyle="bold"/>
+         </LinearLayout>
++
+         <LinearLayout
+             android:layout_width="0dp"
+             android:layout_height="wrap_content"
+-            android:orientation="vertical"
+             android:layout_weight="1"
+-            android:gravity="center">
++            android:gravity="center"
++            android:orientation="vertical">
++
+             <ImageView
+                 android:id="@+id/qs_settings"
+                 android:layout_width="30dp"
+                 android:layout_height="30dp"
+                 android:src="@mipmap/ic_notification_setting"/>
++
+             <TextView
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+-                android:textSize="@dimen/qs_font_size_sixteen"
++                android:text="@string/notification_settings"
+                 android:textColor="#99ffffff"
+-                android:textStyle="bold"
+-                android:text="@string/notification_settings"/>
++                android:textSize="@dimen/qs_font_size_sixteen"
++                android:textStyle="bold"/>
+         </LinearLayout>
++
+         <LinearLayout
+             android:layout_width="0dp"
+             android:layout_height="wrap_content"
+-            android:orientation="vertical"
+             android:layout_weight="1"
+-            android:gravity="center">
++            android:gravity="center"
++            android:orientation="vertical">
++
+             <ImageView
+                 android:id="@+id/qs_projection"
+                 android:layout_width="30dp"
+                 android:layout_height="30dp"
+                 android:src="@mipmap/ic_notification_projection_off"/>
++
+             <TextView
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+-                android:textSize="@dimen/qs_font_size_sixteen"
++                android:text="@string/notification_projection"
+                 android:textColor="#99ffffff"
+-                android:textStyle="bold"
+-                android:text="@string/notification_projection"/>
++                android:textSize="@dimen/qs_font_size_sixteen"
++                android:textStyle="bold"/>
+         </LinearLayout>
+     </com.android.systemui.statusbar.phone.QSView>
+     <!-- end quick settings layout -->
+diff --git a/packages/SystemUI/res/values/colors.xml b/packages/SystemUI/res/values/colors.xml
+index cd1d3de..4f401ee 100644
+--- a/packages/SystemUI/res/values/colors.xml
++++ b/packages/SystemUI/res/values/colors.xml
+@@ -71,7 +71,9 @@
+     <color name="notification_legacy_background_color">#ff1a1a1a</color>
+ 
+     <!-- The color of the material notification background -->
+-    <color name="notification_material_background_color">@*android:color/notification_material_background_color</color>
++    <color name="notification_material_background_color">
++        @*android:color/notification_material_background_color
++    </color>
+ 
+     <!-- The color of the material notification background when dimmed -->
+     <color name="notification_material_background_dimmed_color">#ccffffff</color>
+diff --git a/packages/SystemUI/res/values/strings.xml b/packages/SystemUI/res/values/strings.xml
+index 46c880d..8ae48f5 100644
+--- a/packages/SystemUI/res/values/strings.xml
++++ b/packages/SystemUI/res/values/strings.xml
+@@ -256,7 +256,7 @@
+     <string name="accessibility_battery_one_bar">Battery one bar.</string>
+     <!-- Content description of the battery when it is two bars for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
+     <string name="accessibility_battery_two_bars">Battery two bars.</string>
+-     <!-- Content description of the battery when it is three bars for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
++    <!-- Content description of the battery when it is three bars for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
+     <string name="accessibility_battery_three_bars">Battery three bars.</string>
+     <!-- Content description of the battery when it is full for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
+     <string name="accessibility_battery_full">Battery full.</string>
+@@ -284,13 +284,13 @@
+     <string name="accessibility_data_signal_full">Data signal full.</string>
+ 
+     <!-- Content description of the wifi label showing what we are connected to. [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_wifi_name">Connected to <xliff:g id="wifi" example="Home Network">%s</xliff:g>.</string>
++    <string name="accessibility_wifi_name">Connected to <xliff:g example="Home Network" id="wifi">%s</xliff:g>.</string>
+ 
+     <!-- Content description of the bluetooth label showing what we are connected to. [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_bluetooth_name">Connected to <xliff:g id="bluetooth" example="Car Audio">%s</xliff:g>.</string>
++    <string name="accessibility_bluetooth_name">Connected to <xliff:g example="Car Audio" id="bluetooth">%s</xliff:g>.</string>
+ 
+     <!-- Content description of the cast label showing what we are connected to. [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_cast_name">Connected to <xliff:g id="cast" example="TV">%s</xliff:g>.</string>
++    <string name="accessibility_cast_name">Connected to <xliff:g example="TV" id="cast">%s</xliff:g>.</string>
+ 
+ 
+     <!-- Content description of the WiMAX signal when no signal for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
+@@ -442,17 +442,17 @@
+     <string name="accessibility_work_mode">Work mode</string>
+ 
+     <!-- Content description to tell the user that this button will remove an application from recents -->
+-    <string name="accessibility_recents_item_will_be_dismissed">Dismiss <xliff:g id="app" example="Calendar">%s</xliff:g>.</string>
++    <string name="accessibility_recents_item_will_be_dismissed">Dismiss <xliff:g example="Calendar" id="app">%s</xliff:g>.</string>
+     <!-- Content description to tell the user an application has been removed from recents -->
+-    <string name="accessibility_recents_item_dismissed"><xliff:g id="app" example="Calendar">%s</xliff:g> dismissed.</string>
++    <string name="accessibility_recents_item_dismissed"><xliff:g example="Calendar" id="app">%s</xliff:g> dismissed.</string>
+     <!-- Content description to tell the user all applications has been removed from recents -->
+     <string name="accessibility_recents_all_items_dismissed">All recent applications dismissed.</string>
+     <!-- Content description to tell the user that this button will open application info for an application in recents -->
+-    <string name="accessibility_recents_item_open_app_info">Open <xliff:g id="app" example="Calendar">%s</xliff:g> application info.</string>
++    <string name="accessibility_recents_item_open_app_info">Open <xliff:g example="Calendar" id="app">%s</xliff:g> application info.</string>
+     <!-- Content description to tell the user an application has been launched from recents -->
+-    <string name="accessibility_recents_item_launched">Starting <xliff:g id="app" example="Calendar">%s</xliff:g>.</string>
++    <string name="accessibility_recents_item_launched">Starting <xliff:g example="Calendar" id="app">%s</xliff:g>.</string>
+     <!-- Content description of individual recents task. -->
+-    <string name="accessibility_recents_task_header"><xliff:g id="app" example="Chrome">%1$s</xliff:g> <xliff:g id="activity_label" example="www.google.com">%2$s</xliff:g></string>
++    <string name="accessibility_recents_task_header"><xliff:g example="Chrome" id="app">%1$s</xliff:g> <xliff:g example="www.google.com" id="activity_label">%2$s</xliff:g></string>
+     <!-- Content description to tell the user a notification has been removed from the notification shade -->
+     <string name="accessibility_notification_dismissed">Notification dismissed.</string>
+ 
+@@ -472,15 +472,15 @@
+     <string name="accessibility_desc_close">Close</string>
+ 
+     <!-- Content description of the wifi tile in quick settings (not shown on the screen). [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_quick_settings_wifi"><xliff:g id="signal" example="Three bars">%1$s</xliff:g>.</string>
++    <string name="accessibility_quick_settings_wifi"><xliff:g example="Three bars" id="signal">%1$s</xliff:g>.</string>
+     <!-- Announcement made when the wifi is turned off (not shown on the screen). [CHAR LIMIT=NONE] -->
+     <string name="accessibility_quick_settings_wifi_changed_off">Wifi turned off.</string>
+     <!-- Announcement made when the wifi is turned on (not shown on the screen). [CHAR LIMIT=NONE] -->
+     <string name="accessibility_quick_settings_wifi_changed_on">Wifi turned on.</string>
+     <!-- Content description of the mobile data tile in quick settings (not shown on the screen). [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_quick_settings_mobile">Mobile <xliff:g id="signal" example="Three bars">%1$s</xliff:g>. <xliff:g id="type" example="4G">%2$s</xliff:g>. <xliff:g id="network" example="T-Mobile">%3$s</xliff:g>.</string>
++    <string name="accessibility_quick_settings_mobile">Mobile <xliff:g example="Three bars" id="signal">%1$s</xliff:g>. <xliff:g example="4G" id="type">%2$s</xliff:g>. <xliff:g example="T-Mobile" id="network">%3$s</xliff:g>.</string>
+     <!-- Content description of the battery tile in quick settings (not shown on the screen). [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_quick_settings_battery">Battery <xliff:g id="state" example="50% charging">%s</xliff:g>.</string>
++    <string name="accessibility_quick_settings_battery">Battery <xliff:g example="50% charging" id="state">%s</xliff:g>.</string>
+     <!-- Content description of the airplane mode tile in quick settings when off (not shown on the screen). [CHAR LIMIT=NONE] -->
+     <string name="accessibility_quick_settings_airplane_off">Airplane mode off.</string>
+     <!-- Content description of the airplane mode tile in quick settings when on (not shown on the screen). [CHAR LIMIT=NONE] -->
+@@ -495,9 +495,9 @@
+     <string name="accessibility_quick_settings_dnd_none_on">Do not disturb on, total silence.</string>
+     <!-- Content description of the do not disturb tile in quick settings when on in alarms only (not shown on the screen). [CHAR LIMIT=NONE] -->
+     <string name="accessibility_quick_settings_dnd_alarms_on">Do not disturb on, alarms only.</string>
+-     <!-- Content description of the do not disturb tile in quick settings (not shown on the screen). [CHAR LIMIT=NONE] -->
++    <!-- Content description of the do not disturb tile in quick settings (not shown on the screen). [CHAR LIMIT=NONE] -->
+     <string name="accessibility_quick_settings_dnd">Do not disturb.</string>
+-     <!-- Content description of the do not disturb tile in quick settings when off (not shown on the screen). [CHAR LIMIT=NONE] -->
++    <!-- Content description of the do not disturb tile in quick settings when off (not shown on the screen). [CHAR LIMIT=NONE] -->
+     <string name="accessibility_quick_settings_dnd_off">Do not disturb off.</string>
+     <!-- Announcement made when do not disturb changes to off (not shown on the screen). [CHAR LIMIT=NONE] -->
+     <string name="accessibility_quick_settings_dnd_changed_off">Do not disturb turned off.</string>
+@@ -526,7 +526,7 @@
+     <!-- Announcement made when the location tile changes to on (not shown on the screen). [CHAR LIMIT=NONE] -->
+     <string name="accessibility_quick_settings_location_changed_on">Location reporting turned on.</string>
+     <!-- Content description of the alarm tile in quick settings (not shown on the screen). [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_quick_settings_alarm">Alarm set for <xliff:g id="time" example="Wed 3:30 PM">%s</xliff:g>.</string>
++    <string name="accessibility_quick_settings_alarm">Alarm set for <xliff:g example="Wed 3:30 PM" id="time">%s</xliff:g>.</string>
+     <!-- Content description of quick settings detail panel close button (not shown on the screen). [CHAR LIMIT=NONE] -->
+     <string name="accessibility_quick_settings_close">Close panel.</string>
+     <!-- Content description of zen mode time condition plus button (not shown on the screen). [CHAR LIMIT=NONE] -->
+@@ -610,12 +610,12 @@
+     <string name="accessibility_clear_all">Clear all notifications.</string>
+ 
+     <!-- The overflow indicator shown when a group has more notification inside the group than the visible ones. An example is "+ 3" [CHAR LIMIT=5] -->
+-    <string name="notification_group_overflow_indicator">+ <xliff:g id="number" example="3">%s</xliff:g></string>
++    <string name="notification_group_overflow_indicator">+ <xliff:g example="3" id="number">%s</xliff:g></string>
+ 
+     <!-- Content description describing how many more notifications are in a group [CHAR LIMIT=NONE] -->
+     <plurals name="notification_group_overflow_description">
+-        <item quantity="one"><xliff:g id="number" example="1">%s</xliff:g> more notification inside.</item>
+-        <item quantity="other"><xliff:g id="number" example="3">%s</xliff:g> more notifications inside.</item>
++        <item quantity="one"><xliff:g example="1" id="number">%s</xliff:g> more notification inside.</item>
++        <item quantity="other"><xliff:g example="3" id="number">%s</xliff:g> more notifications inside.</item>
+     </plurals>
+ 
+     <!-- Content description of button in notification inspector for system settings relating to
+@@ -624,7 +624,7 @@
+ 
+     <!-- Content description of button in notification inspetor for application-provided settings
+          for its own notifications [CHAR LIMIT=NONE] -->
+-    <string name="status_bar_notification_app_settings_title"><xliff:g id="app_name" example="Calendar">%s</xliff:g> settings</string>
++    <string name="status_bar_notification_app_settings_title"><xliff:g example="Calendar" id="app_name">%s</xliff:g> settings</string>
+ 
+     <!-- Description of the button in the phone-style notification panel that controls auto-rotation, when auto-rotation is on. [CHAR LIMIT=NONE] -->
+     <string name="accessibility_rotation_lock_off">Screen will rotate automatically.</string>
+@@ -723,7 +723,7 @@
+     <string name="quick_settings_casting">Casting</string>
+     <!-- QuickSettings: Cast detail panel, default device name [CHAR LIMIT=NONE] -->
+     <string name="quick_settings_cast_device_default_name">Unnamed device</string>
+-     <!-- QuickSettings: Cast detail panel, default device description [CHAR LIMIT=NONE] -->
++    <!-- QuickSettings: Cast detail panel, default device description [CHAR LIMIT=NONE] -->
+     <string name="quick_settings_cast_device_default_description">Ready to cast</string>
+     <!-- QuickSettings: Cast detail panel, text when there are no items [CHAR LIMIT=NONE] -->
+     <string name="quick_settings_cast_detail_empty_text">No devices available</string>
+@@ -762,11 +762,11 @@
+     <!-- QuickSettings: Cellular detail panel, over limit title [CHAR LIMIT=NONE] -->
+     <string name="quick_settings_cellular_detail_over_limit">Over limit</string>
+     <!-- QuickSettings: Cellular detail panel, data used format string [CHAR LIMIT=NONE] -->
+-    <string name="quick_settings_cellular_detail_data_used"><xliff:g id="data_used" example="2.0 GB">%s</xliff:g> used</string>
++    <string name="quick_settings_cellular_detail_data_used"><xliff:g example="2.0 GB" id="data_used">%s</xliff:g> used</string>
+     <!-- QuickSettings: Cellular detail panel, data limit format string [CHAR LIMIT=NONE] -->
+-    <string name="quick_settings_cellular_detail_data_limit"><xliff:g id="data_limit" example="2.0 GB">%s</xliff:g> limit</string>
++    <string name="quick_settings_cellular_detail_data_limit"><xliff:g example="2.0 GB" id="data_limit">%s</xliff:g> limit</string>
+     <!-- QuickSettings: Cellular detail panel, data warning format string [CHAR LIMIT=NONE] -->
+-    <string name="quick_settings_cellular_detail_data_warning"><xliff:g id="data_limit" example="2.0 GB">%s</xliff:g> warning</string>
++    <string name="quick_settings_cellular_detail_data_warning"><xliff:g example="2.0 GB" id="data_limit">%s</xliff:g> warning</string>
+     <!-- QuickSettings: Work mode [CHAR LIMIT=NONE] -->
+     <string name="quick_settings_work_mode_label">Work mode</string>
+     <!-- QuickSettings: Label for the toggle to activate Night display (renamed "Night Light" with title caps). [CHAR LIMIT=20] -->
+@@ -789,9 +789,9 @@
+     <!-- Recents: Temporary string for the button in the recents search bar. [CHAR LIMIT=NONE] -->
+     <string name="recents_search_bar_label">search</string>
+     <!-- Recents: Launch error string. [CHAR LIMIT=NONE] -->
+-    <string name="recents_launch_error_message">Could not start <xliff:g id="app" example="Calendar">%s</xliff:g>.</string>
++    <string name="recents_launch_error_message">Could not start <xliff:g example="Calendar" id="app">%s</xliff:g>.</string>
+     <!-- Recents: Launch disabled string. [CHAR LIMIT=NONE] -->
+-    <string name="recents_launch_disabled_message"><xliff:g id="app" example="Calendar">%s</xliff:g> is disabled in safe-mode.</string>
++    <string name="recents_launch_disabled_message"><xliff:g example="Calendar" id="app">%s</xliff:g> is disabled in safe-mode.</string>
+     <!-- Recents: Stack action button string. [CHAR LIMIT=NONE] -->
+     <string name="recents_stack_action_button_label">Clear all</string>
+     <!-- Recents: Hint text that shows on the drop targets to start multiwindow. [CHAR LIMIT=NONE] -->
+@@ -821,7 +821,7 @@
+     <string name="expanded_header_battery_charging">Charging</string>
+ 
+     <!-- Expanded Status Bar Header: Charging, showing time left until charged [CHAR LIMIT=40] -->
+-    <string name="expanded_header_battery_charging_with_time"><xliff:g id="charging_time" example="2 hrs 25 min">%s</xliff:g> until full</string>
++    <string name="expanded_header_battery_charging_with_time"><xliff:g example="2 hrs 25 min" id="charging_time">%s</xliff:g> until full</string>
+ 
+     <!-- Expanded Status Bar Header: Not charging [CHAR LIMIT=40] -->
+     <string name="expanded_header_battery_not_charging">Not charging</string>
+@@ -855,7 +855,7 @@
+     <string name="zen_silence_introduction">This blocks ALL sounds and vibrations, including from alarms, music, videos, and games.</string>
+ 
+     <!-- Text for overflow card on Keyguard when there is not enough space for all notifications on Keyguard. [CHAR LIMIT=1] -->
+-    <string name="keyguard_more_overflow_text">+<xliff:g id="number_of_notifications" example="5">%d</xliff:g></string>
++    <string name="keyguard_more_overflow_text">+<xliff:g example="5" id="number_of_notifications">%d</xliff:g></string>
+ 
+     <!-- An explanation for the visual speed bump in the notifications, which will appear when you click on it. [CHAR LIMIT=50] -->
+     <string name="speed_bump_explanation">Less urgent notifications below</string>
+@@ -870,7 +870,7 @@
+     <string name="do_disclosure_generic">This device is managed by your organization</string>
+ 
+     <!-- Text on keyguard screen and in Quick Settings footer indicating that the device is enterprise-managed by a Device Owner [CHAR LIMIT=40] -->
+-    <string name="do_disclosure_with_name">This device is managed by <xliff:g id="organization_name" example="Foo, Inc.">%s</xliff:g></string>
++    <string name="do_disclosure_with_name">This device is managed by <xliff:g example="Foo, Inc." id="organization_name">%s</xliff:g></string>
+ 
+     <!-- Shows when people have clicked on the phone icon [CHAR LIMIT=60] -->
+     <string name="phone_hint">Swipe from icon for phone</string>
+@@ -903,24 +903,25 @@
+     <string name="interruption_level_alarms_twoline">Alarms\nonly</string>
+ 
+     <!-- Indication on the keyguard that is shown when the device is charging. [CHAR LIMIT=40]-->
+-    <string name="keyguard_indication_charging_time">Charging (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%s</xliff:g> until full)</string>
++    <string name="keyguard_indication_charging_time">Charging (<xliff:g example="4 hours and 2 minutes" id="charging_time_left">%s</xliff:g> until full)</string>
+ 
+     <!-- Indication on the keyguard that is shown when the device is charging rapidly. Should match keyguard_plugged_in_charging_fast [CHAR LIMIT=40]-->
+-    <string name="keyguard_indication_charging_time_fast">Charging rapidly (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%s</xliff:g> until full)</string>
++    <string name="keyguard_indication_charging_time_fast">Charging rapidly (<xliff:g example="4 hours and 2 minutes" id="charging_time_left">%s</xliff:g> until full)</string>
+ 
+     <!-- Indication on the keyguard that is shown when the device is charging slowly. Should match keyguard_plugged_in_charging_slowly [CHAR LIMIT=40]-->
+-    <string name="keyguard_indication_charging_time_slowly">Charging slowly (<xliff:g id="charging_time_left" example="4 hours and 2 minutes">%s</xliff:g> until full)</string>
++    <string name="keyguard_indication_charging_time_slowly">Charging slowly (<xliff:g example="4 hours and 2 minutes" id="charging_time_left">%s</xliff:g> until full)</string>
+ 
+-    <!-- Related to user switcher --><skip/>
++    <!-- Related to user switcher -->
++    <skip/>
+ 
+     <!-- Accessibility label for the button that opens the user switcher. -->
+     <string name="accessibility_multi_user_switch_switcher">Switch user</string>
+ 
+     <!-- Accessibility label for the button that opens the user switcher and announces the current user. -->
+-    <string name="accessibility_multi_user_switch_switcher_with_current">Switch user, current user <xliff:g id="current_user_name" example="John Doe">%s</xliff:g></string>
++    <string name="accessibility_multi_user_switch_switcher_with_current">Switch user, current user <xliff:g example="John Doe" id="current_user_name">%s</xliff:g></string>
+ 
+     <!-- Accessibility label for the user icon on the lock screen. -->
+-    <string name="accessibility_multi_user_switch_inactive">Current user <xliff:g id="current_user_name" example="John Doe">%s</xliff:g></string>
++    <string name="accessibility_multi_user_switch_inactive">Current user <xliff:g example="John Doe" id="current_user_name">%s</xliff:g></string>
+ 
+     <!-- Accessibility label for the button that opens the quick contact of the user. -->
+     <string name="accessibility_multi_user_switch_quick_contact">Show profile</string>
+@@ -1004,7 +1005,7 @@
+     <string name="battery_saver_notification_action_text">Turn off battery saver</string>
+ 
+     <!-- Media projection permission dialog warning text. [CHAR LIMIT=NONE] -->
+-    <string name="media_projection_dialog_text"><xliff:g id="app_seeking_permission" example="Hangouts">%s</xliff:g> will start capturing everything that\'s displayed on your screen.</string>
++    <string name="media_projection_dialog_text"><xliff:g example="Hangouts" id="app_seeking_permission">%s</xliff:g> will start capturing everything that\'s displayed on your screen.</string>
+ 
+     <!-- Media projection permission dialog permanent grant check box. [CHAR LIMIT=NONE] -->
+     <string name="media_projection_remember_text">Don\'t show again</string>
+@@ -1031,31 +1032,31 @@
+     <string name="quick_settings_disclosure_management_monitoring">Your organization manages this device and may monitor network traffic</string>
+ 
+     <!-- Disclosure at the bottom of Quick Settings that indicates that the device has a device owner that can monitor the network traffic [CHAR LIMIT=100] -->
+-    <string name="quick_settings_disclosure_named_management_monitoring"><xliff:g id="organization_name" example="Foo, Inc.">%1$s</xliff:g> manages this device and may monitor network traffic</string>
++    <string name="quick_settings_disclosure_named_management_monitoring"><xliff:g example="Foo, Inc." id="organization_name">%1$s</xliff:g> manages this device and may monitor network traffic</string>
+ 
+     <!-- Disclosure at the bottom of Quick Settings that indicates that the device has a device owner and is connected to a VPN [CHAR LIMIT=100] -->
+-    <string name="quick_settings_disclosure_management_named_vpn">Device is managed by your organization and connected to <xliff:g id="vpn_app" example="Foo VPN App">%1$s</xliff:g></string>
++    <string name="quick_settings_disclosure_management_named_vpn">Device is managed by your organization and connected to <xliff:g example="Foo VPN App" id="vpn_app">%1$s</xliff:g></string>
+ 
+     <!-- Disclosure at the bottom of Quick Settings that indicates that the device has a device owner and is connected to a VPN [CHAR LIMIT=100] -->
+-    <string name="quick_settings_disclosure_named_management_named_vpn">Device is managed by <xliff:g id="organization_name" example="Foo, Inc.">%1$s</xliff:g> and connected to <xliff:g id="vpn_app" example="Foo VPN App">%2$s</xliff:g></string>
++    <string name="quick_settings_disclosure_named_management_named_vpn">Device is managed by <xliff:g example="Foo, Inc." id="organization_name">%1$s</xliff:g> and connected to <xliff:g example="Foo VPN App" id="vpn_app">%2$s</xliff:g></string>
+ 
+     <!-- Disclosure at the bottom of Quick Settings that indicates that the device has a device owner [CHAR LIMIT=100] -->
+     <string name="quick_settings_disclosure_management">Device is managed by your organization</string>
+ 
+     <!-- Disclosure at the bottom of Quick Settings that indicates that the device has a device owner [CHAR LIMIT=100] -->
+-    <string name="quick_settings_disclosure_named_management">Device is managed by <xliff:g id="organization_name" example="Foo, Inc.">%1$s</xliff:g></string>
++    <string name="quick_settings_disclosure_named_management">Device is managed by <xliff:g example="Foo, Inc." id="organization_name">%1$s</xliff:g></string>
+ 
+     <!-- Disclosure at the bottom of Quick Settings that indicates that the device has a device owner and is connected to two VPNs, one in the current user, one in the managed profile [CHAR LIMIT=100] -->
+     <string name="quick_settings_disclosure_management_vpns">Device is managed by your organization and connected to VPNs</string>
+ 
+     <!-- Disclosure at the bottom of Quick Settings that indicates that the device has a device owner and is connected to two VPNs, one in the current user, one in the managed profile [CHAR LIMIT=100] -->
+-    <string name="quick_settings_disclosure_named_management_vpns">Device is managed by <xliff:g id="organization_name" example="Foo, Inc.">%1$s</xliff:g> and connected to VPNs</string>
++    <string name="quick_settings_disclosure_named_management_vpns">Device is managed by <xliff:g example="Foo, Inc." id="organization_name">%1$s</xliff:g> and connected to VPNs</string>
+ 
+     <!-- Disclosure at the bottom of Quick Settings that indicates that the device has a managed profile which can be monitored by the profile owner [CHAR LIMIT=100] -->
+     <string name="quick_settings_disclosure_managed_profile_monitoring">Your organization may monitor network traffic in your work profile</string>
+ 
+     <!-- Disclosure at the bottom of Quick Settings that indicates that the device has a managed profile which can be monitored by the profile owner [CHAR LIMIT=100] -->
+-    <string name="quick_settings_disclosure_named_managed_profile_monitoring"><xliff:g id="organization_name" example="Foo, Inc.">%1$s</xliff:g> may monitor network traffic in your work profile</string>
++    <string name="quick_settings_disclosure_named_managed_profile_monitoring"><xliff:g example="Foo, Inc." id="organization_name">%1$s</xliff:g> may monitor network traffic in your work profile</string>
+ 
+     <!-- Disclosure at the bottom of Quick Settings that indicates that a certificate authorithy is installed on this device and the traffic might be monitored [CHAR LIMIT=100] -->
+     <string name="quick_settings_disclosure_monitoring">Network may be monitored</string>
+@@ -1064,13 +1065,13 @@
+     <string name="quick_settings_disclosure_vpns">Device connected to VPNs</string>
+ 
+     <!-- Disclosure at the bottom of Quick Settings that indicates that the device is connected to a VPN in the work profile [CHAR LIMIT=100] -->
+-    <string name="quick_settings_disclosure_managed_profile_named_vpn">Work profile connected to <xliff:g id="vpn_app" example="Foo VPN App">%1$s</xliff:g></string>
++    <string name="quick_settings_disclosure_managed_profile_named_vpn">Work profile connected to <xliff:g example="Foo VPN App" id="vpn_app">%1$s</xliff:g></string>
+ 
+     <!-- Disclosure at the bottom of Quick Settings that indicates that the device is connected to a VPN in the personal profile (as opposed to the work profile) [CHAR LIMIT=100] -->
+-    <string name="quick_settings_disclosure_personal_profile_named_vpn">Personal profile connected to <xliff:g id="vpn_app" example="Foo VPN App">%1$s</xliff:g></string>
++    <string name="quick_settings_disclosure_personal_profile_named_vpn">Personal profile connected to <xliff:g example="Foo VPN App" id="vpn_app">%1$s</xliff:g></string>
+ 
+     <!-- Disclosure at the bottom of Quick Settings that indicates that the device is connected to a VPN [CHAR LIMIT=100] -->
+-    <string name="quick_settings_disclosure_named_vpn">Device connected to <xliff:g id="vpn_app" example="Foo VPN App">%1$s</xliff:g></string>
++    <string name="quick_settings_disclosure_named_vpn">Device connected to <xliff:g example="Foo VPN App" id="vpn_app">%1$s</xliff:g></string>
+ 
+     <!-- Monitoring dialog title for device owned devices [CHAR LIMIT=35] -->
+     <string name="monitoring_title_device_owned">Device management</string>
+@@ -1101,7 +1102,7 @@
+     <string name="monitoring_button_view_policies">View Policies</string>
+ 
+     <!-- Monitoring dialog: Description of the device owner by name. [CHAR LIMIT=NONE]-->
+-    <string name="monitoring_description_named_management">Your device is managed by <xliff:g id="organization_name" example="Foo, Inc.">%1$s</xliff:g>.\n\nYour admin can monitor and manage settings, corporate access, apps, data associated with your device, and your device\'s location information.\n\nFor more information, contact your admin.</string>
++    <string name="monitoring_description_named_management">Your device is managed by <xliff:g example="Foo, Inc." id="organization_name">%1$s</xliff:g>.\n\nYour admin can monitor and manage settings, corporate access, apps, data associated with your device, and your device\'s location information.\n\nFor more information, contact your admin.</string>
+ 
+     <!-- Monitoring dialog: Description of a device owner. [CHAR LIMIT=NONE]-->
+     <string name="monitoring_description_management">Your device is managed by your organization.\n\nYour admin can monitor and manage settings, corporate access, apps, data associated with your device, and your device\'s location information.\n\nFor more information, contact your admin.</string>
+@@ -1119,22 +1120,22 @@
+     <string name="monitoring_description_management_network_logging">Your admin has turned on network logging, which monitors traffic on your device.</string>
+ 
+     <!-- Monitoring dialog: Description of an active VPN. [CHAR LIMIT=NONE]-->
+-    <string name="monitoring_description_named_vpn">You\'re connected to <xliff:g id="vpn_app" example="Foo VPN App">%1$s</xliff:g>, which can monitor your network activity, including emails, apps, and websites.</string>
++    <string name="monitoring_description_named_vpn">You\'re connected to <xliff:g example="Foo VPN App" id="vpn_app">%1$s</xliff:g>, which can monitor your network activity, including emails, apps, and websites.</string>
+ 
+     <!-- Monitoring dialog: Description of two active VPNs. [CHAR LIMIT=NONE]-->
+-    <string name="monitoring_description_two_named_vpns">You\'re connected to <xliff:g id="vpn_app" example="Foo VPN App">%1$s</xliff:g> and <xliff:g id="vpn_app" example="Bar VPN App">%2$s</xliff:g>, which can monitor your network activity, including emails, apps, and websites.</string>
++    <string name="monitoring_description_two_named_vpns">You\'re connected to <xliff:g example="Foo VPN App" id="vpn_app">%1$s</xliff:g> and <xliff:g example="Bar VPN App" id="vpn_app">%2$s</xliff:g>, which can monitor your network activity, including emails, apps, and websites.</string>
+ 
+     <!-- Monitoring dialog: Description of an active VPN in the work profile. [CHAR LIMIT=NONE]-->
+-    <string name="monitoring_description_managed_profile_named_vpn">Your work profile is connected to <xliff:g id="vpn_app" example="Foo VPN App">%1$s</xliff:g>, which can monitor your network activity, including emails, apps, and websites.</string>
++    <string name="monitoring_description_managed_profile_named_vpn">Your work profile is connected to <xliff:g example="Foo VPN App" id="vpn_app">%1$s</xliff:g>, which can monitor your network activity, including emails, apps, and websites.</string>
+ 
+     <!-- Monitoring dialog: Description of an active VPN in the personal profile (as opposed to the work profile). [CHAR LIMIT=NONE]-->
+-    <string name="monitoring_description_personal_profile_named_vpn">Your personal profile is connected to <xliff:g id="vpn_app" example="Foo VPN App">%1$s</xliff:g>, which can monitor your network activity, including emails, apps, and websites.</string>
++    <string name="monitoring_description_personal_profile_named_vpn">Your personal profile is connected to <xliff:g example="Foo VPN App" id="vpn_app">%1$s</xliff:g>, which can monitor your network activity, including emails, apps, and websites.</string>
+ 
+     <!-- Monitoring dialog: Header indicating that the device is managed by a Device Owner app [CHAR LIMIT=80] -->
+-    <string name="monitoring_description_do_header_generic">Your device is managed by <xliff:g id="device_owner_app" example="Google Mobile Management">%1$s</xliff:g>.</string>
++    <string name="monitoring_description_do_header_generic">Your device is managed by <xliff:g example="Google Mobile Management" id="device_owner_app">%1$s</xliff:g>.</string>
+ 
+     <!-- Monitoring dialog: Header indicating that the device is managed by a Device Owner app [CHAR LIMIT=60] -->
+-    <string name="monitoring_description_do_header_with_name"><xliff:g id="organization_name" example="Foo, Inc.">%1$s</xliff:g> uses <xliff:g id="device_owner_app" example="Google Mobile Management">%2$s</xliff:g> to manage your device.</string>
++    <string name="monitoring_description_do_header_with_name"><xliff:g example="Foo, Inc." id="organization_name">%1$s</xliff:g> uses <xliff:g example="Google Mobile Management" id="device_owner_app">%2$s</xliff:g> to manage your device.</string>
+ 
+     <!-- Monitoring dialog: Part of text body explaining what a Device Owner app can do [CHAR LIMIT=130] -->
+     <string name="monitoring_description_do_body">Your admin can monitor and manage settings, corporate access, apps, data associated with your device, and your device\'s location information.</string>
+@@ -1219,7 +1220,7 @@
+     <string name="hidden_notifications_setup">Set up</string>
+ 
+     <!-- Accessibility string for current zen mode and selected exit condition. A template that simply concatenates existing mode string and the current condition description. [CHAR LIMIT=20] -->
+-    <string name="zen_mode_and_condition"><xliff:g id="zen_mode" example="Priority interruptions only">%1$s</xliff:g>. <xliff:g id="exit_condition" example="For one hour">%2$s</xliff:g></string>
++    <string name="zen_mode_and_condition"><xliff:g example="Priority interruptions only" id="zen_mode">%1$s</xliff:g>. <xliff:g example="For one hour" id="exit_condition">%2$s</xliff:g></string>
+ 
+     <!-- Button label for ending zen mode in the volume dialog -->
+     <string name="volume_zen_end_now">Turn off now</string>
+@@ -1242,7 +1243,7 @@
+     <string name="screen_pinning_negative">No thanks</string>
+ 
+     <!-- Hide quick settings tile confirmation title -->
+-    <string name="quick_settings_reset_confirmation_title">Hide <xliff:g id="tile_label" example="Hotspot">%1$s</xliff:g>?</string>
++    <string name="quick_settings_reset_confirmation_title">Hide <xliff:g example="Hotspot" id="tile_label">%1$s</xliff:g>?</string>
+ 
+     <!-- Hide quick settings tile confirmation message -->
+     <string name="quick_settings_reset_confirmation_message">It will reappear the next time you turn it on in settings.</string>
+@@ -1333,19 +1334,19 @@
+     </string>
+ 
+     <!-- Warning text when an alarm might be silenced by Do Not Disturb [CHAR LIMIT=NONE] -->
+-    <string name="zen_alarm_warning_indef">You won\'t hear your next alarm <xliff:g id="when" example="at 7:00 AM">%1$s</xliff:g> unless you turn this off before then</string>
++    <string name="zen_alarm_warning_indef">You won\'t hear your next alarm <xliff:g example="at 7:00 AM" id="when">%1$s</xliff:g> unless you turn this off before then</string>
+ 
+     <!-- Warning text when an alarm might be silenced by Do Not Disturb due to a time-based condition [CHAR LIMIT=NONE] -->
+-    <string name="zen_alarm_warning">You won\'t hear your next alarm <xliff:g id="when" example="at 7:00 AM">%1$s</xliff:g></string>
++    <string name="zen_alarm_warning">You won\'t hear your next alarm <xliff:g example="at 7:00 AM" id="when">%1$s</xliff:g></string>
+ 
+     <!-- Alarm template for near alarms [CHAR LIMIT=25] -->
+-    <string name="alarm_template">at <xliff:g id="when" example="7:00 AM">%1$s</xliff:g></string>
++    <string name="alarm_template">at <xliff:g example="7:00 AM" id="when">%1$s</xliff:g></string>
+ 
+     <!-- Alarm template for far alarms [CHAR LIMIT=25] -->
+-    <string name="alarm_template_far">on <xliff:g id="when" example="Fri 7:00 AM">%1$s</xliff:g></string>
++    <string name="alarm_template_far">on <xliff:g example="Fri 7:00 AM" id="when">%1$s</xliff:g></string>
+ 
+     <!-- Accessibility label for Quick Settings detail screens [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_quick_settings_detail">Quick Settings, <xliff:g id="title" example="Wi-Fi">%s</xliff:g>.</string>
++    <string name="accessibility_quick_settings_detail">Quick Settings, <xliff:g example="Wi-Fi" id="title">%s</xliff:g>.</string>
+ 
+     <!-- Accessibility label for hotspot icon [CHAR LIMIT=NONE] -->
+     <string name="accessibility_status_bar_hotspot">Hotspot</string>
+@@ -1485,10 +1486,10 @@
+ 
+     <!-- Notification: Control panel: Accessibility description for expanded inline controls view, used
+         to control settings about notifications related to the current notification.  -->
+-    <string name="notification_channel_controls_opened_accessibility">Notification controls for <xliff:g id="app_name" example="YouTube">%1$s</xliff:g> opened</string>
++    <string name="notification_channel_controls_opened_accessibility">Notification controls for <xliff:g example="YouTube" id="app_name">%1$s</xliff:g> opened</string>
+     <!-- Notification: Control panel: Accessibility description for announcing the closing of the
+         inline controls view.  -->
+-    <string name="notification_channel_controls_closed_accessibility">Notification controls for <xliff:g id="app_name" example="YouTube">%1$s</xliff:g> closed</string>
++    <string name="notification_channel_controls_closed_accessibility">Notification controls for <xliff:g example="YouTube" id="app_name">%1$s</xliff:g> closed</string>
+     <!-- Notification: Control panel: Accessibility description for switch that is used to enable
+         or disable notifications from this channel -->
+     <string name="notification_channel_switch_accessibility">Allow notifications from this channel</string>
+@@ -1500,12 +1501,12 @@
+     <string name="notification_more_settings">More settings</string>
+     <!-- Notification: Control panel: Label for a link that launches notification settings in the
+         app that sent the notification. -->
+-    <string name="notification_app_settings">Customize: <xliff:g id="sub_category" example="Work chats">%1$s</xliff:g></string>
++    <string name="notification_app_settings">Customize: <xliff:g example="Work chats" id="sub_category">%1$s</xliff:g></string>
+     <!-- Notification: Control panel: Label for button that dismisses control panel. [CHAR LIMIT=NONE] -->
+     <string name="notification_done">Done</string>
+ 
+     <!-- Notification: Menu row: Content description for menu items. [CHAR LIMIT=NONE] -->
+-    <string name="notification_menu_accessibility"><xliff:g id="app_name" example="YouTube">%1$s</xliff:g> <xliff:g id="menu_description" example="notification controls">%2$s</xliff:g></string>
++    <string name="notification_menu_accessibility"><xliff:g example="YouTube" id="app_name">%1$s</xliff:g> <xliff:g example="notification controls" id="menu_description">%2$s</xliff:g></string>
+ 
+     <!-- Notification: Menu row: Content description for the gear menu item. [CHAR LIMIT=NONE] -->
+     <string name="notification_menu_gear_description">notification controls</string>
+@@ -1804,28 +1805,28 @@
+     <string name="accessibility_action_divider_bottom_full">Bottom full screen</string>
+ 
+     <!-- Accessibility description of a QS tile while editing positions [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_qs_edit_tile_label">Position <xliff:g id="position" example="2">%1$d</xliff:g>, <xliff:g id="tile_name" example="Wi-Fi">%2$s</xliff:g>. Double tap to edit.</string>
++    <string name="accessibility_qs_edit_tile_label">Position <xliff:g example="2" id="position">%1$d</xliff:g>, <xliff:g example="Wi-Fi" id="tile_name">%2$s</xliff:g>. Double tap to edit.</string>
+ 
+     <!-- Accessibility description of a QS tile while editing positions [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_qs_edit_add_tile_label"><xliff:g id="tile_name" example="Wi-Fi">%1$s</xliff:g>. Double tap to add.</string>
++    <string name="accessibility_qs_edit_add_tile_label"><xliff:g example="Wi-Fi" id="tile_name">%1$s</xliff:g>. Double tap to add.</string>
+ 
+     <!-- Accessibility description of a place to drop a tile while editing positions [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_qs_edit_position_label">Position <xliff:g id="position" example="2">%1$d</xliff:g>. Double tap to select.</string>
++    <string name="accessibility_qs_edit_position_label">Position <xliff:g example="2" id="position">%1$d</xliff:g>. Double tap to select.</string>
+ 
+     <!-- Accessibility description of option to move QS tile [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_qs_edit_move_tile">Move <xliff:g id="tile_name" example="Wi-Fi">%1$s</xliff:g></string>
++    <string name="accessibility_qs_edit_move_tile">Move <xliff:g example="Wi-Fi" id="tile_name">%1$s</xliff:g></string>
+ 
+     <!-- Accessibility description of option to remove QS tile [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_qs_edit_remove_tile">Remove <xliff:g id="tile_name" example="Wi-Fi">%1$s</xliff:g></string>
++    <string name="accessibility_qs_edit_remove_tile">Remove <xliff:g example="Wi-Fi" id="tile_name">%1$s</xliff:g></string>
+ 
+     <!-- Accessibility action when QS tile is added [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_qs_edit_tile_added"><xliff:g id="tile_name" example="Wi-Fi">%1$s</xliff:g> is added to position <xliff:g id="position" example="5">%2$d</xliff:g></string>
++    <string name="accessibility_qs_edit_tile_added"><xliff:g example="Wi-Fi" id="tile_name">%1$s</xliff:g> is added to position <xliff:g example="5" id="position">%2$d</xliff:g></string>
+ 
+     <!-- Accessibility action when QS tile is removed [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_qs_edit_tile_removed"><xliff:g id="tile_name" example="Wi-Fi">%1$s</xliff:g> is removed</string>
++    <string name="accessibility_qs_edit_tile_removed"><xliff:g example="Wi-Fi" id="tile_name">%1$s</xliff:g> is removed</string>
+ 
+     <!-- Accessibility action when QS tile is moved [CHAR LIMIT=NONE] -->
+-    <string name="accessibility_qs_edit_tile_moved"><xliff:g id="tile_name" example="Wi-Fi">%1$s</xliff:g> moved to position <xliff:g id="position" example="5">%2$d</xliff:g></string>
++    <string name="accessibility_qs_edit_tile_moved"><xliff:g example="Wi-Fi" id="tile_name">%1$s</xliff:g> moved to position <xliff:g example="5" id="position">%2$d</xliff:g></string>
+ 
+     <!-- Accessibility label for window when QS editing is happening [CHAR LIMIT=NONE] -->
+     <string name="accessibility_desc_quick_settings_edit">Quick settings editor.</string>
+@@ -1961,7 +1962,7 @@
+     <string name="lockscreen_none">None</string>
+ 
+     <!-- SysUI Tuner: Format string for describing launching an app [CHAR LIMIT=60] -->
+-    <string name="tuner_launch_app">Launch <xliff:g id="app" example="Settings">%1$s</xliff:g></string>
++    <string name="tuner_launch_app">Launch <xliff:g example="Settings" id="app">%1$s</xliff:g></string>
+ 
+     <!-- SysUI Tuner: Label for section of other apps that can be launched [CHAR LIMIT=60] -->
+     <string name="tuner_other_apps">Other apps</string>
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/NavigationBarFragment.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/NavigationBarFragment.java
+index f02c835..8a6e4c0 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/NavigationBarFragment.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/NavigationBarFragment.java
+@@ -99,7 +99,9 @@ public class NavigationBarFragment extends Fragment implements Callbacks {
+     private static final boolean DEBUG = false;
+     private static final String EXTRA_DISABLE_STATE = "disabled_state";
+ 
+-    /** Allow some time inbetween the long press for back and recents. */
++    /**
++     * Allow some time inbetween the long press for back and recents.
++     */
+     private static final int LOCK_TO_APP_GESTURE_TOLERENCE = 200;
+ 
+     protected NavigationBarView mNavigationBarView = null;
+@@ -180,7 +182,7 @@ public class NavigationBarFragment extends Fragment implements Callbacks {
+ 
+     @Override
+     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
+-            Bundle savedInstanceState) {
++                             Bundle savedInstanceState) {
+         return inflater.inflate(R.layout.navigation_bar, container, false);
+     }
+ 
+@@ -262,7 +264,7 @@ public class NavigationBarFragment extends Fragment implements Callbacks {
+ 
+     @Override
+     public void setImeWindowStatus(IBinder token, int vis, int backDisposition,
+-            boolean showImeSwitcher) {
++                                   boolean showImeSwitcher) {
+         boolean imeShown = (vis & InputMethodService.IME_VISIBLE) != 0;
+         int hints = mNavigationIconHints;
+         if ((backDisposition == InputMethodService.BACK_DISPOSITION_WILL_DISMISS) || imeShown) {
+@@ -316,7 +318,7 @@ public class NavigationBarFragment extends Fragment implements Callbacks {
+ 
+     @Override
+     public void setSystemUiVisibility(int vis, int fullscreenStackVis, int dockedStackVis,
+-            int mask, Rect fullscreenStackBounds, Rect dockedStackBounds) {
++                                      int mask, Rect fullscreenStackBounds, Rect dockedStackBounds) {
+         final int oldVal = mSystemUiVisibility;
+         final int newVal = (oldVal & ~mask) | (vis & mask);
+         final int diff = newVal ^ oldVal;
+@@ -486,10 +488,10 @@ public class NavigationBarFragment extends Fragment implements Callbacks {
+      * This handles long-press of both back and recents.  They are
+      * handled together to capture them both being long-pressed
+      * at the same time to exit screen pinning (lock task).
+-     *
++     * <p>
+      * When accessibility mode is on, only a long-press from recents
+      * is required to exit.
+-     *
++     * <p>
+      * In all other circumstances we try to pass through long-press events
+      * for Back, so that apps can still use it.  Which can be from two things.
+      * 1) Not currently in screen pinning (lock task).
+@@ -628,7 +630,7 @@ public class NavigationBarFragment extends Fragment implements Callbacks {
+         //OpenthosStatusBarView openthosStatusBar = (OpenthosStatusBarView)mNavigationBarView.
+         //                            findViewById(R.id.openthos_status_bar);
+         //return (LinearLayout)openthosStatusBar.findViewById(R.id.ll_scroll_icon_contents);
+-        return (OpenthosStatusBarView)mNavigationBarView.findViewById(R.id.openthos_status_bar);
++        return (OpenthosStatusBarView) mNavigationBarView.findViewById(R.id.openthos_status_bar);
+     }
+ 
+     private final AccessibilityServicesStateChangeListener mAccessibilityListener =
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/NavigationBarFrame.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/NavigationBarFrame.java
+index 741f783..9c1a854 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/NavigationBarFrame.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/NavigationBarFrame.java
+@@ -39,7 +39,7 @@ public class NavigationBarFrame extends FrameLayout {
+     }
+ 
+     public NavigationBarFrame(@NonNull Context context, @Nullable AttributeSet attrs,
+-            @AttrRes int defStyleAttr) {
++                              @AttrRes int defStyleAttr) {
+         super(context, attrs, defStyleAttr);
+     }
+ 
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/NotificationPanelView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/NotificationPanelView.java
+index b8974bc..8f847d9 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/NotificationPanelView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/NotificationPanelView.java
+@@ -645,7 +645,7 @@ public class NotificationPanelView extends PanelView implements
+ 
+     @Override
+     protected void flingToHeight(float vel, boolean expand, float target,
+-            float collapseSpeedUpFactor, boolean expandBecauseOfFalsing) {
++                                 float collapseSpeedUpFactor, boolean expandBecauseOfFalsing) {
+         mHeadsUpTouchHelper.notifyFling(!expand);
+         setClosingWithAlphaFadeout(!expand && getFadeoutAlpha() == 1.0f);
+         super.flingToHeight(vel, expand, target, collapseSpeedUpFactor, expandBecauseOfFalsing);
+@@ -920,11 +920,11 @@ public class NotificationPanelView extends PanelView implements
+ 
+         final boolean stylusButtonClickDrag = action == MotionEvent.ACTION_DOWN
+                 && (event.isButtonPressed(MotionEvent.BUTTON_STYLUS_PRIMARY)
+-                        || event.isButtonPressed(MotionEvent.BUTTON_STYLUS_SECONDARY));
++                || event.isButtonPressed(MotionEvent.BUTTON_STYLUS_SECONDARY));
+ 
+         final boolean mouseButtonClickDrag = action == MotionEvent.ACTION_DOWN
+                 && (event.isButtonPressed(MotionEvent.BUTTON_SECONDARY)
+-                        || event.isButtonPressed(MotionEvent.BUTTON_TERTIARY));
++                || event.isButtonPressed(MotionEvent.BUTTON_TERTIARY));
+ 
+         return twoFingerDrag || stylusButtonClickDrag || mouseButtonClickDrag;
+     }
+@@ -1095,7 +1095,7 @@ public class NotificationPanelView extends PanelView implements
+     }
+ 
+     public void setBarState(int statusBarState, boolean keyguardFadingAway,
+-            boolean goingToFullShade) {
++                            boolean goingToFullShade) {
+         int oldState = mStatusBarState;
+         boolean keyguardShowing = statusBarState == StatusBarState.KEYGUARD;
+         setKeyguardStatusViewVisibility(statusBarState, keyguardFadingAway, goingToFullShade);
+@@ -1179,12 +1179,12 @@ public class NotificationPanelView extends PanelView implements
+ 
+     private final ValueAnimator.AnimatorUpdateListener mStatusBarAnimateAlphaListener =
+             new ValueAnimator.AnimatorUpdateListener() {
+-        @Override
+-        public void onAnimationUpdate(ValueAnimator animation) {
+-            mKeyguardStatusBarAnimateAlpha = (float) animation.getAnimatedValue();
+-            updateHeaderKeyguardAlpha();
+-        }
+-    };
++                @Override
++                public void onAnimationUpdate(ValueAnimator animation) {
++                    mKeyguardStatusBarAnimateAlpha = (float) animation.getAnimatedValue();
++                    updateHeaderKeyguardAlpha();
++                }
++            };
+ 
+     private void animateKeyguardStatusBarIn(long duration) {
+         mKeyguardStatusBar.setVisibility(View.VISIBLE);
+@@ -1204,7 +1204,7 @@ public class NotificationPanelView extends PanelView implements
+     };
+ 
+     private void setKeyguardBottomAreaVisibility(int statusBarState,
+-            boolean goingToFullShade) {
++                                                 boolean goingToFullShade) {
+         mKeyguardBottomArea.animate().cancel();
+         if (goingToFullShade) {
+             mKeyguardBottomArea.animate()
+@@ -1225,7 +1225,7 @@ public class NotificationPanelView extends PanelView implements
+     }
+ 
+     private void setKeyguardStatusViewVisibility(int statusBarState, boolean keyguardFadingAway,
+-            boolean goingToFullShade) {
++                                                 boolean goingToFullShade) {
+         if ((!keyguardFadingAway && mStatusBarState == StatusBarState.KEYGUARD
+                 && statusBarState != StatusBarState.KEYGUARD) || goingToFullShade) {
+             mKeyguardStatusView.animate().cancel();
+@@ -1239,7 +1239,7 @@ public class NotificationPanelView extends PanelView implements
+             if (keyguardFadingAway) {
+                 mKeyguardStatusView.animate()
+                         .setStartDelay(mStatusBar.getKeyguardFadingAwayDelay())
+-                        .setDuration(mStatusBar.getKeyguardFadingAwayDuration()/2)
++                        .setDuration(mStatusBar.getKeyguardFadingAwayDuration() / 2)
+                         .start();
+             }
+         } else if (mStatusBarState == StatusBarState.SHADE_LOCKED
+@@ -1275,8 +1275,8 @@ public class NotificationPanelView extends PanelView implements
+         updateEmptyShadeView();
+         mQsNavbarScrim.setVisibility(mStatusBarState == StatusBarState.SHADE && mQsExpanded
+                 && !mStackScrollerOverscrolling && mQsScrimEnabled
+-                        ? View.VISIBLE
+-                        : View.INVISIBLE);
++                ? View.VISIBLE
++                : View.INVISIBLE);
+         if (mKeyguardUserSwitcher != null && mQsExpanded && !mStackScrollerOverscrolling) {
+             mKeyguardUserSwitcher.hideIfNotSimple(true /* animate */);
+         }
+@@ -1421,7 +1421,7 @@ public class NotificationPanelView extends PanelView implements
+     }
+ 
+     protected void flingSettings(float vel, boolean expand, final Runnable onFinishRunnable,
+-            boolean isClick) {
++                                 boolean isClick) {
+         float target = expand ? mQsMaxExpansionHeight : mQsMinExpansionHeight;
+         if (target == mQsExpansionHeight) {
+             if (onFinishRunnable != null) {
+@@ -1568,7 +1568,7 @@ public class NotificationPanelView extends PanelView implements
+ 
+     /**
+      * @return a temporary override of {@link #mQsMaxExpansionHeight}, which is needed when
+-     *         collapsing QS / the panel when QS was scrolled
++     * collapsing QS / the panel when QS was scrolled
+      */
+     private int getTempQsMaxExpansion() {
+         return mQsMaxExpansionHeight;
+@@ -1679,7 +1679,7 @@ public class NotificationPanelView extends PanelView implements
+ 
+     /**
+      * @return the alpha to be used to fade out the contents on Keyguard (status bar, bottom area)
+-     *         during swiping up
++     * during swiping up
+      */
+     private float getKeyguardContentsAlpha() {
+         float alpha;
+@@ -1932,14 +1932,13 @@ public class NotificationPanelView extends PanelView implements
+             mFalsingManager.onLeftAffordanceOn();
+             if (mFalsingManager.shouldEnforceBouncer()) {
+                 mStatusBar.executeRunnableDismissingKeyguard(new Runnable() {
+-                    @Override
+-                    public void run() {
+-                        mKeyguardBottomArea.launchLeftAffordance();
+-                    }
+-                }, null, true /* dismissShade */, false /* afterKeyguardGone */,
++                                                                 @Override
++                                                                 public void run() {
++                                                                     mKeyguardBottomArea.launchLeftAffordance();
++                                                                 }
++                                                             }, null, true /* dismissShade */, false /* afterKeyguardGone */,
+                         true /* deferred */);
+-            }
+-            else {
++            } else {
+                 mKeyguardBottomArea.launchLeftAffordance();
+             }
+         } else {
+@@ -1950,14 +1949,13 @@ public class NotificationPanelView extends PanelView implements
+             mFalsingManager.onCameraOn();
+             if (mFalsingManager.shouldEnforceBouncer()) {
+                 mStatusBar.executeRunnableDismissingKeyguard(new Runnable() {
+-                    @Override
+-                    public void run() {
+-                        mKeyguardBottomArea.launchCamera(mLastCameraLaunchSource);
+-                    }
+-                }, null, true /* dismissShade */, false /* afterKeyguardGone */,
+-                    true /* deferred */);
+-            }
+-            else {
++                                                                 @Override
++                                                                 public void run() {
++                                                                     mKeyguardBottomArea.launchCamera(mLastCameraLaunchSource);
++                                                                 }
++                                                             }, null, true /* dismissShade */, false /* afterKeyguardGone */,
++                        true /* deferred */);
++            } else {
+                 mKeyguardBottomArea.launchCamera(mLastCameraLaunchSource);
+             }
+         }
+@@ -2376,7 +2374,7 @@ public class NotificationPanelView extends PanelView implements
+         x = Math.min(rightMost, Math.max(leftMost, x));
+         setVerticalPanelTranslation(x -
+                 (mNotificationStackScroller.getLeft() + mNotificationStackScroller.getWidth() / 2));
+-     }
++    }
+ 
+     private void resetVerticalPanelPosition() {
+         setVerticalPanelTranslation(0f);
+@@ -2398,7 +2396,7 @@ public class NotificationPanelView extends PanelView implements
+ 
+     /**
+      * @return whether the notifications are displayed full width and don't have any margins on
+-     *         the side.
++     * the side.
+      */
+     public boolean isFullWidth() {
+         return mIsFullWidth;
+@@ -2517,8 +2515,8 @@ public class NotificationPanelView extends PanelView implements
+         String packageToLaunch = (resolveInfo == null || resolveInfo.activityInfo == null)
+                 ? null : resolveInfo.activityInfo.packageName;
+         return packageToLaunch != null &&
+-               (keyguardIsShowing || !isForegroundApp(packageToLaunch)) &&
+-               !mAffordanceHelper.isSwipingInProgress();
++                (keyguardIsShowing || !isForegroundApp(packageToLaunch)) &&
++                !mAffordanceHelper.isSwipingInProgress();
+     }
+ 
+     /**
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+index 2cfb14b..271a393 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+@@ -30,7 +30,7 @@ import com.android.systemui.R;
+  * Created by cao on 17-9-26.
+  */
+ 
+-public class OpenthosStatusBarView extends PanelBar{
++public class OpenthosStatusBarView extends PanelBar {
+     private static final String TAG = "OpenthosStatusBarView";
+ 
+     private StatusBar mStatusBar;
+@@ -117,35 +117,35 @@ public class OpenthosStatusBarView extends PanelBar{
+         @Override
+         public void onClick(View v) {
+             switch (v.getId()) {
+-               case R.id.iv_startupmenu_status_bar:
+-                   showDialog(mStartupMenu, mStartupMenuDialog);
+-                   break;
+-               case R.id.iv_input_status_bar:
+-                   showDialog(mInputView, mInputManagerDialog);
+-                   break;
+-               case R.id.iv_battery_status_bar:
+-                   showDialog(mBatteryView, mBatteryDialog);
+-                   break;
+-               case R.id.iv_wifi_status_bar:
+-                   showDialog(mWifiView, mWifiDialog);
+-                   break;
+-               case R.id.iv_volume_status_bar:
+-                   showDialog(mVolumeView, mVolumeDialog);
+-                   break;
+-               case R.id.iv_notification_status_bar:
+-                   if (mCurrentDialog != null && mCurrentDialog.isShowing()) {
+-                       mCurrentDialog.dismiss();
+-                   }
+-                   mStatusBar.showCustomNotificationPanel();
+-                   break;
+-               case R.id.iv_date_status_bar:
+-                   showDialog(mCalendarView, mCalendarDialog);
+-                   break;
+-               case R.id.iv_home_status_bar:
+-                   Intent home=new Intent(Intent.ACTION_MAIN);
+-                   home.addCategory(Intent.CATEGORY_HOME);
+-                   mContext.startActivity(home);
+-                   break;
++                case R.id.iv_startupmenu_status_bar:
++                    showDialog(mStartupMenu, mStartupMenuDialog);
++                    break;
++                case R.id.iv_input_status_bar:
++                    showDialog(mInputView, mInputManagerDialog);
++                    break;
++                case R.id.iv_battery_status_bar:
++                    showDialog(mBatteryView, mBatteryDialog);
++                    break;
++                case R.id.iv_wifi_status_bar:
++                    showDialog(mWifiView, mWifiDialog);
++                    break;
++                case R.id.iv_volume_status_bar:
++                    showDialog(mVolumeView, mVolumeDialog);
++                    break;
++                case R.id.iv_notification_status_bar:
++                    if (mCurrentDialog != null && mCurrentDialog.isShowing()) {
++                        mCurrentDialog.dismiss();
++                    }
++                    mStatusBar.showCustomNotificationPanel();
++                    break;
++                case R.id.iv_date_status_bar:
++                    showDialog(mCalendarView, mCalendarDialog);
++                    break;
++                case R.id.iv_home_status_bar:
++                    Intent home = new Intent(Intent.ACTION_MAIN);
++                    home.addCategory(Intent.CATEGORY_HOME);
++                    mContext.startActivity(home);
++                    break;
+             }
+         }
+     };
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/PanelBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/PanelBar.java
+index cefe972..5b4994b 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/PanelBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/PanelBar.java
+@@ -113,7 +113,7 @@ public abstract class PanelBar extends FrameLayout {
+     public abstract void panelScrimMinFractionChanged(float minFraction);
+ 
+     /**
+-     * @param frac the fraction from the expansion in [0, 1]
++     * @param frac     the fraction from the expansion in [0, 1]
+      * @param expanded whether the panel is currently expanded; this is independent from the
+      *                 fraction as the panel also might be expanded if the fraction is 0
+      */
+@@ -143,7 +143,7 @@ public abstract class PanelBar extends FrameLayout {
+         }
+ 
+         if (SPEW) LOG("panelExpansionChanged: end state=%d [%s%s ]", mState,
+-                fullyOpened?" fullyOpened":"", fullyClosed?" fullyClosed":"");
++                fullyOpened ? " fullyOpened" : "", fullyClosed ? " fullyClosed" : "");
+     }
+ 
+     public void collapsePanel(boolean animate, boolean delayed, float speedUpFactor) {
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/PanelView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/PanelView.java
+index afe5c91..903f1ce 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/PanelView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/PanelView.java
+@@ -399,7 +399,8 @@ public abstract class PanelView extends FrameLayout {
+         return !mGestureWaitForTouchSlop || mTracking;
+     }
+ 
+-    private void startOpening() {;
++    private void startOpening() {
++        ;
+         runPeekAnimation(INITIAL_OPENING_PEEK_DURATION, getOpeningHeight(),
+                 false /* collapseWhenFinished */);
+         notifyBarPanelExpansionChanged();
+@@ -429,7 +430,7 @@ public abstract class PanelView extends FrameLayout {
+     }
+ 
+     protected void startExpandMotion(float newX, float newY, boolean startTracking,
+-            float expandedHeight) {
++                                     float expandedHeight) {
+         mInitialOffsetOnTouch = expandedHeight;
+         mInitialTouchY = newY;
+         mInitialTouchX = newX;
+@@ -461,15 +462,15 @@ public abstract class PanelView extends FrameLayout {
+             DozeLog.traceFling(expand, mTouchAboveFalsingThreshold,
+                     mStatusBar.isFalsingThresholdNeeded(),
+                     mStatusBar.isWakeUpComingFromTouch());
+-                    // Log collapse gesture if on lock screen.
+-                    if (!expand && mStatusBar.getBarState() == StatusBarState.KEYGUARD) {
+-                        float displayDensity = mStatusBar.getDisplayDensity();
+-                        int heightDp = (int) Math.abs((y - mInitialTouchY) / displayDensity);
+-                        int velocityDp = (int) Math.abs(vel / displayDensity);
+-                        mLockscreenGestureLogger.write(
+-                                MetricsEvent.ACTION_LS_UNLOCK,
+-                                heightDp, velocityDp);
+-                    }
++            // Log collapse gesture if on lock screen.
++            if (!expand && mStatusBar.getBarState() == StatusBarState.KEYGUARD) {
++                float displayDensity = mStatusBar.getDisplayDensity();
++                int heightDp = (int) Math.abs((y - mInitialTouchY) / displayDensity);
++                int velocityDp = (int) Math.abs(vel / displayDensity);
++                mLockscreenGestureLogger.write(
++                        MetricsEvent.ACTION_LS_UNLOCK,
++                        heightDp, velocityDp);
++            }
+             fling(vel, expand, isFalseTouch(x, y));
+             onTrackingStopped(expand);
+             mUpdateFlingOnLayout = expand && mPanelClosedOnDown && !mHasLayoutedSinceDown;
+@@ -672,7 +673,7 @@ public abstract class PanelView extends FrameLayout {
+     }
+ 
+     /**
+-     * @param vel the current vertical velocity of the motion
++     * @param vel       the current vertical velocity of the motion
+      * @param vectorVel the length of the vectorial velocity
+      * @return whether a fling should expands the panel; contracts otherwise
+      */
+@@ -717,7 +718,7 @@ public abstract class PanelView extends FrameLayout {
+     }
+ 
+     protected void fling(float vel, boolean expand, float collapseSpeedUpFactor,
+-            boolean expandBecauseOfFalsing) {
++                         boolean expandBecauseOfFalsing) {
+         cancelPeek();
+         float target = expand ? getMaxPanelHeight() : 0;
+         if (!expand) {
+@@ -727,7 +728,7 @@ public abstract class PanelView extends FrameLayout {
+     }
+ 
+     protected void flingToHeight(float vel, boolean expand, float target,
+-            float collapseSpeedUpFactor, boolean expandBecauseOfFalsing) {
++                                 float collapseSpeedUpFactor, boolean expandBecauseOfFalsing) {
+         // Hack to make the expand transition look nice when clear all button is visible - we make
+         // the animation only to the last notification, and then jump to the maximum panel height so
+         // clear all just fades in and the decelerating motion is towards the last notification.
+@@ -813,7 +814,7 @@ public abstract class PanelView extends FrameLayout {
+     }
+ 
+     @Override
+-    protected void onLayout (boolean changed, int left, int top, int right, int bottom) {
++    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+         super.onLayout(changed, left, top, right, bottom);
+         mStatusBar.onPanelLaidOut();
+         requestPanelHeightUpdate();
+@@ -888,7 +889,7 @@ public abstract class PanelView extends FrameLayout {
+ 
+     /**
+      * @return true if the panel tracking should be temporarily blocked; this is used when a
+-     *         conflicting gesture (opening QS) is happening
++     * conflicting gesture (opening QS) is happening
+      */
+     protected abstract boolean isTrackingBlocked();
+ 
+@@ -1202,23 +1203,24 @@ public abstract class PanelView extends FrameLayout {
+ 
+     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
+         pw.println(String.format("[PanelView(%s): expandedHeight=%f maxPanelHeight=%d closing=%s"
+-                + " tracking=%s justPeeked=%s peekAnim=%s%s timeAnim=%s%s touchDisabled=%s"
+-                + "]",
++                        + " tracking=%s justPeeked=%s peekAnim=%s%s timeAnim=%s%s touchDisabled=%s"
++                        + "]",
+                 this.getClass().getSimpleName(),
+                 getExpandedHeight(),
+                 getMaxPanelHeight(),
+-                mClosing?"T":"f",
+-                mTracking?"T":"f",
+-                mJustPeeked?"T":"f",
+-                mPeekAnimator, ((mPeekAnimator!=null && mPeekAnimator.isStarted())?" (started)":""),
+-                mHeightAnimator, ((mHeightAnimator !=null && mHeightAnimator.isStarted())?" (started)":""),
+-                mTouchDisabled?"T":"f"
++                mClosing ? "T" : "f",
++                mTracking ? "T" : "f",
++                mJustPeeked ? "T" : "f",
++                mPeekAnimator, ((mPeekAnimator != null && mPeekAnimator.isStarted()) ? " (started)" : ""),
++                mHeightAnimator, ((mHeightAnimator != null && mHeightAnimator.isStarted()) ? " (started)" : ""),
++                mTouchDisabled ? "T" : "f"
+         ));
+     }
+ 
+     public abstract void resetViews();
+ 
+     protected abstract float getPeekHeight();
++
+     /**
+      * @return whether "Clear all" button will be visible when the panel is fully expanded
+      */
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 36be668..43851c3 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -362,7 +362,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     //Notification panel
+     private static final String NOTIFICATION_SETTINGS = "com.android.settings";
+     private static final String NOTIFICATION_SETTINGS_MANAGER =
+-                                NOTIFICATION_SETTINGS + ".applications.ManageApplications";
++            NOTIFICATION_SETTINGS + ".applications.ManageApplications";
+ 
+     private static final AudioAttributes VIBRATION_ATTRIBUTES = new AudioAttributes.Builder()
+             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+@@ -373,11 +373,15 @@ public class StatusBar extends SystemUI implements DemoMode,
+     public static final int FADE_KEYGUARD_DURATION = 300;
+     public static final int FADE_KEYGUARD_DURATION_PULSING = 96;
+ 
+-    /** If true, the system is in the half-boot-to-decryption-screen state.
+-     * Prudently disable QS and notifications.  */
++    /**
++     * If true, the system is in the half-boot-to-decryption-screen state.
++     * Prudently disable QS and notifications.
++     */
+     private static final boolean ONLY_CORE_APPS;
+ 
+-    /** If true, the lockscreen will show a distinct wallpaper */
++    /**
++     * If true, the lockscreen will show a distinct wallpaper
++     */
+     private static final boolean ENABLE_LOCKSCREEN_WALLPAPER = true;
+ 
+     /* If true, the device supports freeform window management.
+@@ -518,8 +522,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     // XXX: gesture research
+     private final GestureRecorder mGestureRec = DEBUG_GESTURES
+-        ? new GestureRecorder("/sdcard/statusbar_gestures.dat")
+-        : null;
++            ? new GestureRecorder("/sdcard/statusbar_gestures.dat")
++            : null;
+ 
+     private ScreenPinningRequest mScreenPinningRequest;
+ 
+@@ -628,16 +632,18 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     private final OnChildLocationsChangedListener mOnChildLocationsChangedListener =
+             new OnChildLocationsChangedListener() {
+-        @Override
+-        public void onChildLocationsChanged(NotificationStackScrollLayout stackScrollLayout) {
+-            userActivity();
+-        }
+-    };
++                @Override
++                public void onChildLocationsChanged(NotificationStackScrollLayout stackScrollLayout) {
++                    userActivity();
++                }
++            };
+ 
+     private int mDisabledUnmodified1;
+     private int mDisabledUnmodified2;
+ 
+-    /** Keys of notifications currently visible to the user. */
++    /**
++     * Keys of notifications currently visible to the user.
++     */
+     private final ArraySet<NotificationVisibility> mCurrentlyVisibleNotifications =
+             new ArraySet<>();
+     private long mLastVisibilityReportUptimeMs;
+@@ -776,7 +782,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     private void recycleAllVisibilityObjects(ArraySet<NotificationVisibility> array) {
+         final int N = array.size();
+-        for (int i = 0 ; i < N; i++) {
++        for (int i = 0; i < N; i++) {
+             array.valueAt(i).recycle();
+         }
+         array.clear();
+@@ -939,12 +945,12 @@ public class StatusBar extends SystemUI implements DemoMode,
+         if (DEBUG) {
+             Log.d(TAG, String.format(
+                     "init: icons=%d disabled=0x%08x lights=0x%08x menu=0x%08x imeButton=0x%08x",
+-                   icons.size(),
+-                   switches[0],
+-                   switches[1],
+-                   switches[2],
+-                   switches[3]
+-                   ));
++                    icons.size(),
++                    switches[0],
++                    switches[1],
++                    switches[2],
++                    switches[3]
++            ));
+         }
+ 
+         mCurrentUserId = ActivityManager.getCurrentUser();
+@@ -1220,7 +1226,9 @@ public class StatusBar extends SystemUI implements DemoMode,
+             updateReportRejectedTouchVisibility();
+             mReportRejectedTouch.setOnClickListener(v -> {
+                 Uri session = mFalsingManager.reportRejectedTouch();
+-                if (session == null) { return; }
++                if (session == null) {
++                    return;
++                }
+ 
+                 StringWriter message = new StringWriter();
+                 message.write("Build info: ");
+@@ -1492,12 +1500,12 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 case R.id.notification_manager:
+                     Intent displayIntent = new Intent();
+                     ComponentName cDisplay = new ComponentName(NOTIFICATION_SETTINGS,
+-                                                 NOTIFICATION_SETTINGS_MANAGER);
++                            NOTIFICATION_SETTINGS_MANAGER);
+                     displayIntent.setComponent(cDisplay);
+                     displayIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                     mContext.startActivity(displayIntent);
+                     break;
+-		case R.id.notification_clear_all:
++                case R.id.notification_clear_all:
+                     mMetricsLogger.action(MetricsEvent.ACTION_DISMISS_ALL_NOTES);
+                     clearAllNotifications();
+                     break;
+@@ -1574,7 +1582,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 }
+                 try {
+                     mBarService.onClearAllNotifications(mCurrentUserId);
+-                } catch (Exception ex) { }
++                } catch (Exception ex) {
++                }
+             }
+         });
+ 
+@@ -1827,7 +1836,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+             boolean ignoreEarliestRemovalTime = mRemoteInputController.isSpinning(key)
+                     && !FORCE_REMOTE_INPUT_HISTORY
+                     || !mVisualStabilityManager.isReorderingAllowed();
+-            deferRemoval = !mHeadsUpManager.removeNotification(key,  ignoreEarliestRemovalTime);
++            deferRemoval = !mHeadsUpManager.removeNotification(key, ignoreEarliestRemovalTime);
+         }
+         if (key.equals(mMediaNotificationKey)) {
+             clearCurrentMediaNotification();
+@@ -1928,15 +1937,15 @@ public class StatusBar extends SystemUI implements DemoMode,
+      * Ensures that the group children are cancelled immediately when the group summary is cancelled
+      * instead of waiting for the notification manager to send all cancels. Otherwise this could
+      * lead to flickers.
+-     *
++     * <p>
+      * This also ensures that the animation looks nice and only consists of a single disappear
+      * animation instead of multiple.
+      *
+-     * @param key the key of the notification was removed
++     * @param key     the key of the notification was removed
+      * @param ranking the current ranking
+      */
+     private void handleGroupSummaryRemoved(String key,
+-            RankingMap ranking) {
++                                           RankingMap ranking) {
+         Entry entry = mNotificationData.get(key);
+         if (entry != null && entry.row != null
+                 && entry.row.isSummaryWithChildren()) {
+@@ -2010,7 +2019,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         ArrayList<Entry> activeNotifications = mNotificationData.getActiveNotifications();
+         ArrayList<ExpandableNotificationRow> toShow = new ArrayList<>(activeNotifications.size());
+         final int N = activeNotifications.size();
+-        for (int i=0; i<N; i++) {
++        for (int i = 0; i < N; i++) {
+             Entry ent = activeNotifications.get(i);
+             if (ent.row.isDismissed() || ent.row.isRemoved()) {
+                 // we don't want to update removed notifications because they could
+@@ -2045,7 +2054,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         }
+ 
+         ArrayList<ExpandableNotificationRow> toRemove = new ArrayList<>();
+-        for (int i=0; i< mStackScroller.getChildCount(); i++) {
++        for (int i = 0; i < mStackScroller.getChildCount(); i++) {
+             View child = mStackScroller.getChildAt(i);
+             if (!toShow.contains(child) && child instanceof ExpandableNotificationRow) {
+                 toRemove.add((ExpandableNotificationRow) child);
+@@ -2066,7 +2075,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+         removeNotificationChildren();
+ 
+-        for (int i=0; i<toShow.size(); i++) {
++        for (int i = 0; i < toShow.size(); i++) {
+             View v = toShow.get(i);
+             if (v.getParent() == null) {
+                 mVisualStabilityManager.notifyViewAddition(v);
+@@ -2116,7 +2125,9 @@ public class StatusBar extends SystemUI implements DemoMode,
+         mNotificationIconAreaController.updateNotificationIcons(mNotificationData);
+     }
+ 
+-    /** @return true if the entry needs redaction when on the lockscreen. */
++    /**
++     * @return true if the entry needs redaction when on the lockscreen.
++     */
+     private boolean needsRedaction(Entry ent) {
+         int userId = ent.notification.getUserId();
+ 
+@@ -2139,7 +2150,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     private void updateQsExpansionEnabled() {
+         mNotificationPanel.setQsExpansionEnabled(isDeviceProvisioned()
+                 && (mUserSetup || mUserSwitcherController == null
+-                        || !mUserSwitcherController.isSimpleUserSwitcher())
++                || !mUserSwitcherController.isSimpleUserSwitcher())
+                 && ((mDisabled2 & StatusBarManager.DISABLE2_QUICK_SETTINGS) == 0)
+                 && !mDozing
+                 && !ONLY_CORE_APPS);
+@@ -2160,7 +2171,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+             List<ExpandableNotificationRow> orderedChildren = mTmpChildOrderMap.get(parent);
+ 
+             for (int childIndex = 0; orderedChildren != null && childIndex < orderedChildren.size();
+-                    childIndex++) {
++                 childIndex++) {
+                 ExpandableNotificationRow childView = orderedChildren.get(childIndex);
+                 if (children == null || !children.contains(childView)) {
+                     if (childView.getParent() != null) {
+@@ -2256,7 +2267,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 continue;
+             }
+             if (((ExpandableNotificationRow) child).canViewBeDismissed()) {
+-                    return true;
++                return true;
+             }
+         }
+         return false;
+@@ -2352,7 +2363,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 if (isMediaNotification(entry)) {
+                     final MediaSession.Token token =
+                             entry.notification.getNotification().extras
+-                            .getParcelable(Notification.EXTRA_MEDIA_SESSION);
++                                    .getParcelable(Notification.EXTRA_MEDIA_SESSION);
+                     if (token != null) {
+                         MediaController aController = new MediaController(mContext, token);
+                         if (PlaybackState.STATE_PLAYING ==
+@@ -2376,8 +2387,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 if (mMediaSessionManager != null) {
+                     final List<MediaController> sessions
+                             = mMediaSessionManager.getActiveSessionsForUser(
+-                                    null,
+-                                    UserHandle.USER_ALL);
++                            null,
++                            UserHandle.USER_ALL);
+ 
+                     for (MediaController aController : sessions) {
+                         if (PlaybackState.STATE_PLAYING ==
+@@ -2390,7 +2401,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+                                 if (entry.notification.getPackageName().equals(pkg)) {
+                                     if (DEBUG_MEDIA) {
+                                         Log.v(TAG, "DEBUG_MEDIA: found controller matching "
+-                                            + entry.notification.getKey());
++                                                + entry.notification.getKey());
+                                     }
+                                     controller = aController;
+                                     mediaNotification = entry;
+@@ -2544,7 +2555,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         if ((hasArtwork || DEBUG_MEDIA_FAKE_ARTWORK)
+                 && (mState != StatusBarState.SHADE || allowWhenShade)
+                 && mFingerprintUnlockController.getMode()
+-                        != FingerprintUnlockController.MODE_WAKE_AND_UNLOCK_PULSING
++                != FingerprintUnlockController.MODE_WAKE_AND_UNLOCK_PULSING
+                 && !hideBecauseOccluded) {
+             // time to show some art!
+             if (mBackdrop.getVisibility() != View.VISIBLE) {
+@@ -2578,7 +2589,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 }
+ 
+                 if (DEBUG_MEDIA_FAKE_ARTWORK) {
+-                    final int c = 0xFF000000 | (int)(Math.random() * 0xFFFFFF);
++                    final int c = 0xFF000000 | (int) (Math.random() * 0xFFFFFF);
+                     Log.v(TAG, String.format("DEBUG_MEDIA: setting new color: 0x%08x", c));
+                     mBackdropBack.setBackgroundColor(0xFFFFFFFF);
+                     mBackdropBack.setImageDrawable(new ColorDrawable(c));
+@@ -2673,33 +2684,33 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+         if (DEBUG) {
+             Log.d(TAG, String.format("disable1: 0x%08x -> 0x%08x (diff1: 0x%08x)",
+-                old1, state1, diff1));
++                    old1, state1, diff1));
+             Log.d(TAG, String.format("disable2: 0x%08x -> 0x%08x (diff2: 0x%08x)",
+-                old2, state2, diff2));
++                    old2, state2, diff2));
+         }
+ 
+         StringBuilder flagdbg = new StringBuilder();
+         flagdbg.append("disable<");
+-        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_EXPAND))                ? 'E' : 'e');
+-        flagdbg.append(0 != ((diff1  & StatusBarManager.DISABLE_EXPAND))                ? '!' : ' ');
+-        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_NOTIFICATION_ICONS))    ? 'I' : 'i');
+-        flagdbg.append(0 != ((diff1  & StatusBarManager.DISABLE_NOTIFICATION_ICONS))    ? '!' : ' ');
+-        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_NOTIFICATION_ALERTS))   ? 'A' : 'a');
+-        flagdbg.append(0 != ((diff1  & StatusBarManager.DISABLE_NOTIFICATION_ALERTS))   ? '!' : ' ');
+-        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_SYSTEM_INFO))           ? 'S' : 's');
+-        flagdbg.append(0 != ((diff1  & StatusBarManager.DISABLE_SYSTEM_INFO))           ? '!' : ' ');
+-        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_BACK))                  ? 'B' : 'b');
+-        flagdbg.append(0 != ((diff1  & StatusBarManager.DISABLE_BACK))                  ? '!' : ' ');
+-        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_HOME))                  ? 'H' : 'h');
+-        flagdbg.append(0 != ((diff1  & StatusBarManager.DISABLE_HOME))                  ? '!' : ' ');
+-        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_RECENT))                ? 'R' : 'r');
+-        flagdbg.append(0 != ((diff1  & StatusBarManager.DISABLE_RECENT))                ? '!' : ' ');
+-        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_CLOCK))                 ? 'C' : 'c');
+-        flagdbg.append(0 != ((diff1  & StatusBarManager.DISABLE_CLOCK))                 ? '!' : ' ');
+-        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_SEARCH))                ? 'S' : 's');
+-        flagdbg.append(0 != ((diff1  & StatusBarManager.DISABLE_SEARCH))                ? '!' : ' ');
+-        flagdbg.append(0 != ((state2 & StatusBarManager.DISABLE2_QUICK_SETTINGS))       ? 'Q' : 'q');
+-        flagdbg.append(0 != ((diff2  & StatusBarManager.DISABLE2_QUICK_SETTINGS))       ? '!' : ' ');
++        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_EXPAND)) ? 'E' : 'e');
++        flagdbg.append(0 != ((diff1 & StatusBarManager.DISABLE_EXPAND)) ? '!' : ' ');
++        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_NOTIFICATION_ICONS)) ? 'I' : 'i');
++        flagdbg.append(0 != ((diff1 & StatusBarManager.DISABLE_NOTIFICATION_ICONS)) ? '!' : ' ');
++        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_NOTIFICATION_ALERTS)) ? 'A' : 'a');
++        flagdbg.append(0 != ((diff1 & StatusBarManager.DISABLE_NOTIFICATION_ALERTS)) ? '!' : ' ');
++        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_SYSTEM_INFO)) ? 'S' : 's');
++        flagdbg.append(0 != ((diff1 & StatusBarManager.DISABLE_SYSTEM_INFO)) ? '!' : ' ');
++        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_BACK)) ? 'B' : 'b');
++        flagdbg.append(0 != ((diff1 & StatusBarManager.DISABLE_BACK)) ? '!' : ' ');
++        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_HOME)) ? 'H' : 'h');
++        flagdbg.append(0 != ((diff1 & StatusBarManager.DISABLE_HOME)) ? '!' : ' ');
++        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_RECENT)) ? 'R' : 'r');
++        flagdbg.append(0 != ((diff1 & StatusBarManager.DISABLE_RECENT)) ? '!' : ' ');
++        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_CLOCK)) ? 'C' : 'c');
++        flagdbg.append(0 != ((diff1 & StatusBarManager.DISABLE_CLOCK)) ? '!' : ' ');
++        flagdbg.append(0 != ((state1 & StatusBarManager.DISABLE_SEARCH)) ? 'S' : 's');
++        flagdbg.append(0 != ((diff1 & StatusBarManager.DISABLE_SEARCH)) ? '!' : ' ');
++        flagdbg.append(0 != ((state2 & StatusBarManager.DISABLE2_QUICK_SETTINGS)) ? 'Q' : 'q');
++        flagdbg.append(0 != ((diff2 & StatusBarManager.DISABLE2_QUICK_SETTINGS)) ? '!' : ' ');
+         flagdbg.append('>');
+         Log.d(TAG, flagdbg.toString());
+ 
+@@ -2730,7 +2741,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     /**
+      * Reapplies the disable flags as last requested by StatusBarManager.
+-     *
++     * <p>
+      * This needs to be called if state used by {@link #adjustDisableFlags} changes.
+      */
+     public void recomputeDisableFlags(boolean animate) {
+@@ -2870,7 +2881,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     }
+ 
+     protected void updateHeadsUp(String key, Entry entry, boolean shouldPeek,
+-            boolean alertAgain) {
++                                 boolean alertAgain) {
+         final boolean wasHeadsUp = isHeadsUp(key);
+         if (wasHeadsUp) {
+             if (!shouldPeek) {
+@@ -3079,7 +3090,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+             if (mNotificationPanel.isFullyCollapsed()) {
+                 mNotificationPanel.expand(true /* animate */);
+                 mMetricsLogger.count(NotificationPanelView.COUNTER_PANEL_OPEN, 1);
+-            } else if (!mNotificationPanel.isInSettings() && !mNotificationPanel.isExpanding()){
++            } else if (!mNotificationPanel.isInSettings() && !mNotificationPanel.isExpanding()) {
+                 mNotificationPanel.flingSettings(0 /* velocity */, true /* expand */);
+                 mMetricsLogger.count(NotificationPanelView.COUNTER_PANEL_OPEN_QS, 1);
+             }
+@@ -3161,7 +3172,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     }
+ 
+     public void animateCollapsePanels(int flags, boolean force, boolean delayed,
+-            float speedUpFactor) {
++                                      float speedUpFactor) {
+         if (!force && mState != StatusBarState.SHADE) {
+             runPostCollapseRunnables();
+             return;
+@@ -3202,7 +3213,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     public void animateExpandNotificationsPanel() {
+         if (SPEW) Log.d(TAG, "animateExpand: mExpandedVisible=" + mExpandedVisible);
+         if (!panelsEnabled()) {
+-            return ;
++            return;
+         }
+ 
+         mNotificationPanel.expand(true /* animate */);
+@@ -3298,13 +3309,13 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+         if (SPEW) {
+             Log.d(TAG, "Touch: rawY=" + event.getRawY() + " event=" + event + " mDisabled1="
+-                + mDisabled1 + " mDisabled2=" + mDisabled2 + " mTracking=" + mTracking);
++                    + mDisabled1 + " mDisabled2=" + mDisabled2 + " mTracking=" + mTracking);
+         } else if (CHATTY) {
+             if (event.getAction() != MotionEvent.ACTION_MOVE) {
+                 Log.d(TAG, String.format(
+-                            "panel: %s at (%f, %f) mDisabled1=0x%08x mDisabled2=0x%08x",
+-                            MotionEvent.actionToString(event.getAction()),
+-                            event.getRawX(), event.getRawY(), mDisabled1, mDisabled2));
++                        "panel: %s at (%f, %f) mDisabled1=0x%08x mDisabled2=0x%08x",
++                        MotionEvent.actionToString(event.getAction()),
++                        event.getRawX(), event.getRawY(), mDisabled1, mDisabled2));
+             }
+         }
+ 
+@@ -3315,7 +3326,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         if (mStatusBarWindowState == WINDOW_STATE_SHOWING) {
+             final boolean upOrCancel =
+                     event.getAction() == MotionEvent.ACTION_UP ||
+-                    event.getAction() == MotionEvent.ACTION_CANCEL;
++                            event.getAction() == MotionEvent.ACTION_CANCEL;
+             if (upOrCancel && !mExpandedVisible) {
+                 setInteracting(StatusBarManager.WINDOW_STATUS_BAR, false);
+             } else {
+@@ -3340,9 +3351,9 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 mActivityLayout.removeView(v);
+             } else {
+                 v.findViewById(R.id.activity_focused).
+-                            setVisibility(View.GONE);
++                        setVisibility(View.GONE);
+                 v.findViewById(R.id.activity_run).
+-                            setVisibility(View.GONE);
++                        setVisibility(View.GONE);
+             }
+         }
+     }
+@@ -3350,10 +3361,10 @@ public class StatusBar extends SystemUI implements DemoMode,
+     public void setFocusedIcon(int taskId) {
+         if (taskId != mPrevTaskId) {
+             mIconMap.get(taskId).findViewById(R.id.activity_focused).
+-                        setVisibility(View.VISIBLE);
++                    setVisibility(View.VISIBLE);
+             if (mIconMap.get(mPrevTaskId) != null) {
+                 mIconMap.get(mPrevTaskId).findViewById(R.id.activity_focused).
+-                            setVisibility(View.GONE);
++                        setVisibility(View.GONE);
+             }
+             mPrevTaskId = taskId;
+         }
+@@ -3379,9 +3390,9 @@ public class StatusBar extends SystemUI implements DemoMode,
+     public void bindIconToTaskId(int taskId, ComponentName cmp) {
+         FrameLayout iconLayout;
+         if (!mDockedMap.containsKey(cmp) || (mIconMap.containsValue(mDockedMap.get(cmp))
+-                        && mIconMap.get(taskId) == null)) {
+-            iconLayout = (FrameLayout)View.inflate(mContext,
+-                        R.layout.statusbar_activity_button, null);
++                && mIconMap.get(taskId) == null)) {
++            iconLayout = (FrameLayout) View.inflate(mContext,
++                    R.layout.statusbar_activity_button, null);
+             mActivityLayout.addView(iconLayout);
+         } else {
+             iconLayout = mDockedMap.get(cmp);
+@@ -3391,10 +3402,10 @@ public class StatusBar extends SystemUI implements DemoMode,
+         mIconMap.put(taskId, iconLayout);
+         if (mIconMap.get(mPrevTaskId) != null) {
+             mIconMap.get(mPrevTaskId).findViewById(R.id.activity_focused).
+-                        setVisibility(View.GONE);
++                    setVisibility(View.GONE);
+         }
+         mPrevTaskId = taskId;
+-        ImageView iconView = (ImageView)iconLayout.findViewById(R.id.icon_view);
++        ImageView iconView = (ImageView) iconLayout.findViewById(R.id.icon_view);
+         iconView.setImageDrawable(getPackageIcon(cmp.getPackageName()));
+         iconView.setOnClickListener(new View.OnClickListener() {
+             @Override
+@@ -3415,7 +3426,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+             @Override
+             public boolean onLongClick(View v) {
+                 BarDialog.getInstance(mContext, cmp, taskId, mActivityLayout,
+-                                      iconLayout, mIconMap, mDockedMap).showDialog();
++                        iconLayout, mIconMap, mDockedMap).showDialog();
+                 return true;
+             }
+         });
+@@ -3424,9 +3435,9 @@ public class StatusBar extends SystemUI implements DemoMode,
+             public boolean onTouch(View v, MotionEvent event) {
+                 if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                     BarDialog dialog = BarDialog.getInstance(mContext, cmp, taskId,
+-                                       mActivityLayout, iconLayout, mIconMap, mDockedMap);
+-                    dialog.mShowX = (int)event.getRawX();
+-                    dialog.mShowY = (int)event.getRawY();
++                            mActivityLayout, iconLayout, mIconMap, mDockedMap);
++                    dialog.mShowX = (int) event.getRawX();
++                    dialog.mShowY = (int) event.getRawY();
+                 }
+                 return false;
+             }
+@@ -3474,9 +3485,9 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     @Override // CommandQueue
+     public void setSystemUiVisibility(int vis, int fullscreenStackVis, int dockedStackVis,
+-            int mask, Rect fullscreenStackBounds, Rect dockedStackBounds) {
++                                      int mask, Rect fullscreenStackBounds, Rect dockedStackBounds) {
+         final int oldVal = mSystemUiVisibility;
+-        final int newVal = (oldVal&~mask) | (vis&mask);
++        final int newVal = (oldVal & ~mask) | (vis & mask);
+         final int diff = newVal ^ oldVal;
+         if (DEBUG) Log.d(TAG, String.format(
+                 "setSystemUiVisibility vis=%s mask=%s oldVal=%s newVal=%s diff=%s",
+@@ -3542,7 +3553,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     }
+ 
+     protected int computeBarMode(int oldVis, int newVis,
+-            int transientFlag, int translucentFlag, int transparentFlag) {
++                                 int transientFlag, int translucentFlag, int transparentFlag) {
+         final int oldMode = barMode(oldVis, transientFlag, translucentFlag, transparentFlag);
+         final int newMode = barMode(newVis, transientFlag, translucentFlag, transparentFlag);
+         if (oldMode == newMode) {
+@@ -3708,7 +3719,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     @Override
+     public void topAppWindowChanged(boolean showMenu) {
+         if (SPEW) {
+-            Log.d(TAG, (showMenu?"showing":"hiding") + " the MENU button");
++            Log.d(TAG, (showMenu ? "showing" : "hiding") + " the MENU button");
+         }
+ 
+         // See above re: lights-out policy for legacy apps.
+@@ -3742,12 +3753,14 @@ public class StatusBar extends SystemUI implements DemoMode,
+             }
+         }
+ 
+-        pw.print("  mInteractingWindows="); pw.println(mInteractingWindows);
++        pw.print("  mInteractingWindows=");
++        pw.println(mInteractingWindows);
+         pw.print("  mStatusBarWindowState=");
+         pw.println(windowStateToString(mStatusBarWindowState));
+         pw.print("  mStatusBarMode=");
+         pw.println(BarTransitions.modeToString(mStatusBarMode));
+-        pw.print("  mDozing="); pw.println(mDozing);
++        pw.print("  mDozing=");
++        pw.println(mDozing);
+         pw.print("  mZenMode=");
+         pw.println(Settings.Global.zenModeToString(mZenMode));
+         pw.print("  mUseHeadsUp=");
+@@ -3815,15 +3828,15 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 pw.println("see the logcat for a dump of the views we have created.");
+                 // must happen on ui thread
+                 mHandler.post(new Runnable() {
+-                        @Override
+-                        public void run() {
+-                            mStatusBarView.getLocationOnScreen(mAbsPos);
+-                            Log.d(TAG, "mStatusBarView: ----- (" + mAbsPos[0] + "," + mAbsPos[1]
+-                                    + ") " + mStatusBarView.getWidth() + "x"
+-                                    + getStatusBarHeight());
+-                            mStatusBarView.debug();
+-                        }
+-                    });
++                    @Override
++                    public void run() {
++                        mStatusBarView.getLocationOnScreen(mAbsPos);
++                        Log.d(TAG, "mStatusBarView: ----- (" + mAbsPos[0] + "," + mAbsPos[1]
++                                + ") " + mStatusBarView.getWidth() + "x"
++                                + getStatusBarHeight());
++                        mStatusBarView.debug();
++                    }
++                });
+             }
+         }
+ 
+@@ -3856,12 +3869,17 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+         pw.println("SharedPreferences:");
+         for (Map.Entry<String, ?> entry : Prefs.getAll(mContext).entrySet()) {
+-            pw.print("  "); pw.print(entry.getKey()); pw.print("="); pw.println(entry.getValue());
++            pw.print("  ");
++            pw.print(entry.getKey());
++            pw.print("=");
++            pw.println(entry.getValue());
+         }
+     }
+ 
+     static void dumpBarTransitions(PrintWriter pw, String var, BarTransitions transitions) {
+-        pw.print("  "); pw.print(var); pw.print(".BarTransitions.mMode=");
++        pw.print("  ");
++        pw.print(var);
++        pw.print(".BarTransitions.mMode=");
+         pw.println(BarTransitions.modeToString(transitions.getMode()));
+     }
+ 
+@@ -3957,10 +3975,10 @@ public class StatusBar extends SystemUI implements DemoMode,
+     }
+ 
+     public void executeRunnableDismissingKeyguard(final Runnable runnable,
+-            final Runnable cancelAction,
+-            final boolean dismissShade,
+-            final boolean afterKeyguardGone,
+-            final boolean deferred) {
++                                                  final Runnable cancelAction,
++                                                  final boolean dismissShade,
++                                                  final boolean afterKeyguardGone,
++                                                  final boolean deferred) {
+         dismissKeyguardThenExecute(() -> {
+             if (runnable != null) {
+                 if (mStatusBarKeyguardViewManager.isShowing()
+@@ -4117,7 +4135,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     /**
+      * Reload some of our resources when the configuration changes.
+-     *
++     * <p>
+      * We don't reload everything when the configuration changes -- we probably
+      * should, but getting that smooth is tough.  Someday we'll fix that.  In the
+      * meantime, just update the things that we know change.
+@@ -4187,9 +4205,9 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 boolean pinnedHeadsUp = mHeadsUpManager.hasPinnedHeadsUp();
+                 boolean clearNotificationEffects =
+                         !isPanelFullyCollapsed() &&
+-                        (mState == StatusBarState.SHADE || mState == StatusBarState.SHADE_LOCKED);
++                                (mState == StatusBarState.SHADE || mState == StatusBarState.SHADE_LOCKED);
+                 int notificationLoad = mNotificationData.getActiveNotifications().size();
+-                if (pinnedHeadsUp && isPanelFullyCollapsed())  {
++                if (pinnedHeadsUp && isPanelFullyCollapsed()) {
+                     notificationLoad = 1;
+                 }
+                 mBarService.onPanelRevealed(clearNotificationEffects, notificationLoad);
+@@ -4287,15 +4305,15 @@ public class StatusBar extends SystemUI implements DemoMode,
+      * Returns a fingerprint of fields logged to eventlog
+      */
+     private static int getLoggingFingerprint(int statusBarState, boolean keyguardShowing,
+-            boolean keyguardOccluded, boolean bouncerShowing, boolean secure,
+-            boolean currentlyInsecure) {
++                                             boolean keyguardOccluded, boolean bouncerShowing, boolean secure,
++                                             boolean currentlyInsecure) {
+         // Reserve 8 bits for statusBarState. We'll never go higher than
+         // that, right? Riiiight.
+         return (statusBarState & 0xFF)
+-                | ((keyguardShowing   ? 1 : 0) <<  8)
+-                | ((keyguardOccluded  ? 1 : 0) <<  9)
+-                | ((bouncerShowing    ? 1 : 0) << 10)
+-                | ((secure            ? 1 : 0) << 11)
++                | ((keyguardShowing ? 1 : 0) << 8)
++                | ((keyguardOccluded ? 1 : 0) << 9)
++                | ((bouncerShowing ? 1 : 0) << 10)
++                | ((secure ? 1 : 0) << 11)
+                 | ((currentlyInsecure ? 1 : 0) << 12);
+     }
+ 
+@@ -4308,7 +4326,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     }
+ 
+     void vibrate() {
+-        android.os.Vibrator vib = (android.os.Vibrator)mContext.getSystemService(
++        android.os.Vibrator vib = (android.os.Vibrator) mContext.getSystemService(
+                 Context.VIBRATOR_SERVICE);
+         vib.vibrate(250, VIBRATION_ATTRIBUTES);
+     }
+@@ -4469,10 +4487,10 @@ public class StatusBar extends SystemUI implements DemoMode,
+             String mode = args.getString("mode");
+             int barMode = "opaque".equals(mode) ? MODE_OPAQUE :
+                     "translucent".equals(mode) ? MODE_TRANSLUCENT :
+-                    "semi-transparent".equals(mode) ? MODE_SEMI_TRANSPARENT :
+-                    "transparent".equals(mode) ? MODE_TRANSPARENT :
+-                    "warning".equals(mode) ? MODE_WARNING :
+-                    -1;
++                            "semi-transparent".equals(mode) ? MODE_SEMI_TRANSPARENT :
++                                    "transparent".equals(mode) ? MODE_TRANSPARENT :
++                                            "warning".equals(mode) ? MODE_WARNING :
++                                                    -1;
+             if (barMode != -1) {
+                 boolean animate = true;
+                 if (mStatusBarView != null) {
+@@ -4489,7 +4507,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         if (mStatusBarView == null) return;
+         View v = mStatusBarView.findViewById(id);
+         if (v instanceof DemoMode) {
+-            ((DemoMode)v).dispatchDemoCommand(command, args);
++            ((DemoMode) v).dispatchDemoCommand(command, args);
+         }
+     }
+ 
+@@ -4602,10 +4620,10 @@ public class StatusBar extends SystemUI implements DemoMode,
+      *
+      * @param beforeFading the runnable to be run when the circle is fully expanded and the fading
+      *                     starts
+-     * @param endRunnable the runnable to be run when the transition is done
++     * @param endRunnable  the runnable to be run when the transition is done
+      */
+     public void fadeKeyguardAfterLaunchTransition(final Runnable beforeFading,
+-            Runnable endRunnable) {
++                                                  Runnable endRunnable) {
+         mHandler.removeMessages(MSG_LAUNCH_TRANSITION_TIMEOUT);
+         mLaunchTransitionEndRunnable = endRunnable;
+         Runnable hideRunnable = new Runnable() {
+@@ -4769,8 +4787,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+     /**
+      * Notifies the status bar the Keyguard is fading away with the specified timings.
+      *
+-     * @param startTime the start time of the animations in uptime millis
+-     * @param delay the precalculated animation delay in miliseconds
++     * @param startTime       the start time of the animations in uptime millis
++     * @param delay           the precalculated animation delay in miliseconds
+      * @param fadeoutDuration the duration of the exit animation, in milliseconds
+      */
+     public void setKeyguardFadingAway(long startTime, long delay, long fadeoutDuration) {
+@@ -4783,8 +4801,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 LightBarTransitionsController.DEFAULT_TINT_ANIMATION_DURATION, true);
+         recomputeDisableFlags(fadeoutDuration > 0 /* animate */);
+         mCommandQueue.appTransitionStarting(
+-                    startTime - LightBarTransitionsController.DEFAULT_TINT_ANIMATION_DURATION,
+-                    LightBarTransitionsController.DEFAULT_TINT_ANIMATION_DURATION, true);
++                startTime - LightBarTransitionsController.DEFAULT_TINT_ANIMATION_DURATION,
++                LightBarTransitionsController.DEFAULT_TINT_ANIMATION_DURATION, true);
+         mKeyguardMonitor.notifyKeyguardFadingAway(delay, fadeoutDuration);
+     }
+ 
+@@ -4963,7 +4981,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     protected boolean shouldUnlockOnMenuPressed() {
+         return mDeviceInteractive && mState != StatusBarState.SHADE
+-            && mStatusBarKeyguardViewManager.shouldDismissOnMenuPressed();
++                && mStatusBarKeyguardViewManager.shouldDismissOnMenuPressed();
+     }
+ 
+     public boolean onMenuPressed() {
+@@ -5224,7 +5242,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     /**
+      * If secure with redaction: Show bouncer, go to unlocked shade.
+-     *
++     * <p>
+      * <p>If secure without redaction or no security: Go to {@link StatusBarState#SHADE_LOCKED}.</p>
+      *
+      * @param expandView The view to expand after going to the shade.
+@@ -5268,7 +5286,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     }
+ 
+     protected void onMakeExpandedVisibleForRemoteInput(ExpandableNotificationRow row,
+-            View clickedView) {
++                                                       View clickedView) {
+         if (isKeyguardShowing()) {
+             onLockedRemoteInput(row, clickedView);
+         } else {
+@@ -5278,7 +5296,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     }
+ 
+     protected boolean startWorkChallengeIfNecessary(int userId, IntentSender intendSender,
+-            String notificationKey) {
++                                                    String notificationKey) {
+         // Clear pending remote view, as we do not want to trigger pending remote input view when
+         // it's called by other code
+         mPendingWorkRemoteInputView = null;
+@@ -5314,7 +5332,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     }
+ 
+     protected void onLockedWorkRemoteInput(int userId, ExpandableNotificationRow row,
+-            View clicked) {
++                                           View clicked) {
+         // Collapse notification and show work challenge
+         animateCollapsePanels();
+         startWorkChallengeIfNecessary(userId, null, null);
+@@ -5390,7 +5408,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+                         public void onGlobalLayout() {
+                             if (mNotificationPanel.mStatusBar.getStatusBarWindow()
+                                     .getHeight() != mNotificationPanel.mStatusBar
+-                                            .getStatusBarHeight()) {
++                                    .getStatusBarHeight()) {
+                                 mNotificationPanel.getViewTreeObserver()
+                                         .removeOnGlobalLayoutListener(this);
+                                 mNotificationPanel.post(clickPendingViewRunnable);
+@@ -5670,7 +5688,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         // When in wake-and-unlock while pulsing, keep dozing state until fully unlocked.
+         mDozing = mDozingRequested && mState == StatusBarState.KEYGUARD
+                 || mFingerprintUnlockController.getMode()
+-                        == FingerprintUnlockController.MODE_WAKE_AND_UNLOCK_PULSING;
++                == FingerprintUnlockController.MODE_WAKE_AND_UNLOCK_PULSING;
+         // When in wake-and-unlock we may not have received a change to mState
+         // but we still should not be dozing, manually set to false.
+         if (mFingerprintUnlockController.getMode() ==
+@@ -6016,11 +6034,11 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     private final DeviceProvisionedListener mDeviceProvisionedListener =
+             new DeviceProvisionedListener() {
+-        @Override
+-        public void onDeviceProvisionedChanged() {
+-            updateNotifications();
+-        }
+-    };
++                @Override
++                public void onDeviceProvisionedChanged() {
++                    updateNotifications();
++                }
++            };
+ 
+     protected final ContentObserver mSettingsObserver = new ContentObserver(mHandler) {
+         @Override
+@@ -6138,7 +6156,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         }
+ 
+         private boolean superOnClickHandler(View view, PendingIntent pendingIntent,
+-                Intent fillInIntent) {
++                                            Intent fillInIntent) {
+             return super.onClickHandler(view, pendingIntent, fillInIntent,
+                     StackId.FULLSCREEN_WORKSPACE_STACK_ID);
+         }
+@@ -6270,7 +6288,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 try {
+                     recentTask = ActivityManager.getService().getRecentTasks(1,
+                             ActivityManager.RECENT_WITH_EXCLUDED
+-                            | ActivityManager.RECENT_INCLUDE_PROFILES,
++                                    | ActivityManager.RECENT_INCLUDE_PROFILES,
+                             mCurrentUserId).getList();
+                 } catch (RemoteException e) {
+                     // Abandon hope activity manager not running.
+@@ -6534,13 +6552,13 @@ public class StatusBar extends SystemUI implements DemoMode,
+     public boolean isMediaNotification(NotificationData.Entry entry) {
+         // TODO: confirm that there's a valid media key
+         return entry.getExpandedContentView() != null &&
+-               entry.getExpandedContentView()
+-                       .findViewById(com.android.internal.R.id.media_actions) != null;
++                entry.getExpandedContentView()
++                        .findViewById(com.android.internal.R.id.media_actions) != null;
+     }
+ 
+     // The button in the guts that links to the system notification settings for that app
+     private void startAppNotificationSettingsActivity(String packageName, final int appUid,
+-            final NotificationChannel channel) {
++                                                      final NotificationChannel channel) {
+         final Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+         intent.putExtra(Settings.EXTRA_APP_PACKAGE, packageName);
+         intent.putExtra(Settings.EXTRA_APP_UID, appUid);
+@@ -6630,7 +6648,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 };
+             }
+             final NotificationInfo.OnAppSettingsClickListener onAppSettingsClick = (View v,
+-                    Intent intent) -> {
++                                                                                    Intent intent) -> {
+                 mMetricsLogger.action(MetricsEvent.ACTION_APP_NOTE_SETTINGS);
+                 guts.resetFalsingCheck();
+                 startNotificationGutsIntent(intent, sbn.getUid());
+@@ -6640,18 +6658,18 @@ public class StatusBar extends SystemUI implements DemoMode,
+             };
+             final NotificationInfo.CheckSaveListener checkSaveListener =
+                     (Runnable saveImportance) -> {
+-                // If the user has security enabled, show challenge if the setting is changed.
+-                if (isLockscreenPublicMode(userHandle.getIdentifier())
+-                        && (mState == StatusBarState.KEYGUARD
++                        // If the user has security enabled, show challenge if the setting is changed.
++                        if (isLockscreenPublicMode(userHandle.getIdentifier())
++                                && (mState == StatusBarState.KEYGUARD
+                                 || mState == StatusBarState.SHADE_LOCKED)) {
+-                    onLockedNotificationImportanceChange(() -> {
+-                        saveImportance.run();
+-                        return true;
+-                    });
+-                } else {
+-                    saveImportance.run();
+-                }
+-            };
++                            onLockedNotificationImportanceChange(() -> {
++                                saveImportance.run();
++                                return true;
++                            });
++                        } else {
++                            saveImportance.run();
++                        }
++                    };
+ 
+             ArraySet<NotificationChannel> channels = new ArraySet<NotificationChannel>();
+             channels.add(row.getEntry().channel);
+@@ -6682,7 +6700,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     }
+ 
+     private void saveAndCloseNotificationMenu(NotificationInfo info,
+-            ExpandableNotificationRow row, NotificationGuts guts, View done) {
++                                              ExpandableNotificationRow row, NotificationGuts guts, View done) {
+         guts.resetFalsingCheck();
+         int[] rowLocation = new int[2];
+         int[] doneLocation = new int[2];
+@@ -6701,7 +6719,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         return new SwipeHelper.LongPressListener() {
+             @Override
+             public boolean onLongPress(View v, final int x, final int y,
+-                    MenuItem item) {
++                                       MenuItem item) {
+                 if (!(v instanceof ExpandableNotificationRow)) {
+                     return false;
+                 }
+@@ -6765,7 +6783,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+                         a.start();
+                         final boolean needsFalsingProtection =
+                                 (mState == StatusBarState.KEYGUARD &&
+-                                !mAccessibilityManager.isTouchExplorationEnabled());
++                                        !mAccessibilityManager.isTouchExplorationEnabled());
+                         guts.setExposed(true /* exposed */, needsFalsingProtection);
+                         row.closeRemoteInput();
+                         mStackScroller.onHeightChanged(row, true /* needsAnimation */);
+@@ -6789,14 +6807,14 @@ public class StatusBar extends SystemUI implements DemoMode,
+      * Closes guts or notification menus that might be visible and saves any changes.
+      *
+      * @param removeLeavebehinds true if leavebehinds (e.g. snooze) should be closed.
+-     * @param force true if guts should be closed regardless of state (used for snooze only).
+-     * @param removeControls true if controls (e.g. info) should be closed.
+-     * @param x if closed based on touch location, this is the x touch location.
+-     * @param y if closed based on touch location, this is the y touch location.
+-     * @param resetMenu if any notification menus that might be revealed should be closed.
++     * @param force              true if guts should be closed regardless of state (used for snooze only).
++     * @param removeControls     true if controls (e.g. info) should be closed.
++     * @param x                  if closed based on touch location, this is the x touch location.
++     * @param y                  if closed based on touch location, this is the y touch location.
++     * @param resetMenu          if any notification menus that might be revealed should be closed.
+      */
+     public void closeAndSaveGuts(boolean removeLeavebehinds, boolean force, boolean removeControls,
+-            int x, int y, boolean resetMenu) {
++                                 int x, int y, boolean resetMenu) {
+         if (mNotificationGutsExposed != null) {
+             mNotificationGutsExposed.closeControls(removeLeavebehinds, removeControls, x, y, force);
+         }
+@@ -6926,7 +6944,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+             return true;
+         }
+         final int dpmFlags = mDevicePolicyManager.getKeyguardDisabledFeatures(null /* admin */,
+-                    userHandle);
++                userHandle);
+         return (dpmFlags & DevicePolicyManager.KEYGUARD_DISABLE_UNREDACTED_NOTIFICATIONS) == 0;
+     }
+ 
+@@ -7008,7 +7026,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     }
+ 
+     private void bindRow(Entry entry, PackageManager pmUser,
+-            StatusBarNotification sbn, ExpandableNotificationRow row) {
++                         StatusBarNotification sbn, ExpandableNotificationRow row) {
+         row.setExpansionLogger(this, entry.notification.getKey());
+         row.setGroupManager(mGroupManager);
+         row.setHeadsUpManager(mHeadsUpManager);
+@@ -7046,7 +7064,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     }
+ 
+     private void updateNotification(Entry entry, PackageManager pmUser,
+-            StatusBarNotification sbn, ExpandableNotificationRow row) {
++                                    StatusBarNotification sbn, ExpandableNotificationRow row) {
+         row.setNeedsRedaction(needsRedaction(entry));
+         boolean isLowPriority = mNotificationData.isAmbient(sbn.getKey());
+         boolean isUpdate = mNotificationData.get(entry.key) != null;
+@@ -7082,7 +7100,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     /**
+      * Adds RemoteInput actions from the WearableExtender; to be removed once more apps support this
+      * via first-class API.
+-     *
++     * <p>
+      * TODO: Remove once enough apps specify remote inputs on their own.
+      */
+     private void processForRemoteInput(Notification n) {
+@@ -7234,7 +7252,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+                     StatusBarNotification parentToCancel = null;
+                     if (shouldAutoCancel(sbn) && mGroupManager.isOnlyChildInGroup(sbn)) {
+                         StatusBarNotification summarySbn = mGroupManager.getLogicalGroupSummary(sbn)
+-                                        .getStatusBarNotification();
++                                .getStatusBarNotification();
+                         if (shouldAutoCancel(summarySbn)) {
+                             parentToCancel = summarySbn;
+                         }
+@@ -7398,7 +7416,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     /**
+      * Cancel this notification and tell the StatusBarManagerService / NotificationManagerService
+      * about the failure.
+-     *
++     * <p>
+      * WARNING: this will call back into us.  Don't hold any locks.
+      */
+     void handleNotificationError(StatusBarNotification n, String message) {
+@@ -7720,7 +7738,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     /**
+      * @return a PackageManger for userId or if userId is < 0 (USER_ALL etc) then
+-     *         return PackageManager for mContext
++     * return PackageManager for mContext
+      */
+     public static PackageManager getPackageManagerForUser(Context context, int userId) {
+         Context contextForUser = context;
+@@ -7731,8 +7749,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+                 // for user 0 we can still load information about the package.
+                 contextForUser =
+                         context.createPackageContextAsUser(context.getPackageName(),
+-                        Context.CONTEXT_RESTRICTED,
+-                        new UserHandle(userId));
++                                Context.CONTEXT_RESTRICTED,
++                                new UserHandle(userId));
+             } catch (NameNotFoundException e) {
+                 // Shouldn't fail to find the package name for system ui.
+             }
+-- 
+2.7.4
+

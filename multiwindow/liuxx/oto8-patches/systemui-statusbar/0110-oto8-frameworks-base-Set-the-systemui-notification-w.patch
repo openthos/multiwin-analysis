@@ -1,0 +1,59 @@
+From 038ef4e8cf53812a5d075b1cc144e497c323a5c9 Mon Sep 17 00:00:00 2001
+From: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Date: Wed, 25 Sep 2019 03:13:32 +0000
+Subject: [PATCH 110/110] oto8: frameworks: base: Set the systemui notification
+ width
+
+based on whether notification is expanded or not to fix the issue that
+
+mouse hover event is unefficient for fullscreen window.
+
+Signed-off-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: ladehunter <ladehunter@gmail.com>
+---
+ packages/SystemUI/res/values/dimens.xml                            | 2 +-
+ .../android/systemui/statusbar/phone/StatusBarWindowManager.java   | 7 +++----
+ 2 files changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/packages/SystemUI/res/values/dimens.xml b/packages/SystemUI/res/values/dimens.xml
+index 09fbd46..e5a83bc 100644
+--- a/packages/SystemUI/res/values/dimens.xml
++++ b/packages/SystemUI/res/values/dimens.xml
+@@ -231,7 +231,7 @@
+     <!-- The bottom margin of the panel that holds the list of notifications. -->
+     <dimen name="notification_panel_margin_bottom">0dp</dimen>
+ 
+-    <dimen name="notification_panel_width">@dimen/match_parent</dimen>
++    <dimen name="notification_panel_width">@dimen/standard_notification_panel_width</dimen>
+ 
+     <!-- The width of the panel that holds the quick settings. -->
+     <dimen name="qs_panel_width">@dimen/notification_panel_width</dimen>
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
+index ab40bb4..8dcfca1 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
+@@ -211,17 +211,16 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
+             expanded = true;
+         }
+         if (expanded) {
+-            int expandedHeight = mStatusBarView.getMeasuredHeightAndState();
+-            int displayHeight = mContext.getDisplay().getHeight();
++            mLpChanged.width = mContext.getResources().
++                    getDimensionPixelSize(R.dimen.notification_panel_width);
+             setHeight(state.headsUpShowing);
+         } else {
+             mLpChanged.height = mBarHeight;
++            mLpChanged.width = 0;
+             mStatusBarView.setBackgroundColor(0);
+             mStatusBarView.findViewById(R.id.notification_container_parent).setBackgroundColor(0);
+             mStatusBarView.findViewById(R.id.heads_up_scrim).setBackgroundColor(0);
+         }
+-        mLpChanged.width = mContext.getResources().
+-                                getDimensionPixelSize(R.dimen.notification_panel_width);
+     }
+ 
+     private boolean isExpanded(State state) {
+-- 
+2.7.4
+

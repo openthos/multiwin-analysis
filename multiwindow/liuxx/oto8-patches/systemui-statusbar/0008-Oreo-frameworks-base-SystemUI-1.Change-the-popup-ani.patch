@@ -1,0 +1,145 @@
+From 089f82f87f0fd6afc34dbe9fe3f11a9724a39ee5 Mon Sep 17 00:00:00 2001
+From: Your Name <you@example.com>
+Date: Wed, 18 Oct 2017 02:58:09 +0000
+Subject: [PATCH 008/110] Oreo: frameworks: base: SystemUI: 1.Change the popup
+ animation of the menu 2.Add listener of wifi
+
+Signed-off-by: Your Name <you@example.com>
+---
+ packages/SystemUI/res/anim/dialog_enter.xml        |  8 +++++++
+ packages/SystemUI/res/anim/dialog_exit.xml         |  8 +++++++
+ packages/SystemUI/res/layout/wifi_list.xml         |  1 +
+ packages/SystemUI/res/values/styles.xml            |  5 +++++
+ .../com/android/systemui/dialog/BaseDialog.java    |  1 +
+ .../com/android/systemui/dialog/WifiDialog.java    | 26 ++++++++++++++++++++++
+ 6 files changed, 49 insertions(+)
+ create mode 100644 packages/SystemUI/res/anim/dialog_enter.xml
+ create mode 100644 packages/SystemUI/res/anim/dialog_exit.xml
+
+diff --git a/packages/SystemUI/res/anim/dialog_enter.xml b/packages/SystemUI/res/anim/dialog_enter.xml
+new file mode 100644
+index 0000000..ac05ab5
+--- /dev/null
++++ b/packages/SystemUI/res/anim/dialog_enter.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<set xmlns:android="http://schemas.android.com/apk/res/android">
++    <translate
++        android:duration="100"
++        android:fillAfter="true"
++        android:fromYDelta="100%p"
++        android:toYDelta="0%"/>
++</set>
+diff --git a/packages/SystemUI/res/anim/dialog_exit.xml b/packages/SystemUI/res/anim/dialog_exit.xml
+new file mode 100644
+index 0000000..f941509
+--- /dev/null
++++ b/packages/SystemUI/res/anim/dialog_exit.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<set xmlns:android="http://schemas.android.com/apk/res/android">
++    <translate
++        android:duration="100"
++        android:fillAfter="true"
++        android:fromYDelta="0%"
++        android:toYDelta="100%p"/>
++</set>
+diff --git a/packages/SystemUI/res/layout/wifi_list.xml b/packages/SystemUI/res/layout/wifi_list.xml
+index a960da6..f6cd1c8 100644
+--- a/packages/SystemUI/res/layout/wifi_list.xml
++++ b/packages/SystemUI/res/layout/wifi_list.xml
+@@ -49,6 +49,7 @@
+             android:layout_width="wrap_content"
+             android:layout_height="@dimen/startupmenu_layout_height"
+             android:paddingLeft="@dimen/startupmenu_big_padding"
++            android:gravity="center_vertical"
+             android:text="@string/status_bar_ethernet"
+             android:textColor="@android:color/white"
+             android:textSize="@dimen/startupmenu_text_size"/>
+diff --git a/packages/SystemUI/res/values/styles.xml b/packages/SystemUI/res/values/styles.xml
+index bd0b2bd..271d0b7 100644
+--- a/packages/SystemUI/res/values/styles.xml
++++ b/packages/SystemUI/res/values/styles.xml
+@@ -523,4 +523,9 @@
+         <item name="android:windowBackground">@android:color/transparent</item>
+     </style>
+ 
++    <style name="ShowDialog" >
++        <item name="android:windowEnterAnimation">@anim/dialog_enter</item>
++        <item name="android:windowExitAnimation">@anim/dialog_exit</item>
++    </style>
++
+ </resources>
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
+index 2ab43b3..25c288a 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
+@@ -66,6 +66,7 @@ public class BaseDialog extends Dialog {
+         }
+         Window dialogWindow = getWindow();
+         dialogWindow.setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
++        dialogWindow.setWindowAnimations(R.style.ShowDialog);
+         WindowManager.LayoutParams lp = dialogWindow.getAttributes();
+         lp.format = PixelFormat.TRANSPARENT;
+         lp.dimAmount = 0;
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/WifiDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/WifiDialog.java
+index 309f8a9..88873ec 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/WifiDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/WifiDialog.java
+@@ -1,8 +1,10 @@
+ package com.android.systemui.dialog;
+ 
++import android.content.BroadcastReceiver;
+ import android.content.ComponentName;
+ import android.content.Context;
+ import android.content.Intent;
++import android.content.IntentFilter;
+ import android.net.wifi.ScanResult;
+ import android.net.wifi.WifiInfo;
+ import android.net.wifi.WifiManager;
+@@ -55,6 +57,7 @@ public final class WifiDialog extends BaseDialog {
+     private List<ScanResult> mScanResults;
+     private NetInfoAdapter mNetInfoAdapter;
+     private int mMaxListViewHeight;
++    private WifiReceiver mWifiReceiver;
+ 
+     final Handler mHandler = new Handler(new Handler.Callback() {
+         @Override
+@@ -107,6 +110,11 @@ public final class WifiDialog extends BaseDialog {
+         mScanResults = new ArrayList<>();
+         mNetInfoAdapter = new NetInfoAdapter();
+         mWifiListView.setAdapter(mNetInfoAdapter);
++        mWifiReceiver = new WifiReceiver();
++        IntentFilter filter = new IntentFilter();
++        filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
++        filter.addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
++        getContext().registerReceiver(mWifiReceiver,filter);
+     }
+ 
+     @Override
+@@ -309,4 +317,22 @@ public final class WifiDialog extends BaseDialog {
+     public void updateList() {
+         mHandler.sendEmptyMessage(UPDATE_LIST);
+     }
++
++    private class WifiReceiver extends BroadcastReceiver {
++        @Override
++        public void onReceive(Context context, Intent intent) {
++            switch (intent.getAction()) {
++                case WifiManager.SCAN_RESULTS_AVAILABLE_ACTION:
++                    if (isShowing()) {
++                        updateList();
++                    }
++                    break;
++                case WifiManager.WIFI_STATE_CHANGED_ACTION:
++                    if (isShowing()) {
++                        int state = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, -1);
++                        updateWifiEnabled(state);
++                    }
++            }
++        }
++    }
+ }
+-- 
+2.7.4
+

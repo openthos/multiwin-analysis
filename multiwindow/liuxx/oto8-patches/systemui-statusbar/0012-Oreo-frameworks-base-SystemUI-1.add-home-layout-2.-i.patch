@@ -1,0 +1,206 @@
+From 0254c27aa101add7fd3e8efd960baa5c20532b4c Mon Sep 17 00:00:00 2001
+From: CaoYongren <m18410261910@163.com>
+Date: Fri, 20 Oct 2017 06:19:16 +0000
+Subject: [PATCH 012/110] Oreo: frameworks: base: SystemUI: 1.add home layout
+ 2. improve notification panel layout 3.dismiss status bar.
+
+Change-Id: Ic798e88aff00587dfd701617f79e476ad6a79e24
+Signed-off-by: CaoYongren <m18410261910@163.com>
+---
+ core/res/res/values/dimens.xml                       |   2 +-
+ .../res/layout/openthos_notification_panel.xml       |  19 ++++++++++++++-----
+ packages/SystemUI/res/layout/openthos_status_bar.xml |  11 ++++++++---
+ .../mipmap-hdpi/ic_notification_screen_shot.9.png    | Bin 0 -> 2060 bytes
+ .../statusbar/phone/OpenthosStatusBarView.java       |   6 ++++--
+ 5 files changed, 27 insertions(+), 11 deletions(-)
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/ic_notification_screen_shot.9.png
+
+diff --git a/core/res/res/values/dimens.xml b/core/res/res/values/dimens.xml
+index 16c8578..f9a9eaa 100644
+--- a/core/res/res/values/dimens.xml
++++ b/core/res/res/values/dimens.xml
+@@ -32,7 +32,7 @@
+ 
+     <dimen name="toast_y_offset">24dp</dimen>
+     <!-- Height of the status bar -->
+-    <dimen name="status_bar_height">24dp</dimen>
++    <dimen name="status_bar_height">0dp</dimen>
+     <!-- Height of the bottom navigation / system bar. -->
+     <dimen name="navigation_bar_height">48dp</dimen>
+     <!-- Height of the bottom navigation bar in portrait; often the same as @dimen/navigation_bar_height -->
+diff --git a/packages/SystemUI/res/layout/openthos_notification_panel.xml b/packages/SystemUI/res/layout/openthos_notification_panel.xml
+index 479dd6d..bc31f43 100644
+--- a/packages/SystemUI/res/layout/openthos_notification_panel.xml
++++ b/packages/SystemUI/res/layout/openthos_notification_panel.xml
+@@ -13,28 +13,29 @@
+     <RelativeLayout
+         android:layout_width="match_parent"
+         android:layout_height="0dp"
+-        android:layout_weight="0.2">
++        android:layout_weight="0.2"
++        android:background="#1Affffff">
+         <TextView
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:layout_alignParentLeft="true"
+             android:layout_centerInParent="true"
+             android:textColor="#99ffffff"
+-            android:text="@string/notification_info"/>
++            android:text="@string/notification_info"
++            android:textStyle="bold"
++            android:textSize="@dimen/qs_font_size_sixteen" />
+         <Button
+ 	    android:id="@+id/notification_manager"
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:layout_toLeftOf="@+id/notification_clear_all"
+             android:layout_marginRight="20dp"
+-            android:background="#1Affffff"
+             android:text="@string/clear_all"/>
+         <Button
+             android:id="@+id/notification_clear_all"
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:layout_alignParentRight="true"
+-            android:background="#1Affffff"
+             android:text="@string/notification_manager"/>
+     </RelativeLayout>
+ 
+@@ -129,10 +130,12 @@
+                 android:id="@+id/qs_shot_screen"
+                 android:layout_width="30dp"
+                 android:layout_height="30dp"
+-                android:src="@mipmap/ic_notification_isolation_on"/>
++                android:src="@mipmap/ic_notification_screen_shot"/>
+             <TextView
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
++                android:textColor="#99ffffff"
++                android:textStyle="bold"
+                 android:textSize="@dimen/qs_font_size_sixteen"
+                 android:text="@string/notification_shot_screen"/>
+         </LinearLayout>
+@@ -151,6 +154,8 @@
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+                 android:textSize="@dimen/qs_font_size_sixteen"
++                android:textColor="#99ffffff"
++                android:textStyle="bold"
+                 android:text="@string/notification_isolation_on"/>
+         </LinearLayout>
+         <LinearLayout
+@@ -168,6 +173,8 @@
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+                 android:textSize="@dimen/qs_font_size_sixteen"
++                android:textColor="#99ffffff"
++                android:textStyle="bold"
+                 android:text="@string/notification_settings"/>
+         </LinearLayout>
+         <LinearLayout
+@@ -185,6 +192,8 @@
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+                 android:textSize="@dimen/qs_font_size_sixteen"
++                android:textColor="#99ffffff"
++                android:textStyle="bold"
+                 android:text="@string/notification_projection"/>
+         </LinearLayout>
+     </LinearLayout>
+diff --git a/packages/SystemUI/res/layout/openthos_status_bar.xml b/packages/SystemUI/res/layout/openthos_status_bar.xml
+index dc55b5e..67d9886 100644
+--- a/packages/SystemUI/res/layout/openthos_status_bar.xml
++++ b/packages/SystemUI/res/layout/openthos_status_bar.xml
+@@ -92,14 +92,19 @@
+ 
+             <com.android.systemui.dialog.CalendarDisplayView
+                 android:id="@+id/iv_date_status_bar"
+-                android:textAppearance="@style/TextAppearance.StatusBar.Clock"
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+-                android:textSize="@dimen/systemui_date_text_size"
+                 android:layout_gravity="center_vertical"
++                android:gravity="center"
+                 android:paddingLeft="@dimen/startupmenu_small_padding"
+                 android:paddingRight="@dimen/startupmenu_small_padding"
+-                android:gravity="center" />
++                android:textAppearance="@style/TextAppearance.StatusBar.Clock"
++                android:textSize="@dimen/systemui_date_text_size"/>
++
++            <View
++                android:layout_width="1dp"
++                android:layout_height="match_parent"
++                android:background="@color/input_bg"/>
+ 
+             <ImageView
+                 android:id="@+id/iv_home_status_bar"
+diff --git a/packages/SystemUI/res/mipmap-hdpi/ic_notification_screen_shot.9.png b/packages/SystemUI/res/mipmap-hdpi/ic_notification_screen_shot.9.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..45259d7ff0b93034e598faf08c9d137c4c7ffb23
+GIT binary patch
+literal 2060
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+index 5d5c5c6..2cfb14b 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+@@ -1,6 +1,7 @@
+ package com.android.systemui.statusbar.phone;
+ 
+ import android.content.Context;
++import android.content.Intent;
+ import android.graphics.Canvas;
+ import android.view.MotionEvent;
+ import android.view.ViewGroup;
+@@ -141,8 +142,9 @@ public class OpenthosStatusBarView extends PanelBar{
+                    showDialog(mCalendarView, mCalendarDialog);
+                    break;
+                case R.id.iv_home_status_bar:
+-                   Toast.makeText(mContext, "home", Toast.LENGTH_SHORT).show();
+-                   mStatusBar.awakenDreams();
++                   Intent home=new Intent(Intent.ACTION_MAIN);
++                   home.addCategory(Intent.CATEGORY_HOME);
++                   mContext.startActivity(home);
+                    break;
+             }
+         }
+-- 
+2.7.4
+

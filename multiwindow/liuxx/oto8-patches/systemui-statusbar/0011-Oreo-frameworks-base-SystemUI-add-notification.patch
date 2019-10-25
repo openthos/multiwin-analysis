@@ -1,0 +1,470 @@
+From df6ff13c212e6bc60176989765a4d6c450419898 Mon Sep 17 00:00:00 2001
+From: elliott10 <xiaoluoyuan@163.com>
+Date: Fri, 11 May 2018 01:40:45 +0000
+Subject: [PATCH 011/110] Oreo: frameworks: base: SystemUI: add notification
+
+panel layout to openthos.
+
+Signed-off-by: caoyongren <m18410261910@163.com>
+---
+ .../res-keyguard/layout/keyguard_status_view.xml   |   1 +
+ .../SystemUI/res/layout/keyguard_status_bar.xml    |   1 +
+ .../res/layout/openthos_notification_panel.xml     | 192 +++++++++++++++++++++
+ packages/SystemUI/res/layout/qs_panel.xml          |   1 +
+ .../SystemUI/res/layout/status_bar_expanded.xml    |  23 +--
+ .../mipmap-hdpi/ic_notification_isolation_on.png   | Bin 0 -> 1070 bytes
+ .../mipmap-hdpi/ic_notification_projection_on.png  | Bin 0 -> 489 bytes
+ .../res/mipmap-hdpi/ic_notification_setting.png    | Bin 0 -> 1240 bytes
+ packages/SystemUI/res/values/dimens.xml            |   6 +
+ packages/SystemUI/res/values/strings.xml           |  11 ++
+ .../statusbar/phone/NotificationPanelView.java     |   8 +-
+ 11 files changed, 218 insertions(+), 25 deletions(-)
+ create mode 100644 packages/SystemUI/res/layout/openthos_notification_panel.xml
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/ic_notification_isolation_on.png
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/ic_notification_projection_on.png
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/ic_notification_setting.png
+
+diff --git a/packages/SystemUI/res-keyguard/layout/keyguard_status_view.xml b/packages/SystemUI/res-keyguard/layout/keyguard_status_view.xml
+index 138733e..b1bc91d 100644
+--- a/packages/SystemUI/res-keyguard/layout/keyguard_status_view.xml
++++ b/packages/SystemUI/res-keyguard/layout/keyguard_status_view.xml
+@@ -27,6 +27,7 @@
+     android:layout_height="wrap_content"
+     androidprv:layout_maxWidth="@dimen/keyguard_security_width"
+     androidprv:layout_maxHeight="@dimen/keyguard_security_height"
++    android:visibility="gone"
+     android:gravity="center_horizontal|top">
+     <LinearLayout
+         android:layout_width="match_parent"
+diff --git a/packages/SystemUI/res/layout/keyguard_status_bar.xml b/packages/SystemUI/res/layout/keyguard_status_bar.xml
+index 7b30d6a..38664c9 100644
+--- a/packages/SystemUI/res/layout/keyguard_status_bar.xml
++++ b/packages/SystemUI/res/layout/keyguard_status_bar.xml
+@@ -23,6 +23,7 @@
+     android:layout_width="match_parent"
+     android:layout_height="@dimen/status_bar_header_height_keyguard"
+     android:baselineAligned="false"
++    android:visibility="gone"
+     >
+ 
+     <com.android.systemui.statusbar.phone.MultiUserSwitch android:id="@+id/multi_user_switch"
+diff --git a/packages/SystemUI/res/layout/openthos_notification_panel.xml b/packages/SystemUI/res/layout/openthos_notification_panel.xml
+new file mode 100644
+index 0000000..479dd6d
+--- /dev/null
++++ b/packages/SystemUI/res/layout/openthos_notification_panel.xml
+@@ -0,0 +1,192 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="@dimen/notification_panel_width"
++    android:layout_height="match_parent"
++    android:weightSum = "3"
++    android:layout_gravity="@integer/notification_panel_layout_gravity"
++    android:id="@+id/notification_container_parent"
++    android:background="@drawable/system_bar_background"
++    android:orientation="vertical"
++    android:clipToPadding="false"
++    android:clipChildren="false">
++    <RelativeLayout
++        android:layout_width="match_parent"
++        android:layout_height="0dp"
++        android:layout_weight="0.2">
++        <TextView
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:layout_alignParentLeft="true"
++            android:layout_centerInParent="true"
++            android:textColor="#99ffffff"
++            android:text="@string/notification_info"/>
++        <Button
++	    android:id="@+id/notification_manager"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:layout_toLeftOf="@+id/notification_clear_all"
++            android:layout_marginRight="20dp"
++            android:background="#1Affffff"
++            android:text="@string/clear_all"/>
++        <Button
++            android:id="@+id/notification_clear_all"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:layout_alignParentRight="true"
++            android:background="#1Affffff"
++            android:text="@string/notification_manager"/>
++    </RelativeLayout>
++
++    <!-- start of notification panel -->
++    <LinearLayout
++        android:layout_width="@dimen/notification_panel_width"
++        android:layout_height="0dp"
++        android:layout_weight="1.6"
++        android:orientation="vertical">
++        <FrameLayout
++            android:layout_width="@dimen/notification_panel_width"
++            android:layout_height="match_parent"
++            android:orientation="vertical">
++            <com.android.systemui.statusbar.stack.NotificationStackScrollLayout
++                android:id="@+id/notification_stack_scroller"
++                android:layout_width="match_parent"
++                android:layout_height="match_parent"
++                android:importantForAccessibility="no" />
++        </FrameLayout>
++    </LinearLayout>
++    <!-- end of notification panel -->
++
++    <!-- start of print panel -->
++    <LinearLayout
++        android:layout_width="@dimen/notification_panel_width"
++        android:layout_height="0dp"
++        android:layout_weight="1"
++        android:orientation="vertical">
++
++        <RelativeLayout
++            android:layout_width="match_parent"
++            android:layout_height="38dp"
++            android:background="#1Affffff">
++
++            <TextView
++                android:id="@+id/print_message"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_marginLeft="16dp"
++                android:layout_centerVertical="true"
++                android:text="@string/print_message"
++                android:textColor="#99ffffff"
++                android:textStyle="bold"
++                android:textSize="16sp" />
++
++            <Button
++                android:id="@+id/printManager"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_alignParentRight="true"
++                android:layout_marginRight="16dp"
++                android:layout_centerVertical="true"
++                android:paddingRight="8dp"
++                android:background="@null"
++                android:text="@string/print_manager"
++                android:textSize="12sp" />
++
++        </RelativeLayout>
++
++        <!-- printer job layout -->
++        <ScrollView
++            android:layout_width="match_parent"
++            android:layout_marginTop="8dp"
++            android:layout_height="200dp" >
++            <LinearLayout
++                android:id="@+id/printer_job_layout"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:orientation="vertical">
++            </LinearLayout>
++        </ScrollView>
++    </LinearLayout>
++    <!-- end of print panel -->
++
++    <!-- start qs panel-->
++    <LinearLayout
++        android:weightSum = "4"
++        android:layout_weight="0.2"
++        android:layout_width="@dimen/notification_panel_width"
++        android:layout_height="0dp"
++        android:orientation="horizontal"
++        android:layout_marginBottom="@dimen/qs_margin_fifty"
++        android:id="@+id/qs_panel_layout"
++        android:background="#1Affffff">
++        <LinearLayout
++            android:layout_width="0dp"
++            android:layout_height="wrap_content"
++            android:orientation="vertical"
++            android:layout_weight="1"
++            android:gravity="center">
++            <ImageView
++                android:id="@+id/qs_shot_screen"
++                android:layout_width="30dp"
++                android:layout_height="30dp"
++                android:src="@mipmap/ic_notification_isolation_on"/>
++            <TextView
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:textSize="@dimen/qs_font_size_sixteen"
++                android:text="@string/notification_shot_screen"/>
++        </LinearLayout>
++        <LinearLayout
++            android:layout_width="0dp"
++            android:layout_height="wrap_content"
++            android:orientation="vertical"
++            android:layout_weight="1"
++            android:gravity="center">
++            <ImageView
++                android:id="@+id/qs_isolation"
++                android:layout_width="30dp"
++                android:layout_height="30dp"
++                android:src="@mipmap/ic_notification_isolation_on"/>
++            <TextView
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:textSize="@dimen/qs_font_size_sixteen"
++                android:text="@string/notification_isolation_on"/>
++        </LinearLayout>
++        <LinearLayout
++            android:layout_width="0dp"
++            android:layout_height="wrap_content"
++            android:orientation="vertical"
++            android:layout_weight="1"
++            android:gravity="center">
++            <ImageView
++                android:id="@+id/qs_settings"
++                android:layout_width="30dp"
++                android:layout_height="30dp"
++                android:src="@mipmap/ic_notification_setting"/>
++            <TextView
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:textSize="@dimen/qs_font_size_sixteen"
++                android:text="@string/notification_settings"/>
++        </LinearLayout>
++        <LinearLayout
++            android:layout_width="0dp"
++            android:layout_height="wrap_content"
++            android:orientation="vertical"
++            android:layout_weight="1"
++            android:gravity="center">
++            <ImageView
++                android:id="@+id/qs_projection"
++                android:layout_width="30dp"
++                android:layout_height="30dp"
++                android:src="@mipmap/ic_notification_projection_on"/>
++            <TextView
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:textSize="@dimen/qs_font_size_sixteen"
++                android:text="@string/notification_projection"/>
++        </LinearLayout>
++    </LinearLayout>
++    <!-- end quick settings layout -->
++</LinearLayout>
+diff --git a/packages/SystemUI/res/layout/qs_panel.xml b/packages/SystemUI/res/layout/qs_panel.xml
+index 5541f3d..41d7ce1 100644
+--- a/packages/SystemUI/res/layout/qs_panel.xml
++++ b/packages/SystemUI/res/layout/qs_panel.xml
+@@ -19,6 +19,7 @@
+     android:layout_width="match_parent"
+     android:layout_height="wrap_content"
+     android:background="@drawable/qs_background_primary"
++    android:visibility="gone"
+     android:elevation="4dp"
+     android:clipToPadding="false"
+     android:clipChildren="false">
+diff --git a/packages/SystemUI/res/layout/status_bar_expanded.xml b/packages/SystemUI/res/layout/status_bar_expanded.xml
+index bef0830..59d7d61 100644
+--- a/packages/SystemUI/res/layout/status_bar_expanded.xml
++++ b/packages/SystemUI/res/layout/status_bar_expanded.xml
+@@ -29,14 +29,8 @@
+         layout="@layout/keyguard_status_view"
+         android:visibility="gone" />
+ 
+-    <com.android.systemui.statusbar.phone.NotificationsQuickSettingsContainer
+-        android:layout_width="match_parent"
+-        android:layout_height="match_parent"
+-        android:layout_gravity="@integer/notification_panel_layout_gravity"
+-        android:id="@+id/notification_container_parent"
+-        android:clipToPadding="false"
+-        android:clipChildren="false">
+-
++    <include
++        layout="@layout/openthos_notification_panel"/>
+         <FrameLayout
+             android:id="@+id/qs_frame"
+             android:layout="@layout/qs_panel"
+@@ -47,14 +41,6 @@
+             android:clipChildren="false"
+             systemui:viewType="com.android.systemui.plugins.qs.QS" />
+ 
+-        <com.android.systemui.statusbar.stack.NotificationStackScrollLayout
+-            android:id="@+id/notification_stack_scroller"
+-            android:layout_marginTop="@dimen/notification_panel_margin_top"
+-            android:layout_width="@dimen/notification_panel_width"
+-            android:layout_height="match_parent"
+-            android:layout_gravity="@integer/notification_panel_layout_gravity"
+-            android:layout_marginBottom="@dimen/close_handle_underlap" />
+-
+         <include layout="@layout/ambient_indication"
+             android:id="@+id/ambient_indication_container" />
+ 
+@@ -75,13 +61,9 @@
+             android:layout_marginTop="@dimen/status_bar_header_height_keyguard"
+             android:text="@string/report_rejected_touch"
+             android:visibility="gone" />
+-
+-    </com.android.systemui.statusbar.phone.NotificationsQuickSettingsContainer>
+-
+     <include
+         layout="@layout/keyguard_bottom_area"
+         android:visibility="gone" />
+-
+     <com.android.systemui.statusbar.AlphaOptimizedView
+         android:id="@+id/qs_navbar_scrim"
+         android:layout_height="96dp"
+@@ -89,5 +71,4 @@
+         android:layout_gravity="bottom"
+         android:visibility="invisible"
+         android:background="@drawable/qs_navbar_scrim" />
+-
+ </com.android.systemui.statusbar.phone.NotificationPanelView>
+diff --git a/packages/SystemUI/res/mipmap-hdpi/ic_notification_isolation_on.png b/packages/SystemUI/res/mipmap-hdpi/ic_notification_isolation_on.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..a8c63f82d8cc0535bdf6b6a65a71099ca61e9d0d
+GIT binary patch
+literal 1070
+zcmV+}1kwA6P)<h;3K|Lk000e1NJLTq001HY001Hg1^@s6I!6n_00001b5ch_0Itp)
+z=>Px&=t)FDR9Fekms^NUQ5eV1!MJ1yV;Gl4luM~e?vqP1CGo%@N=lxj-12yyTuN$E
+znsO_7A(x2Ua!+TP2Qn@*UJ&IHhDkKd7>vR3`|q>Xn0?N^9nFKUe)H}9egE~Xb=KN@
+z?KQF3e`4`m$B{~<ifOX|M#C_}7yNr@fcub)$K&nzt~EN(hXg!?DAt7NB+QOFlE4|E
+zP#%TW!ZsLUiZ<h~LOo~}L_TPCG+Xmw5?H&)MS>Z6VgosO22liez*-F#3!!INAvB|4
+zD>Q@b2doQgmzAf{6nF!&7qB=>6d^#nLO1}{_Hof8Lep3b;RMhc%aTwKsbPSK8mr(N
+z$PNWa(<wv);hEIfY0xv$B}T28&<e86fkhFVcVwy5J$#=)@joP~xg37OPnhmmf<zg}
+zv@9b$MV*3Z#=>FHD}4<%K(|g3&r39wAgjp|5R5~uvREQZkP$#L557vAVb{4291MBw
+zNsXr6B3EgGb4}tcK5$9M_Xhh$nPx7x$yMCr2DN5SR_#g?*yDs#sa>vw#|^qtqxEw)
+zJ({^fG}Nqo2R$p!TWP1U!YD7eT6o_K^$vGL!}2k9S$&&sL3ePLryC>E);tD2K`n$?
+zU5FqoZ<}8+7qjFwBlZn>$w*Ts>FdzECV9k1&_=w{Czlz1X#!6F8i-~@rjJ)t(*t=l
+zL;QjJr400OM%?dKM+TYGzxMqB&TTB#WPGTjvlc{aSk@i*$<PQ7h=0XLHQS%lzXtNr
+zv@DELfzEYwSP5k?4m7K>7IO9Y6A@>{_LuIT#w8$o<dh5egGS$?Bm`L-$tZhCg(-60
+z>5`j4CZJywc-A0)+-SqxF9dS}ev`iP2~%WmhmOE~6VzGM)5sSaO;mTuvycf=<hCi~
+zoOSH_+Kp^UK;x+aIj__-ub^TKpa?e;^l<;(iAhW}qto(u?u^9sEHxNinA6gnq7zRe
+zXTQK_tUzyoV<gXVu?!CK)UQuR-G9+YKLiGX-Z(p>T*kB+{s#TZM!#2?8Y9U+hh8uR
+zoqH!nFdo_sGZ1yTQCr82b09nB+X2bljwHPVcI)@m=bE7Qc2oZ|UjKS{8_Di)!-(tf
+zdZ@a@sI?C4F>zjKQN-G`o`OsVAZ_9QY_!*ps{(5qBNwAZ0aTloIuh=L{*en9A#HT>
+zy9+WMgjVNTL+^SX><3M!>?3H6OM;4#?*}X3GFa2hYTxj+j@Q>uK>=+{I%AY~(!AnY
+zA2=NyL|+&VdH_qoekz)|R@*AS*O^>y#(>J<AiRSh(>XK=TVQb1UP5Oivk=AAM$0oA
+oGz)sOT0sXLQO~c}u`?(81C7^UA;81y3IG5A07*qoM6N<$g5<;MMgRZ+
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/mipmap-hdpi/ic_notification_projection_on.png b/packages/SystemUI/res/mipmap-hdpi/ic_notification_projection_on.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..7392fc62e5053060dbe4a8b02bdd522c24f499ef
+GIT binary patch
+literal 489
+zcmV<F0T%v=P)<h;3K|Lk000e1NJLTq001HY001Hg1^@s6I!6n_00001b5ch_0Itp)
+z=>Px$qe(<TR9Fe^m%mB_K@i4sF<7PW4_K)X6a*`^5NreyZDJ|-2!g&sS__}S2e7aZ
+zEG#S(A3&^ZR1iTc3w;4Oe-n0KyySA1+-<bjg^!utxtaO$-R`leRKobD3Pf=nAHuB#
+zYD409N1tXCMc=lc5P4u>5yTEQUbbI#1y>+)Z;OixBW_`b;H3?g?en8QsW}EZ)K`XO
+z_w2h~Ad-|UD3Vm9WA`Q>&^bGP3%{ZB0qrAsqhOnQ%h)GQ>W$ROMTDd|p1qQUlE#v&
+zL+N-HGH<zvkTmHMKd|S{FKTuvFagFvZX(+B1@`+oDPmD#jeH@}9^ure5^94Ys)X90
+zh$^Ahen$>CQcVpc?39~(Q&5P!f(4L9!f|LDuSE7}u@0;{wz>H8;28Y6XG)-~QR7Sb
+zMX`%s1$kwwE-v?4FT<PE{j%-#I=a<rpw3CRzyNF0HYc)^G@s^j4R}tA7g(29J;U~R
+z&qYKUL1q(E^kO8X?2wDmtzGzYKT{EusKast_}bX=Nx05b0wPDi_h{ugHK(wZzllB-
+fIm=XJSP%RFS=F{%;Wd5700000NkvXXu0mjfDi_u<
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/mipmap-hdpi/ic_notification_setting.png b/packages/SystemUI/res/mipmap-hdpi/ic_notification_setting.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..7cdaa9cfc98ece4c01c326a43aa4684ff07e038a
+GIT binary patch
+literal 1240
+zcmV;}1Sk86P)<h;3K|Lk000e1NJLTq001HY001Hg1^@s6I!6n_00001b5ch_0Itp)
+z=>Px(l1W5CR9FesmuskvSs2G{&Kct{q-NZrsTqU#Fv?w0V#bFNV-!&%#TT~^KAb@z
+zln;ug#w|)x)8sad(iAg{6o-fpBX>D&$?Z%Ij@-B3fA8nn*8A?Yw>fBP{`K3>TF>*W
+z^{&0&b=ysv{GXN0W(UF!sD-<59=5{R|MYwDz&+r4<^{78-)1mP-=-05KDKuKGMP*z
+z<qojZd>@)^lqoq7zTIHZ&o5e~dTnd<>#_{y7N)^`_s!-EZTr9(*bd$<Oo^9Cu7IB)
+zlwQS0@IBO6;3c-X_d@ws^Veh7fd()J8o+gh!XR%`){^+MwYrb3hKp8zVpirVREHf=
+z*986p!aS-uE#p&zlO8~~ux(M9gvrW8b<jfz*w5i6NWa6tqK1Kkcq^Cz8mtC2#lw`>
+zfb^&PqE-pHv}|@`n1JsS=o$LnR3^U}v<dU5e+JJ%`XY=a$^-{NgR;=<MDQIe^w$e6
+zt7CK=s>*gr!Z)D3;ROsSo7{*XeO&`-7qm<_tw=kl?}0ne5t>0%bT*2>82A((!3o&R
+zQoe$X={(NPu%8@X>ao1Mj|Yqc=|C(Ce`nC7jp-rIS&&J$#i!-0C0`5iFGxU1UqgR5
+z0Fu6KLik#Pzh~tfgSD^??tp7iqM=m?dfy8u4+lLrKcOjn2^wjrM^sv*JHxlhlC&(x
+zhjHp{;WvwGj`a=WD&w1O@zCfCR4MqQc@JZE!e1~m(n%-$KH&N3xIL&PIhR1%lFq@`
+z9Dab+ppDZf@Nf;}AV_6b2=Q-oS^1AH>4$io@Jh?O?7mW#Jl}1n>d^C(^lGUF=JzF+
+zrLI*~N;&`~&(GK5pXy7>X!-hSsm)CFdX`t6qAAr{T`OV$L{}AlKh!+mn&l18=tD_^
+zya%3pR<C9iq_sQW?DZ!J+Ol<eN++Oj@_H7&k>K+vaVRQ>*f2=z7LG~<wf}Dd?G1;(
+zxA@$l=MS-tMiBQ0ouWJzw6FArrJ&U$X$#kdDIt6t6hud1H)wuNP9%ASz;ck5xi7T%
+z=fQI&l+Z=|u`f}D|2Al8cMAKAmPzVj$=W4#1uPQ&zM$nEO7|D7nCM}Kf379(DC#ig
+zAh`lgTBC)r9QTpa4*Eea_`v-!OI)u*S{#cfd?d92zmwEa?wv?@hYEd-2E9_9>fe>^
+zii9;FU4YUTm$JQ-4$|i|b&eiG;-Zzl#s6*H)ME?#0F87&>2T{``Z2E~<h6im(61Yw
+zIW=VI%AnU+wEPP_&`4*&Igr+a=F1ESSIIu}>28q_{sFK8Zh%XNT6fUj6W@o{CK|>n
+zBx_I5GLy6vB`rCf3qDBs^z#;8ALR*hnx0~}z&5LEzWM&6gSBXniH${@oKD*PAnAX~
+zNKd3Z6ly^l9Qc>yUAY0Ym!G<R(Ou@(VCF#4rOEq<S{gKkNzgT&fbSScg$YO5|CCJ)
+z^YK^02#D@4o*TQf=3*RtFDd-ui7DIK>YBhuto)T(9cBg5&oe4}3y$|$;Nkj-|ADl$
+z8yDtHW1iW#_Z9Ta1GW5g9q0~^;WV86S2uJL(|QHEMGc55VWpe^0000<MNUMnLSTYM
+CT4c2V
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/values/dimens.xml b/packages/SystemUI/res/values/dimens.xml
+index af481d6..94a753f 100644
+--- a/packages/SystemUI/res/values/dimens.xml
++++ b/packages/SystemUI/res/values/dimens.xml
+@@ -881,4 +881,10 @@
+     <dimen name="systemui_height_calendarview">154dp</dimen>
+     <dimen name="systemui_date_text_size">10sp</dimen>
+ 
++    <dimen name="notification_panel_height">560dp</dimen>
++    <!-- notification dimens -->
++    <dimen name="size_sixty">60dp</dimen>
++    <dimen name="qs_icon_size_thirty">30dp</dimen>
++    <dimen name="qs_font_size_sixteen">16sp</dimen>
++    <dimen name="qs_margin_fifty">50dp</dimen>
+ </resources>
+diff --git a/packages/SystemUI/res/values/strings.xml b/packages/SystemUI/res/values/strings.xml
+index 099b7c3..bd91084 100644
+--- a/packages/SystemUI/res/values/strings.xml
++++ b/packages/SystemUI/res/values/strings.xml
+@@ -2115,4 +2115,15 @@
+     <string name="battery_percent">"Battery <xliff:g id="TIME">%1$d</xliff:g>"</string>
+     <string name="battery_saver_settings">Set energy saving mode</string>
+ 
++    <!-- notification  -->
++    <string name="notification_info">information</string>
++    <string name="clear_all">clear all</string>
++    <string name="notification_manager">manager</string>
++    <string name="print_manager">print manager</string>
++    <string name="print_message">print message</string>
++    <string name="notification_shot_screen">shot screen</string>
++    <string name="notification_settings">settings</string>
++    <string name="notification_isolation">isolation</string>
++    <string name="notification_projection">projection</string>
++    <string name="notification_isolation_on">isolation</string>
+ </resources>
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/NotificationPanelView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/NotificationPanelView.java
+index c191618..b8974bc 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/NotificationPanelView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/NotificationPanelView.java
+@@ -119,7 +119,7 @@ public class NotificationPanelView extends PanelView implements
+     private KeyguardStatusView mKeyguardStatusView;
+     private View mReserveNotificationSpace;
+     private View mQsNavbarScrim;
+-    protected NotificationsQuickSettingsContainer mNotificationContainerParent;
++    //protected NotificationsQuickSettingsContainer mNotificationContainerParent;
+     protected NotificationStackScrollLayout mNotificationStackScroller;
+     private boolean mAnimateNextTopPaddingChange;
+ 
+@@ -258,8 +258,8 @@ public class NotificationPanelView extends PanelView implements
+         mKeyguardStatusBar = findViewById(R.id.keyguard_header);
+         mKeyguardStatusView = findViewById(R.id.keyguard_status_view);
+ 
+-        mNotificationContainerParent = (NotificationsQuickSettingsContainer)
+-                findViewById(R.id.notification_container_parent);
++        //mNotificationContainerParent = (NotificationsQuickSettingsContainer)
++        //        findViewById(R.id.notification_container_parent);
+         mNotificationStackScroller = (NotificationStackScrollLayout)
+                 findViewById(R.id.notification_stack_scroller);
+         mNotificationStackScroller.setOnHeightChangedListener(this);
+@@ -1090,7 +1090,7 @@ public class NotificationPanelView extends PanelView implements
+             requestPanelHeightUpdate();
+             mFalsingManager.setQsExpanded(expanded);
+             mStatusBar.setQsExpanded(expanded);
+-            mNotificationContainerParent.setQsExpanded(expanded);
++            //mNotificationContainerParent.setQsExpanded(expanded);
+         }
+     }
+ 
+-- 
+2.7.4
+

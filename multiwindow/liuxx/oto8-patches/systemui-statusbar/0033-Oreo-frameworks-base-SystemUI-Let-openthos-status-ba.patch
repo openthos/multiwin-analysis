@@ -1,0 +1,165 @@
+From 016d0a33778c5f1e46d772d54aee1998900ab159 Mon Sep 17 00:00:00 2001
+From: CaoYongren <m18410261910@163.com>
+Date: Thu, 26 Oct 2017 04:53:20 +0000
+Subject: [PATCH 033/110] Oreo: frameworks: base: SystemUI: Let openthos status
+ bar replace navigationbar.
+
+Change-Id: If7edad4e34365400de3c65220482fe2cf1eea396
+Signed-off-by: CaoYongren <m18410261910@163.com>
+---
+ packages/SystemUI/res/layout/navigation_bar.xml    |  2 +-
+ .../systemui/statusbar/phone/StatusBar.java        | 80 ++++++++++++++++------
+ 2 files changed, 59 insertions(+), 23 deletions(-)
+
+diff --git a/packages/SystemUI/res/layout/navigation_bar.xml b/packages/SystemUI/res/layout/navigation_bar.xml
+index f7b0e21..02fa8ed 100644
+--- a/packages/SystemUI/res/layout/navigation_bar.xml
++++ b/packages/SystemUI/res/layout/navigation_bar.xml
+@@ -29,6 +29,6 @@
+         android:layout_width="match_parent"
+         android:layout_height="match_parent" />
+ 
+-    <include layout="@layout/openthos_status_bar" />
++    <!-- <include layout="@layout/openthos_status_bar" /> -->
+ 
+ </com.android.systemui.statusbar.phone.NavigationBarView>
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 43851c3..05f616c 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -273,6 +273,7 @@ import java.util.Locale;
+ import java.util.Map;
+ import java.util.Set;
+ import java.util.Stack;
++import android.view.Gravity;
+ 
+ public class StatusBar extends SystemUI implements DemoMode,
+         DragDownHelper.DragDownCallback, ActivityStarter, OnUnlockMethodChangedListener,
+@@ -444,6 +445,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     protected LinearLayout mActivityLayout;
+     protected int mPrevTaskId = -1;
+     protected StatusBarWindowView mStatusBarWindow;
++    protected OpenthosStatusBarView mOpenthosStatusBarView;
+     protected PhoneStatusBarView mStatusBarView;
+     private int mStatusBarWindowState = WINDOW_STATE_SHOWING;
+     protected StatusBarWindowManager mStatusBarWindowManager;
+@@ -1099,7 +1101,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+             boolean showNav = mWindowManagerService.hasNavigationBar();
+             if (DEBUG) Log.v(TAG, "hasNavigationBar=" + showNav);
+             if (showNav) {
+-                createNavigationBar();
++                //createNavigationBar();
++	        addOpenthosStatusBarLayout();
+             }
+         } catch (RemoteException ex) {
+             // no window manager? good luck with that
+@@ -1299,36 +1302,66 @@ public class StatusBar extends SystemUI implements DemoMode,
+         mShowTaskbarDialog = MenuDialog.getInstance(mContext);
+     }
+ 
++    //add openthos status bar view.
++    protected void addOpenthosStatusBarLayout() {
++        mWindowManager.addView(mOpenthosStatusBarView, getOpenthosStatusBarLayoutParams());
++    }
++
++    private WindowManager.LayoutParams getOpenthosStatusBarLayoutParams() {
++        mActivityLayout = (LinearLayout) mOpenthosStatusBarView.findViewById(R.id.ll_scroll_icon_contents);
++        showCustomDialog(mOpenthosStatusBarView);
++        final Resources res = mContext.getResources();
++        WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
++                WindowManager.LayoutParams.MATCH_PARENT, res.getDimensionPixelSize(R.dimen.navigation_bar_height),
++                WindowManager.LayoutParams.TYPE_NAVIGATION_BAR,
++                0
++                | WindowManager.LayoutParams.FLAG_TOUCHABLE_WHEN_WAKING
++                | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
++                | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
++                | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
++                | WindowManager.LayoutParams.FLAG_SPLIT_TOUCH
++                | WindowManager.LayoutParams.FLAG_SLIPPERY,
++                PixelFormat.TRANSLUCENT);
++        // this will allow the navbar to run in an overlay on devices that support this
++        if (ActivityManager.isHighEndGfx()) {
++            lp.flags |= WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED;
++        }
++        lp.gravity = Gravity.BOTTOM;
++        lp.setTitle("OpenthosStatusBar");
++        lp.windowAnimations = 0;
++        return lp;
++    }
++
+     protected void createNavigationBar() {
+         mNavigationBarView = NavigationBarFragment.create(mContext, (tag, fragment) -> {
+             mNavigationBar = (NavigationBarFragment) fragment;
+             OpenthosStatusBarView v = mNavigationBar.getActivityLayout();
+-            mActivityLayout = (LinearLayout) v.findViewById(R.id.ll_scroll_icon_contents);
++            //mActivityLayout = (LinearLayout) v.findViewById(R.id.ll_scroll_icon_contents);
+             if (mLightBarController != null) {
+                 mNavigationBar.setLightBarController(mLightBarController);
+             }
+             mNavigationBar.setCurrentSysuiVisibility(mSystemUiVisibility);
++        });
++    }
+ 
+-            v.findViewById(R.id.show_statusbar).setOnTouchListener(new View.OnTouchListener() {
+-                @Override
+-                public boolean onTouch(View v, MotionEvent event) {
+-                    android.util.Log.i("ljh", "touch");
+-                    if (event.getAction() == MotionEvent.ACTION_DOWN) {
+-                        mDownX = (int) event.getRawX();
+-                        mDownY = (int) event.getRawY();
+-                    }
+-                    return false;
++    public void showCustomDialog(View view) {
++        view.findViewById(R.id.show_statusbar).setOnTouchListener(new View.OnTouchListener() {
++            @Override
++            public boolean onTouch(View v, MotionEvent event) {
++                if (event.getAction() == MotionEvent.ACTION_DOWN) {
++                    mDownX = (int) event.getRawX();
++                    mDownY = (int) event.getRawY();
+                 }
+-            });
++                return false;
++            }
++        });
+ 
+-            v.findViewById(R.id.show_statusbar).setOnLongClickListener(new View.OnLongClickListener() {
+-                @Override
+-                public boolean onLongClick(View v) {
+-                    android.util.Log.i("ljh", "long");
+-                    mShowTaskbarDialog.show(DialogType.SHOW_TASKBAR, mDownX, mDownY);
+-                    return false;
+-                }
+-            });
++        view.findViewById(R.id.show_statusbar).setOnLongClickListener(new View.OnLongClickListener() {
++            @Override
++            public boolean onLongClick(View v) {
++                mShowTaskbarDialog.show(DialogType.SHOW_TASKBAR, mDownX, mDownY);
++                return false;
++            }
+         });
+     }
+ 
+@@ -1522,6 +1555,9 @@ public class StatusBar extends SystemUI implements DemoMode,
+     protected void inflateStatusBarWindow(Context context) {
+         mStatusBarWindow = (StatusBarWindowView) View.inflate(context,
+                 R.layout.super_status_bar, null);
++        mOpenthosStatusBarView = (OpenthosStatusBarView) View.inflate(
++                context, R.layout.openthos_status_bar, null);
++
+     }
+ 
+     public void clearAllNotifications() {
+@@ -7774,8 +7810,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+             // startKeyguard() hasn't been called yet, so we don't know.
+             // Make sure anything that needs to know isKeyguardSecure() checks and re-checks this
+             // value onVisibilityChanged().
+-            Slog.w(TAG, "isKeyguardSecure() called before startKeyguard(), returning false",
+-                    new Throwable());
++            //Slog.w(TAG, "isKeyguardSecure() called before startKeyguard(), returning false",
++            //        new Throwable());
+             return false;
+         }
+         return mStatusBarKeyguardViewManager.isSecure();
+-- 
+2.7.4
+

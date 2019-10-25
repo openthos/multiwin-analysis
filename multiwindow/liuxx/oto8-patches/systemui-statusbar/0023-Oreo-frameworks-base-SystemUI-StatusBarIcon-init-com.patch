@@ -1,0 +1,1151 @@
+From 4a5bf9dc2ebf0c947360c462fac7251ed4655f20 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Fri, 20 Oct 2017 07:10:12 +0000
+Subject: [PATCH 023/110] Oreo: frameworks: base: SystemUI: StatusBarIcon init
+ commit.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ api/current.txt                                    |   1 +
+ api/system-current.txt                             |   1 +
+ api/test-current.txt                               |   1 +
+ core/java/android/app/Activity.java                |  10 +
+ core/java/android/app/ActivityManager.java         |   7 +-
+ .../android/preference/PreferenceFrameLayout.java  |   2 +-
+ core/java/android/view/Window.java                 |   3 +
+ .../com/android/internal/policy/DecorView.java     |   3 +
+ .../com/android/internal/statusbar/IStatusBar.aidl |   1 +
+ .../android/internal/widget/DecorCaptionView.java  |  12 +-
+ .../res/drawable/ic_background_activity_run.png    | Bin 0 -> 194 bytes
+ .../res/drawable/ic_background_mouse_click.png     | Bin 0 -> 2712 bytes
+ .../SystemUI/res/drawable/tasker_app_getfocus.xml  |   5 +
+ .../res/layout/statusbar_activity_button.xml       |  35 +++
+ packages/SystemUI/res/values/arrays.xml            |  15 +
+ packages/SystemUI/res/values/strings.xml           |   3 +
+ .../src/com/android/systemui/dialog/BarDialog.java | 306 +++++++++++++++++++++
+ .../android/systemui/statusbar/CommandQueue.java   |  15 +
+ .../statusbar/phone/NavigationBarFragment.java     |   9 +
+ .../systemui/statusbar/phone/StatusBar.java        | 127 +++++++++
+ .../android/server/am/ActivityManagerService.java  |  42 ++-
+ .../android/server/am/ActivityMetricsLogger.java   |   4 +
+ .../java/com/android/server/am/ActivityStack.java  |   2 +
+ .../java/com/android/server/am/TaskRecord.java     |   1 +
+ .../server/statusbar/StatusBarManagerInternal.java |   3 +
+ .../server/statusbar/StatusBarManagerService.java  |   9 +
+ 26 files changed, 610 insertions(+), 7 deletions(-)
+ create mode 100644 packages/SystemUI/res/drawable/ic_background_activity_run.png
+ create mode 100644 packages/SystemUI/res/drawable/ic_background_mouse_click.png
+ create mode 100644 packages/SystemUI/res/drawable/tasker_app_getfocus.xml
+ create mode 100644 packages/SystemUI/res/layout/statusbar_activity_button.xml
+ create mode 100644 packages/SystemUI/src/com/android/systemui/dialog/BarDialog.java
+
+diff --git a/api/current.txt b/api/current.txt
+index 25e998c..1025318 100644
+--- a/api/current.txt
++++ b/api/current.txt
+@@ -3641,6 +3641,7 @@ package android.app {
+     method public boolean isVoiceInteraction();
+     method public boolean isVoiceInteractionRoot();
+     method public final deprecated android.database.Cursor managedQuery(android.net.Uri, java.lang.String[], java.lang.String, java.lang.String[], java.lang.String);
++    method public void moveTaskBack();
+     method public boolean moveTaskToBack(boolean);
+     method public boolean navigateUpTo(android.content.Intent);
+     method public boolean navigateUpToFromChild(android.app.Activity, android.content.Intent);
+diff --git a/api/system-current.txt b/api/system-current.txt
+index 2bc8a92..a772308 100644
+--- a/api/system-current.txt
++++ b/api/system-current.txt
+@@ -3784,6 +3784,7 @@ package android.app {
+     method public boolean isVoiceInteraction();
+     method public boolean isVoiceInteractionRoot();
+     method public final deprecated android.database.Cursor managedQuery(android.net.Uri, java.lang.String[], java.lang.String, java.lang.String[], java.lang.String);
++    method public void moveTaskBack();
+     method public boolean moveTaskToBack(boolean);
+     method public boolean navigateUpTo(android.content.Intent);
+     method public boolean navigateUpToFromChild(android.app.Activity, android.content.Intent);
+diff --git a/api/test-current.txt b/api/test-current.txt
+index bbaf021..3e02981 100644
+--- a/api/test-current.txt
++++ b/api/test-current.txt
+@@ -3643,6 +3643,7 @@ package android.app {
+     method public boolean isVoiceInteraction();
+     method public boolean isVoiceInteractionRoot();
+     method public final deprecated android.database.Cursor managedQuery(android.net.Uri, java.lang.String[], java.lang.String, java.lang.String[], java.lang.String);
++    method public void moveTaskBack();
+     method public boolean moveTaskToBack(boolean);
+     method public boolean navigateUpTo(android.content.Intent);
+     method public boolean navigateUpToFromChild(android.app.Activity, android.content.Intent);
+diff --git a/core/java/android/app/Activity.java b/core/java/android/app/Activity.java
+index 4ea8714..f01bf0f 100644
+--- a/core/java/android/app/Activity.java
++++ b/core/java/android/app/Activity.java
+@@ -5564,6 +5564,7 @@ public class Activity extends ContextThemeWrapper
+      * onActivityResult().
+      */
+     public void finish() {
++        //finish(FINISH_TASK_WITH_ROOT_ACTIVITY);
+         finish(DONT_FINISH_TASK_WITH_ACTIVITY);
+     }
+ 
+@@ -5883,6 +5884,15 @@ public class Activity extends ContextThemeWrapper
+         return false;
+     }
+ 
++    @Override
++    public void moveTaskBack() {
++        try {
++            ActivityManagerNative.getDefault().moveTaskBackwards(getTaskId());
++        } catch (RemoteException e) {
++            // Empty
++        }
++    }
++
+     /**
+      * Returns class name for this activity with the package prefix removed.
+      * This is the default name used to read and write settings.
+diff --git a/core/java/android/app/ActivityManager.java b/core/java/android/app/ActivityManager.java
+index ff68e23..b72c060 100644
+--- a/core/java/android/app/ActivityManager.java
++++ b/core/java/android/app/ActivityManager.java
+@@ -693,8 +693,11 @@ public class ActivityManager {
+         /** ID of stack that contains activities launched by the assistant. */
+         public static final int ASSISTANT_STACK_ID = RECENTS_STACK_ID + 1;
+ 
++        /** ID of stack that always on bottom (always invisible) when it exist. */
++        public static final int BACKGROUND_STACK_ID = ASSISTANT_STACK_ID + 1;
++
+         /** Last static stack stack ID. */
+-        public static final int LAST_STATIC_STACK_ID = ASSISTANT_STACK_ID;
++        public static final int LAST_STATIC_STACK_ID = BACKGROUND_STACK_ID;
+ 
+         /** Start of ID range used by stacks that are created dynamically. */
+         public static final int FIRST_DYNAMIC_STACK_ID = LAST_STATIC_STACK_ID + 1;
+@@ -888,7 +891,7 @@ public class ActivityManager {
+          */
+         public static boolean normallyFullscreenWindows(int stackId) {
+             return stackId != PINNED_STACK_ID && stackId != FREEFORM_WORKSPACE_STACK_ID
+-                    && stackId != DOCKED_STACK_ID;
++                    && stackId != DOCKED_STACK_ID && stackId != BACKGROUND_STACK_ID;
+         }
+ 
+         /**
+diff --git a/core/java/android/preference/PreferenceFrameLayout.java b/core/java/android/preference/PreferenceFrameLayout.java
+index 886338f..2244bb8 100644
+--- a/core/java/android/preference/PreferenceFrameLayout.java
++++ b/core/java/android/preference/PreferenceFrameLayout.java
+@@ -150,4 +150,4 @@ public class PreferenceFrameLayout extends FrameLayout {
+             super(width, height);
+         }
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/core/java/android/view/Window.java b/core/java/android/view/Window.java
+index 045a6f4..373343b 100644
+--- a/core/java/android/view/Window.java
++++ b/core/java/android/view/Window.java
+@@ -634,6 +634,9 @@ public abstract class Window {
+         /** Switch the activity between FULLSCREEN and FREEFORM*/
+         void switchWindowFreeformAndFullscreen() throws RemoteException;
+ 
++        /** Move task back to minimize it*/
++        void moveTaskBack();
++
+         /** Returns whether the window belongs to the task root. */
+         boolean isTaskRoot();
+     }
+diff --git a/core/java/com/android/internal/policy/DecorView.java b/core/java/com/android/internal/policy/DecorView.java
+index 0687194..df793ba 100644
+--- a/core/java/com/android/internal/policy/DecorView.java
++++ b/core/java/com/android/internal/policy/DecorView.java
+@@ -1936,6 +1936,9 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+     }
+ 
+     void setCaptionVisiblity(boolean visible) {
++        if (mDecorCaptionView == null) {
++            return;
++        }
+         mDecorCaptionView.onConfigurationChanged(visible);
+         enableCaption(visible);
+ 
+diff --git a/core/java/com/android/internal/statusbar/IStatusBar.aidl b/core/java/com/android/internal/statusbar/IStatusBar.aidl
+index 1e79bfb..ca0e45b 100644
+--- a/core/java/com/android/internal/statusbar/IStatusBar.aidl
++++ b/core/java/com/android/internal/statusbar/IStatusBar.aidl
+@@ -66,6 +66,7 @@ oneway interface IStatusBar
+     void dismissKeyboardShortcutsMenu();
+     void toggleKeyboardShortcutsMenu(int deviceId);
+     void setStatusBarVisibility(int visibility);
++    void changeStatusBarIcon(int taskId, in ComponentName cmp, boolean keep);
+ 
+     /**
+      * Notifies the status bar that an app transition is pending to delay applying some flags with
+diff --git a/core/java/com/android/internal/widget/DecorCaptionView.java b/core/java/com/android/internal/widget/DecorCaptionView.java
+index 1dbbbed..4a75cff 100644
+--- a/core/java/com/android/internal/widget/DecorCaptionView.java
++++ b/core/java/com/android/internal/widget/DecorCaptionView.java
+@@ -411,6 +411,16 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     }
+ 
+     /**
++     * Minimize the window by move task back.
++     **/
++    private void minimizeWindow() {
++        Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
++        if (callback != null) {
++            callback.moveTaskBack();
++        }
++    }
++
++    /**
+      * Maximize the window by moving it to the maximized workspace stack.
+      **/
+     private void maximizeWindow() {
+@@ -481,7 +491,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         } else if (mClickTarget == mRotate) {
+             rotateWindow();
+         } else if (mClickTarget == mMinimize) {
+-            //minimizeWindow();
++            minimizeWindow();
+         } else if (mClickTarget == mMaximize) {
+             maximizeWindow();
+         } else if (mClickTarget == mClose) {
+diff --git a/packages/SystemUI/res/drawable/ic_background_activity_run.png b/packages/SystemUI/res/drawable/ic_background_activity_run.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..138cb8e89d9865a55bd705662d64841ac92075ad
+GIT binary patch
+literal 194
+zcmeAS@N?(olHy`uVBq!ia0vp^HbAVw!3HE3?VkA`NHG=%xjQkeJ16rJ$f@ykaSX{|
+zeS2vm?*RjzBL`HHQ~ukg9?&&k@FGa||DSVb{_9lTUvzDD)P`7_hb^hxUzVmWIN>QV
+z`2-*5X@`lE4b&#e3QcQNQcv_zvR2VycJ(_n!==n4f~{*#i(%)R2^)AsEIE^fZYm~9
+sY7_|_Q`zKv$SB~6N{?qsd+8zeq$AAfFYLG40o}pi>FVdQ&MBb@01kUbJOBUy
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/drawable/ic_background_mouse_click.png b/packages/SystemUI/res/drawable/ic_background_mouse_click.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..96c2e3121d585a6ee66a9aac024aec4f95f0c3f5
+GIT binary patch
+literal 2712
+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
+S+4I`~0000<MNUMnLSTZ+);=--
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/drawable/tasker_app_getfocus.xml b/packages/SystemUI/res/drawable/tasker_app_getfocus.xml
+new file mode 100644
+index 0000000..aa7a810
+--- /dev/null
++++ b/packages/SystemUI/res/drawable/tasker_app_getfocus.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_pressed="true" android:drawable="@drawable/ic_background_mouse_click"/>
++    <item android:state_pressed="false" android:drawable="@drawable/system_bar_background"/>
++</selector>
+diff --git a/packages/SystemUI/res/layout/statusbar_activity_button.xml b/packages/SystemUI/res/layout/statusbar_activity_button.xml
+new file mode 100644
+index 0000000..66941d7
+--- /dev/null
++++ b/packages/SystemUI/res/layout/statusbar_activity_button.xml
+@@ -0,0 +1,35 @@
++
++<FrameLayout
++    android:id="@+id/statusbar_activity_button"
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="wrap_content"
++    android:layout_height="match_parent"
++    >
++    <ImageView
++        android:id="@+id/icon_view"
++        android:layout_width="64dp"
++        android:layout_height="match_parent"
++        android:layout_marginLeft="1dp"
++        android:layout_marginRight="1dp"
++        android:background="@drawable/tasker_app_getfocus"
++        android:scaleType="centerInside" />
++    <View
++        android:id="@+id/activity_focused"
++        android:layout_width="64dp"
++        android:layout_height="match_parent"
++        android:layout_marginLeft="1dp"
++        android:layout_marginRight="1dp"
++        android:background="@drawable/ic_background_mouse_click"
++        android:visibility="gone"
++        />
++    <View
++        android:id="@+id/activity_run"
++        android:layout_width="64dp"
++        android:layout_height="match_parent"
++        android:layout_marginLeft="1dp"
++        android:layout_marginRight="1dp"
++        android:background="@drawable/ic_background_activity_run"
++        android:visibility="gone"
++        />
++
++</FrameLayout>
+diff --git a/packages/SystemUI/res/values/arrays.xml b/packages/SystemUI/res/values/arrays.xml
+index 2ed06a5..192060e 100644
+--- a/packages/SystemUI/res/values/arrays.xml
++++ b/packages/SystemUI/res/values/arrays.xml
+@@ -34,5 +34,20 @@
+         <item>@string/uninstall</item>
+     </string-array>
+ 
++    <string-array name="bar_menu_normal">
++        <item>@string/close</item>
++        <item>@string/dock</item>
++    </string-array>
++
++    <string-array name="bar_menu_docked_closed">
++        <item>@string/open</item>
++        <item>@string/undock</item>
++    </string-array>
++
++    <string-array name="bar_menu_docked_open">
++        <item>@string/close</item>
++        <item>@string/undock</item>
++    </string-array>
++
+ 
+ </resources>
+diff --git a/packages/SystemUI/res/values/strings.xml b/packages/SystemUI/res/values/strings.xml
+index bd91084..5c47f71 100644
+--- a/packages/SystemUI/res/values/strings.xml
++++ b/packages/SystemUI/res/values/strings.xml
+@@ -2068,6 +2068,9 @@
+     <string name="time_sort">Time</string>
+     <string name="default_sort">Default</string>
+     <string name="open">Open</string>
++    <string name="close">Close</string>
++    <string name="dock">Dock</string>
++    <string name="undock">Undock</string>
+     <string name="phone_mode">Phone mode</string>
+     <string name="desktop_mode">Desktop mode</string>
+     <string name="lock_app">Lock app</string>
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/BarDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/BarDialog.java
+new file mode 100644
+index 0000000..853d539
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/dialog/BarDialog.java
+@@ -0,0 +1,306 @@
++package com.android.systemui.dialog;
++
++import android.app.ActivityManagerNative;
++import android.app.ActivityManager;
++import android.content.ActivityNotFoundException;
++import android.content.Context;
++import android.content.Intent;
++import android.content.ComponentName;
++import android.graphics.PixelFormat;
++import android.graphics.Point;
++import android.net.Uri;
++import android.os.Build;
++import android.os.Bundle;
++import android.support.annotation.NonNull;
++import android.support.v4.content.LocalBroadcastManager;
++import android.util.Slog;
++import android.view.Display;
++import android.view.Gravity;
++import android.view.LayoutInflater;
++import android.view.MotionEvent;
++import android.view.View;
++import android.view.ViewGroup;
++import android.view.Window;
++import android.view.WindowManager;
++import android.widget.AdapterView;
++import android.widget.BaseAdapter;
++import android.widget.LinearLayout;
++import android.widget.FrameLayout;
++import android.widget.ListView;
++import android.widget.TextView;
++
++import com.android.systemui.R;
++import com.android.systemui.startupmenu.DialogType;
++import com.android.systemui.sql.SqliteOperate;
++import com.android.systemui.startupmenu.U;
++
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.List;
++import java.util.HashMap;
++
++/**
++ * Created by ljh on 17-9-14.
++ */
++
++public class BarDialog extends BaseDialog implements AdapterView.OnItemClickListener {
++    private static BarDialog listDialog;
++    private static ComponentName mComponentName;
++    private static int mTaskId;
++    private static HashMap<Integer, FrameLayout> mIconMap;
++    private static HashMap<ComponentName, FrameLayout> mDockedMap;
++    private static LinearLayout mActivityLayout;
++    private static FrameLayout mIconLayout;
++    public static int mShowX;
++    public static int mShowY;
++    public List<String> mDatas;
++    public DialogAdapter mAdapter;
++    private ListView mListView;
++    private Point mPoint;
++    private int mWidth;
++    private int mHeight;
++    private int mStatusBarHeight;
++
++    public static BarDialog getInstance(Context context, ComponentName appEntry, int taskId,
++                                        LinearLayout activityLayout,
++                                        FrameLayout iconLayout,
++                                        HashMap<Integer, FrameLayout> iconMap,
++                                        HashMap<ComponentName, FrameLayout> dockedMap) {
++        if (listDialog == null) {
++            listDialog = new BarDialog(context);
++        }
++        mComponentName = appEntry;
++        mTaskId = taskId;
++        mIconMap = iconMap;
++        mDockedMap = dockedMap;
++        mActivityLayout = activityLayout;
++        mIconLayout = iconLayout;
++        return listDialog;
++    }
++
++    public static void dismissBarDialog(){
++        if(listDialog != null && listDialog.isShowing()){
++            listDialog.dismiss();
++        }
++    }
++
++    private BarDialog (@NonNull Context context) {
++        super(context);
++        requestWindowFeature(Window.FEATURE_NO_TITLE);
++        mContentView = LayoutInflater.from(getContext()).inflate(R.layout.menu_dialog, null, false);
++        setContentView(mContentView);
++        create();
++    }
++
++    @Override
++    public void initListener() {
++        mListView.setOnItemClickListener(this);
++    }
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++//        setContentView(R.layout.menu_dialog);
++//        initView();
++//        initData();
++    }
++
++    @Override
++    public void initView() {
++        mListView = (ListView) findViewById(R.id.list);
++        Slog.e("LADEHUNTER+BARDIALOG", "mListView: " + mListView + " after initView");
++    }
++
++    @Override
++    public void initData() {
++        mDatas = new ArrayList<>();
++        mAdapter = new DialogAdapter();
++        Slog.e("LADEHUNTER+BARDIALOG", "mAdapater: " + mAdapter + " in initData", new Exception());
++        mListView.setAdapter(mAdapter);
++        Display defaultDisplay = ((WindowManager)
++                getContext().getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
++        mPoint = new Point();
++        defaultDisplay.getRealSize(mPoint);
++
++    }
++
++    public void showDialog() {
++
++        int x = mShowX;
++        int y = mShowY;
++        prepareData();
++
++        Window dialogWindow = getWindow();
++        dialogWindow.setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
++        dialogWindow.setGravity(Gravity.CENTER);
++        WindowManager.LayoutParams lp = dialogWindow.getAttributes();
++        lp.format = PixelFormat.TRANSPARENT;
++        lp.dimAmount = 0;
++        if (x > mPoint.x - mWidth) {
++            lp.x = x - mWidth / 2 - mPoint.x / 2;
++        } else {
++            lp.x = x + mWidth / 2 - mPoint.x / 2;
++        }
++        if (y < mPoint.y - mStatusBarHeight - mHeight) {
++            lp.y = y + mHeight / 2 - mPoint.y / 2;
++        } else {
++            lp.y = y - mHeight / 2 - mPoint.y / 2;
++        }
++        dialogWindow.setAttributes(lp);
++        Slog.e("LADEHUNTER+BARDIALOG", "Dilog will show");
++        show();
++
++    }
++
++    @Override
++    public void onWindowFocusChanged(boolean hasFocus) {
++        super.onWindowFocusChanged(hasFocus);
++        if (!hasFocus){
++            dismiss();
++        }
++    }
++
++    private void prepareData() {
++        mDatas.clear();
++        boolean docked = mDockedMap.containsKey(mComponentName);
++        boolean run = mIconMap.containsKey(mTaskId);
++        Slog.e("LADEHUNTER+BARDIALOG", "mComponentName: " + mComponentName);
++        Slog.e("LADEHUNTER+BARDIALOG", "mTaskId: " + mTaskId);
++        Slog.e("LADEHUNTER+BARDIALOG", "mIconMap: " + mIconMap);
++        Slog.e("LADEHUNTER+BARDIALOG", "mDockedMap: " + mDockedMap);
++        Slog.e("LADEHUNTER+BARDIALOG", "mIconLayout: " + mIconLayout);
++        Slog.e("LADEHUNTER+BARDIALOG", "docked: " + docked + " run: " + run);
++        String[] sArr;
++        if (docked && run) {
++            sArr = getContext().getResources().getStringArray(
++                                R.array.bar_menu_docked_open);
++            Slog.e("LADEHUNTER+BARDIALOG", "bar_menu_docked_open");
++        } else if (docked) {
++            sArr = getContext().getResources().getStringArray(
++                                R.array.bar_menu_docked_closed);
++            Slog.e("LADEHUNTER+BARDIALOG", "bar_menu_docked_closed");
++        } else {
++            sArr = getContext().getResources().getStringArray(
++                                R.array.bar_menu_normal);
++            Slog.e("LADEHUNTER+BARDIALOG", "bar_menu_normal");
++        }
++        mDatas.addAll(Arrays.asList(sArr));
++        Slog.e("LADEHUNTER+BARDIALOG", "mDatas: " + mDatas);
++        mAdapter.notifyDataSetChanged();
++        Slog.e("LADEHUNTER+BARDIALOG", "mAdapter: " + mAdapter);
++        mWidth = 0;
++        mHeight = 0;
++        for (int i = 0; i < mAdapter.getCount(); i++) {
++            View view = mAdapter.getView(i, null, null);
++            view.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
++            mWidth = Math.max(view.getMeasuredWidth(), mWidth);
++            Slog.e("LADEHUNTER+BARDIALOG", "mWidth: " + mWidth);
++            mHeight = mHeight + view.getMeasuredHeight();
++            Slog.e("LADEHUNTER+BARDIALOG", "mHeight: " + mHeight);
++        }
++
++        mListView.setLayoutParams(new LinearLayout.LayoutParams(mWidth, mHeight));
++        Slog.e("LADEHUNTER+BARDIALOG", "mListView: " + mListView);
++    }
++
++    @Override
++    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
++        boolean run = mIconMap.containsKey(mTaskId);
++        boolean docked = mDockedMap.containsKey(mComponentName);
++        boolean iconDocked = mDockedMap.containsValue(mIconLayout);
++        dismiss();
++        String content = mDatas.get(position);
++        if (content.equals(getContext().getString(R.string.open))) {
++            U.launchApp(getContext(), mComponentName);
++        } else if (content.equals(getContext().getString(R.string.close))) {
++            try {
++                ActivityManager.getService().removeTask(mTaskId);
++            } catch (Exception e){
++            }
++        } else if (content.equals(getContext().getString(R.string.dock))) {
++            if (!docked) {
++                mDockedMap.put(mComponentName, mIconLayout);
++            }
++        } else if (content.equals(getContext().getString(R.string.undock))) {
++            if (iconDocked) {
++                mDockedMap.remove(mComponentName);
++                if (!run) {
++                    mActivityLayout.removeView(mIconLayout);
++                }
++            }
++        }
++    }
++
++    private void dismissAndHideStartMenu(boolean hideStartMenu) {
++        dismiss();
++    }
++
++    private void uninstallApp() {
++        Uri uri = Uri.parse("package:" + mComponentName.getPackageName());
++        Intent intent = new Intent(Intent.ACTION_DELETE, uri);
++        getContext().startActivity(intent);
++    }
++
++    private class DialogAdapter extends BaseAdapter {
++
++        @Override
++        public int getCount() {
++            return mDatas.size();
++        }
++
++        @Override
++        public String getItem(int position) {
++            return mDatas.get(position);
++        }
++
++        @Override
++        public long getItemId(int position) {
++            return position;
++        }
++
++        @Override
++        public View getView(int position, View convertView, ViewGroup parent) {
++            ViewHolder holder;
++            if (convertView == null) {
++                convertView =
++                        LayoutInflater.from(getContext()).inflate(R.layout.menu_dialog_item, parent, false);
++                holder = new ViewHolder(convertView);
++                convertView.setTag(holder);
++            } else {
++                holder = (ViewHolder) convertView.getTag();
++            }
++//            if (mType == DialogType.GRID
++//                    && getItem(position).equals(getContext().getString(R.string.lock_app))
++//                    && mInstance.isPinned(mComponentName.getComponentName())) {
++//                mDatas.set(position, getContext().getString(R.string.unlock_app));
++//                holder.text.setText(getContext().getString(R.string.unlock_app));
++//            } else {
++//                holder.text.setText(getItem(position));
++//            }
++            holder.text.setText(getItem(position));
++            return convertView;
++        }
++
++        private class ViewHolder implements View.OnHoverListener {
++            private TextView text;
++
++            public ViewHolder(View view) {
++                text = (TextView) view.findViewById(R.id.text);
++                view.setOnHoverListener(this);
++            }
++
++            @Override
++            public boolean onHover(View v, MotionEvent event) {
++                switch (event.getAction()) {
++                    case MotionEvent.ACTION_HOVER_ENTER:
++                        v.setBackgroundResource(R.color.common_hover_bg);
++                        break;
++                    case MotionEvent.ACTION_HOVER_EXIT:
++                        v.setBackgroundResource(android.R.color.white);
++                        break;
++                }
++                return false;
++            }
++        }
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/CommandQueue.java b/packages/SystemUI/src/com/android/systemui/statusbar/CommandQueue.java
+index caa8cb8..ba51a2a 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/CommandQueue.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/CommandQueue.java
+@@ -83,6 +83,7 @@ public class CommandQueue extends IStatusBar.Stub {
+     private static final int MSG_SHOW_SHUTDOWN_UI              = 36 << MSG_SHIFT;
+     private static final int MSG_SET_TOP_APP_HIDES_STATUS_BAR  = 37 << MSG_SHIFT;
+     private static final int MSG_SET_STATUS_BAR_VISIBILITY     = 38 << MSG_SHIFT;
++    private static final int MSG_CHANGE_STATUS_BAR_ICON        = 39 << MSG_SHIFT;
+ 
+     public static final int FLAG_EXCLUDE_NONE = 0;
+     public static final int FLAG_EXCLUDE_SEARCH_PANEL = 1 << 0;
+@@ -126,6 +127,7 @@ public class CommandQueue extends IStatusBar.Stub {
+         default void cancelPreloadRecentApps() { }
+         default void setWindowState(int window, int state) { }
+         default void setStatusBarVisibility(int visibility) { };
++        default void changeStatusBarIcon(int taskId, ComponentName cmp, boolean keep) { };
+         default void showScreenPinningRequest(int taskId) { }
+         default void appTransitionPending(boolean forced) { }
+         default void appTransitionCancelled() { }
+@@ -338,6 +340,13 @@ public class CommandQueue extends IStatusBar.Stub {
+         }
+     }
+ 
++    public void changeStatusBarIcon(int taskId, ComponentName cmp, boolean keep) {
++        synchronized (mLock) {
++            mHandler.obtainMessage(MSG_CHANGE_STATUS_BAR_ICON, taskId, keep ? 1 : 0 , cmp).
++                    sendToTarget();
++        }
++    }
++
+     public void setStatusBarVisibility(int visibility) {
+         synchronized (mLock) {
+             mHandler.removeMessages(MSG_SET_STATUS_BAR_VISIBILITY);
+@@ -571,6 +580,12 @@ public class CommandQueue extends IStatusBar.Stub {
+                         mCallbacks.get(i).toggleKeyboardShortcutsMenu(msg.arg1);
+                     }
+                     break;
++                case MSG_CHANGE_STATUS_BAR_ICON:
++                    for (int i = 0; i < mCallbacks.size(); i++) {
++                        mCallbacks.get(i).changeStatusBarIcon(
++                                    msg.arg1, (ComponentName) msg.obj, msg.arg2 != 0);
++                    }
++                    break;
+                 case MSG_SET_STATUS_BAR_VISIBILITY:
+                     for (int i = 0; i < mCallbacks.size(); i++) {
+                         mCallbacks.get(i).setStatusBarVisibility(msg.arg1);
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/NavigationBarFragment.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/NavigationBarFragment.java
+index c44e1db..f02c835 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/NavigationBarFragment.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/NavigationBarFragment.java
+@@ -64,6 +64,7 @@ import android.view.WindowManagerGlobal;
+ import android.view.accessibility.AccessibilityEvent;
+ import android.view.accessibility.AccessibilityManager;
+ import android.view.accessibility.AccessibilityManager.AccessibilityServicesStateChangeListener;
++import android.widget.LinearLayout;
+ 
+ import com.android.internal.logging.MetricsLogger;
+ import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+@@ -81,6 +82,7 @@ import com.android.systemui.statusbar.CommandQueue.Callbacks;
+ import com.android.systemui.statusbar.policy.AccessibilityManagerWrapper;
+ import com.android.systemui.statusbar.policy.KeyButtonView;
+ import com.android.systemui.statusbar.stack.StackStateAnimator;
++import com.android.systemui.statusbar.phone.OpenthosStatusBarView;
+ 
+ import java.io.FileDescriptor;
+ import java.io.PrintWriter;
+@@ -622,6 +624,13 @@ public class NavigationBarFragment extends Fragment implements Callbacks {
+         mNavigationBarView.getBarTransitions().finishAnimations();
+     }
+ 
++    public OpenthosStatusBarView getActivityLayout() {
++        //OpenthosStatusBarView openthosStatusBar = (OpenthosStatusBarView)mNavigationBarView.
++        //                            findViewById(R.id.openthos_status_bar);
++        //return (LinearLayout)openthosStatusBar.findViewById(R.id.ll_scroll_icon_contents);
++        return (OpenthosStatusBarView)mNavigationBarView.findViewById(R.id.openthos_status_bar);
++    }
++
+     private final AccessibilityServicesStateChangeListener mAccessibilityListener =
+             this::updateAccessibilityServicesState;
+ 
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 18d0d55..f484384 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -36,6 +36,7 @@ import android.animation.Animator;
+ import android.animation.AnimatorListenerAdapter;
+ import android.annotation.NonNull;
+ import android.annotation.Nullable;
++import android.app.IActivityManager;
+ import android.app.ActivityManager;
+ import android.app.ActivityManager.StackId;
+ import android.app.ActivityOptions;
+@@ -136,6 +137,8 @@ import android.view.animation.AccelerateInterpolator;
+ import android.view.animation.Interpolator;
+ import android.widget.DateTimeView;
+ import android.widget.ImageView;
++import android.widget.LinearLayout;
++import android.widget.FrameLayout;
+ import android.widget.RemoteViews;
+ import android.widget.TextView;
+ import android.widget.Toast;
+@@ -249,6 +252,9 @@ import com.android.systemui.statusbar.stack.StackStateAnimator;
+ import com.android.systemui.util.NotificationChannels;
+ import com.android.systemui.util.leak.LeakDetector;
+ import com.android.systemui.volume.VolumeComponent;
++import com.android.systemui.startupmenu.U;
++import com.android.systemui.dialog.BarDialog;
++import com.android.systemui.statusbar.phone.OpenthosStatusBarView;
+ 
+ import java.io.FileDescriptor;
+ import java.io.PrintWriter;
+@@ -422,6 +428,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     Point mCurrentDisplaySize = new Point();
+ 
++    protected LinearLayout mActivityLayout;
++    protected int mPrevTaskId = -1;
+     protected StatusBarWindowView mStatusBarWindow;
+     protected PhoneStatusBarView mStatusBarView;
+     private int mStatusBarWindowState = WINDOW_STATE_SHOWING;
+@@ -771,6 +779,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+     };
+     private HashMap<ExpandableNotificationRow, List<ExpandableNotificationRow>> mTmpChildOrderMap
+             = new HashMap<>();
++    private HashMap<Integer, FrameLayout> mIconMap = new HashMap<>();
++    private HashMap<ComponentName, FrameLayout> mDockedMap = new HashMap<>();
+     private RankingMap mLatestRankingMap;
+     private boolean mNoAnimationOnNextBarModeChange;
+     private FalsingManager mFalsingManager;
+@@ -1263,6 +1273,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+     protected void createNavigationBar() {
+         mNavigationBarView = NavigationBarFragment.create(mContext, (tag, fragment) -> {
+             mNavigationBar = (NavigationBarFragment) fragment;
++            OpenthosStatusBarView v = mNavigationBar.getActivityLayout();
++            mActivityLayout = (LinearLayout)v.findViewById(R.id.ll_scroll_icon_contents);
+             if (mLightBarController != null) {
+                 mNavigationBar.setLightBarController(mLightBarController);
+             }
+@@ -3259,6 +3271,121 @@ public class StatusBar extends SystemUI implements DemoMode,
+         return mFingerprintUnlockController;
+     }
+ 
++    public void iconClose(int taskId) {
++        FrameLayout v = mIconMap.remove(taskId);
++        if (v != null) {
++            if (!mDockedMap.containsValue(v)) {
++                mActivityLayout.removeView(v);
++            } else {
++                v.findViewById(R.id.activity_focused).
++                            setVisibility(View.GONE);
++                v.findViewById(R.id.activity_run).
++                            setVisibility(View.GONE);
++            }
++        }
++    }
++
++    public void setFocusedIcon(int taskId) {
++        if (taskId != mPrevTaskId) {
++            mIconMap.get(taskId).findViewById(R.id.activity_focused).
++                        setVisibility(View.VISIBLE);
++            if (mIconMap.get(mPrevTaskId) != null) {
++                mIconMap.get(mPrevTaskId).findViewById(R.id.activity_focused).
++                            setVisibility(View.GONE);
++            }
++            mPrevTaskId = taskId;
++        }
++    }
++
++    public Drawable getPackageIcon(String pkg) {
++        Drawable icon = null;
++        PackageManager pm = mContext.getPackageManager();
++        try {
++            ApplicationInfo ai = pm.getApplicationInfo(pkg, 0);
++            if (ai != null) {
++                icon = pm.getApplicationIcon(ai);
++            } else {
++                icon = pm.getDefaultActivityIcon();
++            }
++        } catch (Exception e) {
++            Log.e(TAG, "Error during changeStatusBarIcon, set icon as default", e);
++            icon = pm.getDefaultActivityIcon();
++        }
++        return icon;
++    }
++
++    public void bindIconToTaskId(int taskId, ComponentName cmp) {
++        FrameLayout iconLayout;
++        if (!mDockedMap.containsKey(cmp) || (mIconMap.containsValue(mDockedMap.get(cmp))
++                        && mIconMap.get(taskId) == null)) {
++            iconLayout = (FrameLayout)View.inflate(mContext,
++                        R.layout.statusbar_activity_button, null);
++            mActivityLayout.addView(iconLayout);
++        } else {
++            iconLayout = mDockedMap.get(cmp);
++        }
++        iconLayout.findViewById(R.id.activity_focused).setVisibility(View.VISIBLE);
++        iconLayout.findViewById(R.id.activity_run).setVisibility(View.VISIBLE);
++        mIconMap.put(taskId, iconLayout);
++        if (mIconMap.get(mPrevTaskId) != null) {
++            mIconMap.get(mPrevTaskId).findViewById(R.id.activity_focused).
++                        setVisibility(View.GONE);
++        }
++        mPrevTaskId = taskId;
++        ImageView iconView = (ImageView)iconLayout.findViewById(R.id.icon_view);
++        iconView.setImageDrawable(getPackageIcon(cmp.getPackageName()));
++        iconView.setOnClickListener(new View.OnClickListener() {
++            @Override
++            public void onClick(View v) {
++                try {
++                    IActivityManager am = ActivityManager.getService();
++                    if (mIconMap.get(taskId) != null) {
++                        am.setFocusedTask(taskId);
++                    } else {
++                        U.launchApp(mContext, cmp);
++                    }
++                } catch (Exception e) {
++                    Log.e(TAG, "Error during setFocuesTask", e);
++                }
++            }
++        });
++        iconView.setOnLongClickListener(new View.OnLongClickListener() {
++            @Override
++            public boolean onLongClick(View v) {
++                BarDialog.getInstance(mContext, cmp, taskId, mActivityLayout,
++                                      iconLayout, mIconMap, mDockedMap).showDialog();
++                return true;
++            }
++        });
++        iconView.setOnTouchListener(new View.OnTouchListener() {
++            @Override
++            public boolean onTouch(View v, MotionEvent event) {
++                if (event.getAction() == MotionEvent.ACTION_DOWN) {
++                    BarDialog dialog = BarDialog.getInstance(mContext, cmp, taskId,
++                                       mActivityLayout, iconLayout, mIconMap, mDockedMap);
++                    dialog.mShowX = (int)event.getRawX();
++                    dialog.mShowY = (int)event.getRawY();
++                }
++                return false;
++            }
++        });
++    }
++
++    @Override
++    public void changeStatusBarIcon(int taskId, ComponentName cmp, boolean keep) {
++        if (!keep || cmp == null) {
++            iconClose(taskId);
++            return;
++        }
++
++        if (mIconMap.get(taskId) != null) {
++            setFocusedIcon(taskId);
++            //setFocused
++        } else {
++            bindIconToTaskId(taskId, cmp);
++        }
++    }
++
+     @Override
+     public void setStatusBarVisibility(int visibility) {
+         mStatusBarWindow.setVisibility(visibility);
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index 56217f1..4c2cd2d 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -32,6 +32,7 @@ import static android.app.ActivityManager.StackId.FIRST_DYNAMIC_STACK_ID;
+ import static android.app.ActivityManager.StackId.FULLSCREEN_WORKSPACE_STACK_ID;
+ import static android.app.ActivityManager.StackId.INVALID_STACK_ID;
+ import static android.app.ActivityManager.StackId.PINNED_STACK_ID;
++import static android.app.ActivityManager.StackId.BACKGROUND_STACK_ID;
+ import static android.app.ActivityManager.RESIZE_MODE_FORCED;
+ import static android.content.pm.PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS;
+ import static android.content.pm.PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT;
+@@ -3116,6 +3117,11 @@ public class ActivityManagerService extends IActivityManager.Stub
+             } else {
+                 startTimeTrackingFocusedActivityLocked();
+             }
++            StatusBarManagerInternal statusBarManager =
++                                   LocalServices.getService(StatusBarManagerInternal.class);
++            if (statusBarManager != null) {
++                statusBarManager.changeStatusBarIcon(r.getTask().taskId, r.realActivity, true);
++            }
+         } else {
+             r.appTimeTracker = null;
+         }
+@@ -3198,6 +3204,19 @@ public class ActivityManagerService extends IActivityManager.Stub
+                 if (task == null) {
+                     return;
+                 }
++
++                if (task.getStack() != null && task.getStack().mStackId == BACKGROUND_STACK_ID) {
++                    if (task.mBounds == null) {
++                        task.reparent(FULLSCREEN_WORKSPACE_STACK_ID, ON_TOP,
++                                REPARENT_KEEP_STACK_AT_FRONT, ANIMATE,
++                                !DEFER_RESUME, "minimize");
++                    } else {
++                        task.reparent(FREEFORM_WORKSPACE_STACK_ID, ON_TOP,
++                                REPARENT_KEEP_STACK_AT_FRONT, ANIMATE,
++                                !DEFER_RESUME, "minimize");
++                    }
++                }
++
+                 final ActivityRecord r = task.topRunningActivityLocked();
+                 if (mStackSupervisor.moveFocusableActivityStackToFrontLocked(r, "setFocusedTask")) {
+                     mStackSupervisor.resumeFocusedStackTopActivityLocked();
+@@ -5041,6 +5060,13 @@ public class ActivityManagerService extends IActivityManager.Stub
+             // Keep track of the root activity of the task before we finish it
+             TaskRecord tr = r.getTask();
+             ActivityRecord rootR = tr.getRootActivity();
++            if (rootR == r && tr.mActivities.size() <= 1) {
++                StatusBarManagerInternal statusBarManager =
++                                   LocalServices.getService(StatusBarManagerInternal.class);
++                if (statusBarManager != null) {
++                    statusBarManager.changeStatusBarIcon(tr.taskId, null, false);
++                }
++            }
+             if (rootR == null) {
+                 Slog.w(TAG, "Finishing task with all activities already finished");
+             }
+@@ -10437,6 +10463,11 @@ public class ActivityManagerService extends IActivityManager.Stub
+         synchronized (this) {
+             final long ident = Binder.clearCallingIdentity();
+             try {
++                StatusBarManagerInternal statusBarManager =
++                                   LocalServices.getService(StatusBarManagerInternal.class);
++                if (statusBarManager != null) {
++                    statusBarManager.changeStatusBarIcon(taskId, null, false);
++                }
+                 return mStackSupervisor.removeTaskByIdLocked(taskId, true, REMOVE_FROM_RECENTS);
+             } finally {
+                 Binder.restoreCallingIdentity(ident);
+@@ -10537,8 +10568,8 @@ public class ActivityManagerService extends IActivityManager.Stub
+ 
+     @Override
+     public void moveTaskBackwards(int task) {
+-        enforceCallingPermission(android.Manifest.permission.REORDER_TASKS,
+-                "moveTaskBackwards()");
++        //enforceCallingPermission(android.Manifest.permission.REORDER_TASKS,
++        //        "moveTaskBackwards()");
+ 
+         synchronized(this) {
+             if (!checkAppSwitchAllowedLocked(Binder.getCallingPid(),
+@@ -10552,7 +10583,12 @@ public class ActivityManagerService extends IActivityManager.Stub
+     }
+ 
+     private final void moveTaskBackwardsLocked(int task) {
+-        Slog.e(TAG, "moveTaskBackwards not yet implemented!");
++        //Slog.e(TAG, "moveTaskBackwards not yet implemented!");
++        TaskRecord target = mStackSupervisor.anyTaskForIdLocked(task);
++        if (target != null && target.getStack().mStackId != BACKGROUND_STACK_ID) {
++            target.reparent(BACKGROUND_STACK_ID, !ON_TOP,
++                    REPARENT_LEAVE_STACK_IN_PLACE, !ANIMATE, !DEFER_RESUME, "minimize");
++        }
+     }
+ 
+     @Override
+diff --git a/services/core/java/com/android/server/am/ActivityMetricsLogger.java b/services/core/java/com/android/server/am/ActivityMetricsLogger.java
+index f396e9e..957c535 100644
+--- a/services/core/java/com/android/server/am/ActivityMetricsLogger.java
++++ b/services/core/java/com/android/server/am/ActivityMetricsLogger.java
+@@ -2,6 +2,7 @@ package com.android.server.am;
+ 
+ import static android.app.ActivityManager.START_SUCCESS;
+ import static android.app.ActivityManager.START_TASK_TO_FRONT;
++import static android.app.ActivityManager.StackId.BACKGROUND_STACK_ID;
+ import static android.app.ActivityManager.StackId.ASSISTANT_STACK_ID;
+ import static android.app.ActivityManager.StackId.DOCKED_STACK_ID;
+ import static android.app.ActivityManager.StackId.FREEFORM_WORKSPACE_STACK_ID;
+@@ -56,6 +57,7 @@ class ActivityMetricsLogger {
+     private static final int WINDOW_STATE_SIDE_BY_SIDE = 1;
+     private static final int WINDOW_STATE_FREEFORM = 2;
+     private static final int WINDOW_STATE_ASSISTANT = 3;
++    private static final int WINDOW_STATE_BACKGROUND = 4;
+     private static final int WINDOW_STATE_INVALID = -1;
+ 
+     private static final long INVALID_START_TIME = -1;
+@@ -131,6 +133,8 @@ class ActivityMetricsLogger {
+             mWindowState = WINDOW_STATE_FREEFORM;
+         } else if (stack.mStackId == ASSISTANT_STACK_ID) {
+             mWindowState = WINDOW_STATE_ASSISTANT;
++        } else if (stack.mStackId == BACKGROUND_STACK_ID) {
++            mWindowState = WINDOW_STATE_BACKGROUND;
+         } else if (StackId.isStaticStack(stack.mStackId)) {
+             throw new IllegalStateException("Unknown stack=" + stack);
+         }
+diff --git a/services/core/java/com/android/server/am/ActivityStack.java b/services/core/java/com/android/server/am/ActivityStack.java
+index 2749f04..1387a1d 100644
+--- a/services/core/java/com/android/server/am/ActivityStack.java
++++ b/services/core/java/com/android/server/am/ActivityStack.java
+@@ -16,6 +16,7 @@
+ 
+ package com.android.server.am;
+ 
++import static android.app.ActivityManager.StackId.BACKGROUND_STACK_ID;
+ import static android.app.ActivityManager.StackId.ASSISTANT_STACK_ID;
+ import static android.app.ActivityManager.StackId.DOCKED_STACK_ID;
+ import static android.app.ActivityManager.StackId.FREEFORM_WORKSPACE_STACK_ID;
+@@ -455,6 +456,7 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
+         mHandler = new ActivityStackHandler(mService.mHandler.getLooper());
+         mWindowManager = mService.mWindowManager;
+         mStackId = stackId;
++        mForceHidden = mStackId == BACKGROUND_STACK_ID;
+         mCurrentUser = mService.mUserController.getCurrentUserIdLocked();
+         mRecentTasks = recentTasks;
+         mTaskPositioner = mStackId == FREEFORM_WORKSPACE_STACK_ID
+diff --git a/services/core/java/com/android/server/am/TaskRecord.java b/services/core/java/com/android/server/am/TaskRecord.java
+index 0bae8e7..accdfc6 100644
+--- a/services/core/java/com/android/server/am/TaskRecord.java
++++ b/services/core/java/com/android/server/am/TaskRecord.java
+@@ -511,6 +511,7 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+     }
+ 
+     boolean resize(Rect bounds, int resizeMode, boolean preserveWindow, boolean deferResume) {
++        Slog.e("LADEHUNTER", "resizing", new Exception());
+         if (!isResizeable()) {
+             Slog.w(TAG, "resizeTask: task " + this + " not resizeable.");
+             return true;
+diff --git a/services/core/java/com/android/server/statusbar/StatusBarManagerInternal.java b/services/core/java/com/android/server/statusbar/StatusBarManagerInternal.java
+index ba44e26..3201084 100644
+--- a/services/core/java/com/android/server/statusbar/StatusBarManagerInternal.java
++++ b/services/core/java/com/android/server/statusbar/StatusBarManagerInternal.java
+@@ -16,6 +16,7 @@
+ 
+ package com.android.server.statusbar;
+ 
++import android.content.ComponentName;
+ import android.graphics.Rect;
+ import android.os.Bundle;
+ 
+@@ -46,6 +47,8 @@ public interface StatusBarManagerInternal {
+ 
+     void setStatusBarVisibility(int visibility);
+ 
++    void changeStatusBarIcon(int taskId, ComponentName cmp, boolean keep);
++
+     /**
+      * Notifies the status bar that an app transition is pending to delay applying some flags with
+      * visual impact until {@link #appTransitionReady} is called.
+diff --git a/services/core/java/com/android/server/statusbar/StatusBarManagerService.java b/services/core/java/com/android/server/statusbar/StatusBarManagerService.java
+index 9f8dd6e..990fea9 100644
+--- a/services/core/java/com/android/server/statusbar/StatusBarManagerService.java
++++ b/services/core/java/com/android/server/statusbar/StatusBarManagerService.java
+@@ -278,6 +278,15 @@ public class StatusBarManagerService extends IStatusBarService.Stub {
+         }
+ 
+         @Override
++        public void changeStatusBarIcon(int taskId, ComponentName cmp, boolean keep) {
++            if (mBar != null) {
++                try {
++                    mBar.changeStatusBarIcon(taskId, cmp, keep);
++                } catch (RemoteException ex) {}
++            }
++        }
++
++        @Override
+         public void setStatusBarVisibility(int visibility) {
+             if (mBar != null) {
+                 try {
+-- 
+2.7.4
+

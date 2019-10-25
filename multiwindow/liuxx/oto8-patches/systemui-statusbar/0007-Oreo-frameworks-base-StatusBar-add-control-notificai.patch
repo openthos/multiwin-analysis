@@ -1,0 +1,33 @@
+From 64069ace8666ec9e3095eddfb0ee5ecabbc45512 Mon Sep 17 00:00:00 2001
+From: Your Name <you@example.com>
+Date: Wed, 18 Oct 2017 02:30:23 +0000
+Subject: [PATCH 007/110] Oreo: frameworks: base: StatusBar add control
+ notificaitonPanel method.
+
+Change-Id: I1c2a0780fb0e27546f4e9a2afeec7cd17dc66d38
+---
+ .../src/com/android/systemui/statusbar/phone/StatusBar.java       | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 200cada..349de31 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -3154,6 +3154,14 @@ public class StatusBar extends SystemUI implements DemoMode,
+         if (false) postStartTracing();
+     }
+ 
++    public void showCustomNotificationPanel() {
++        if (mNotificationPanel.isFullyCollapsed()) {
++	    mNotificationPanel.expand(true);
++        } else if (mNotificationPanel.isFullyExpanded()) {
++            mNotificationPanel.collapse(false, 1.0f);
++        }
++    }
++
+     public void animateCollapseQuickSettings() {
+         if (mState == StatusBarState.SHADE) {
+             mStatusBarView.collapsePanel(true, false /* delayed */, 1.0f /* speedUpFactor */);
+-- 
+2.7.4
+

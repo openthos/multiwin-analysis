@@ -1,0 +1,104 @@
+From b2f7125d34232c987b0a9d8029286761e74af8f6 Mon Sep 17 00:00:00 2001
+From: luojunhuan <forward_m@126.com>
+Date: Mon, 23 Oct 2017 08:00:49 +0000
+Subject: [PATCH 025/110] Oreo: frameworks: base: SystemUI: Set status bar show
+ dialog to show center
+
+Change-Id: Icb23ac399cfda70865c6518f8415d7b03867e393
+Signed-off-by: luojunhuan <forward_m@126.com>
+---
+ .../src/com/android/systemui/dialog/BarDialog.java | 41 +++++-----------------
+ 1 file changed, 9 insertions(+), 32 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/BarDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/BarDialog.java
+index 853d539..c76f7a7 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/BarDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/BarDialog.java
+@@ -78,13 +78,13 @@ public class BarDialog extends BaseDialog implements AdapterView.OnItemClickList
+         return listDialog;
+     }
+ 
+-    public static void dismissBarDialog(){
+-        if(listDialog != null && listDialog.isShowing()){
++    public static void dismissBarDialog() {
++        if (listDialog != null && listDialog.isShowing()) {
+             listDialog.dismiss();
+         }
+     }
+ 
+-    private BarDialog (@NonNull Context context) {
++    private BarDialog(@NonNull Context context) {
+         super(context);
+         requestWindowFeature(Window.FEATURE_NO_TITLE);
+         mContentView = LayoutInflater.from(getContext()).inflate(R.layout.menu_dialog, null, false);
+@@ -125,37 +125,14 @@ public class BarDialog extends BaseDialog implements AdapterView.OnItemClickList
+     }
+ 
+     public void showDialog() {
+-
+-        int x = mShowX;
+-        int y = mShowY;
+         prepareData();
+-
+-        Window dialogWindow = getWindow();
+-        dialogWindow.setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
+-        dialogWindow.setGravity(Gravity.CENTER);
+-        WindowManager.LayoutParams lp = dialogWindow.getAttributes();
+-        lp.format = PixelFormat.TRANSPARENT;
+-        lp.dimAmount = 0;
+-        if (x > mPoint.x - mWidth) {
+-            lp.x = x - mWidth / 2 - mPoint.x / 2;
+-        } else {
+-            lp.x = x + mWidth / 2 - mPoint.x / 2;
+-        }
+-        if (y < mPoint.y - mStatusBarHeight - mHeight) {
+-            lp.y = y + mHeight / 2 - mPoint.y / 2;
+-        } else {
+-            lp.y = y - mHeight / 2 - mPoint.y / 2;
+-        }
+-        dialogWindow.setAttributes(lp);
+-        Slog.e("LADEHUNTER+BARDIALOG", "Dilog will show");
+-        show();
+-
++        show(mIconLayout);
+     }
+ 
+     @Override
+     public void onWindowFocusChanged(boolean hasFocus) {
+         super.onWindowFocusChanged(hasFocus);
+-        if (!hasFocus){
++        if (!hasFocus) {
+             dismiss();
+         }
+     }
+@@ -173,15 +150,15 @@ public class BarDialog extends BaseDialog implements AdapterView.OnItemClickList
+         String[] sArr;
+         if (docked && run) {
+             sArr = getContext().getResources().getStringArray(
+-                                R.array.bar_menu_docked_open);
++                    R.array.bar_menu_docked_open);
+             Slog.e("LADEHUNTER+BARDIALOG", "bar_menu_docked_open");
+         } else if (docked) {
+             sArr = getContext().getResources().getStringArray(
+-                                R.array.bar_menu_docked_closed);
++                    R.array.bar_menu_docked_closed);
+             Slog.e("LADEHUNTER+BARDIALOG", "bar_menu_docked_closed");
+         } else {
+             sArr = getContext().getResources().getStringArray(
+-                                R.array.bar_menu_normal);
++                    R.array.bar_menu_normal);
+             Slog.e("LADEHUNTER+BARDIALOG", "bar_menu_normal");
+         }
+         mDatas.addAll(Arrays.asList(sArr));
+@@ -215,7 +192,7 @@ public class BarDialog extends BaseDialog implements AdapterView.OnItemClickList
+         } else if (content.equals(getContext().getString(R.string.close))) {
+             try {
+                 ActivityManager.getService().removeTask(mTaskId);
+-            } catch (Exception e){
++            } catch (Exception e) {
+             }
+         } else if (content.equals(getContext().getString(R.string.dock))) {
+             if (!docked) {
+-- 
+2.7.4
+

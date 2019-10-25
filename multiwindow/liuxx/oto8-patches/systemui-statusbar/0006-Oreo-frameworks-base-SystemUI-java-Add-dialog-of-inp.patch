@@ -1,0 +1,649 @@
+From 983b6e8cc0de5b276775e04b4ff5ee520f07edb9 Mon Sep 17 00:00:00 2001
+From: Your Name <you@example.com>
+Date: Tue, 17 Oct 2017 02:59:19 +0000
+Subject: [PATCH 006/110] Oreo: frameworks: base: SystemUI: java: Add dialog of
+ inputmethod, battery, wifi, volume and calendar
+
+Signed-off-by: Your Name <you@example.com>
+---
+ packages/SystemUI/res/anim/push_bottom_in.xml      |   6 ++
+ packages/SystemUI/res/anim/push_left_in.xml        |  13 +++
+ packages/SystemUI/res/anim/push_left_out.xml       |  15 +++
+ packages/SystemUI/res/anim/push_right_in.xml       |  14 +++
+ packages/SystemUI/res/anim/push_right_out.xml      |  14 +++
+ .../SystemUI/res/layout/popupwindows_calendar.xml  | 111 +++++++++++++++++++++
+ packages/SystemUI/res/layout/ringer_volume.xml     |  28 ++++++
+ .../SystemUI/res/layout/status_bar_battery.xml     |  35 +++++++
+ .../res/layout/status_bar_input_method.xml         |  16 +++
+ .../res/layout/status_bar_inputmethod_item.xml     |  25 +++++
+ packages/SystemUI/res/layout/volume_dialog.xml     |  38 +++----
+ packages/SystemUI/res/layout/wifi_content.xml      |  50 ++++++++++
+ packages/SystemUI/res/layout/wifi_list.xml         |  56 +++++++++++
+ packages/SystemUI/res/values/dimens.xml            |   2 +
+ packages/SystemUI/res/values/strings.xml           |  42 +++++++-
+ .../com/android/systemui/dialog/BatteryDialog.java |   2 +-
+ 16 files changed, 442 insertions(+), 25 deletions(-)
+ create mode 100644 packages/SystemUI/res/anim/push_bottom_in.xml
+ create mode 100644 packages/SystemUI/res/anim/push_left_in.xml
+ create mode 100644 packages/SystemUI/res/anim/push_left_out.xml
+ create mode 100644 packages/SystemUI/res/anim/push_right_in.xml
+ create mode 100644 packages/SystemUI/res/anim/push_right_out.xml
+ create mode 100644 packages/SystemUI/res/layout/popupwindows_calendar.xml
+ create mode 100644 packages/SystemUI/res/layout/ringer_volume.xml
+ create mode 100644 packages/SystemUI/res/layout/status_bar_battery.xml
+ create mode 100644 packages/SystemUI/res/layout/status_bar_input_method.xml
+ create mode 100644 packages/SystemUI/res/layout/status_bar_inputmethod_item.xml
+ create mode 100644 packages/SystemUI/res/layout/wifi_content.xml
+ create mode 100644 packages/SystemUI/res/layout/wifi_list.xml
+
+diff --git a/packages/SystemUI/res/anim/push_bottom_in.xml b/packages/SystemUI/res/anim/push_bottom_in.xml
+new file mode 100644
+index 0000000..d134489
+--- /dev/null
++++ b/packages/SystemUI/res/anim/push_bottom_in.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<translate xmlns:android="http://schemas.android.com/apk/res/android"
++    android:duration="20"
++    android:fromYDelta="100%"
++    android:interpolator="@android:anim/decelerate_interpolator"
++    android:toYDelta="0" />
+diff --git a/packages/SystemUI/res/anim/push_left_in.xml b/packages/SystemUI/res/anim/push_left_in.xml
+new file mode 100644
+index 0000000..2af1748
+--- /dev/null
++++ b/packages/SystemUI/res/anim/push_left_in.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<set xmlns:android="http://schemas.android.com/apk/res/android" >
++    <translate
++        android:fromXDelta="100%"
++        android:toXDelta="0"
++        android:duration="500" />
++
++    <alpha
++        android:fromAlpha="0.0"
++        android:toAlpha="1.0"
++        android:duration="500" />
++
++</set>
+diff --git a/packages/SystemUI/res/anim/push_left_out.xml b/packages/SystemUI/res/anim/push_left_out.xml
+new file mode 100644
+index 0000000..51b8e7a
+--- /dev/null
++++ b/packages/SystemUI/res/anim/push_left_out.xml
+@@ -0,0 +1,15 @@
++<?xml version="1.0" encoding="utf-8"?>
++<set xmlns:android="http://schemas.android.com/apk/res/android" >
++
++    <translate
++        android:fromXDelta="0"
++        android:toXDelta="-100%"
++        android:duration="500" />
++
++    <alpha
++        android:fromAlpha="1.0"
++        android:toAlpha="0.0"
++        android:duration="500" />
++
++
++</set>
+diff --git a/packages/SystemUI/res/anim/push_right_in.xml b/packages/SystemUI/res/anim/push_right_in.xml
+new file mode 100644
+index 0000000..cc61672
+--- /dev/null
++++ b/packages/SystemUI/res/anim/push_right_in.xml
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="utf-8"?>
++<set xmlns:android="http://schemas.android.com/apk/res/android" >
++
++    <translate
++        android:fromXDelta="-100%"
++        android:toXDelta="0"
++        android:duration="500" />
++
++    <alpha
++        android:fromAlpha="0.0"
++        android:toAlpha="1.0"
++        android:duration="500" />
++
++</set>
+diff --git a/packages/SystemUI/res/anim/push_right_out.xml b/packages/SystemUI/res/anim/push_right_out.xml
+new file mode 100644
+index 0000000..54ec6c3
+--- /dev/null
++++ b/packages/SystemUI/res/anim/push_right_out.xml
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="utf-8"?>
++<set xmlns:android="http://schemas.android.com/apk/res/android" >
++
++    <translate
++        android:fromXDelta="0"
++        android:toXDelta="100%"
++        android:duration="500" />
++
++    <alpha
++        android:fromAlpha="1.0"
++        android:toAlpha="1.0"
++        android:duration="500" />
++
++</set>
+diff --git a/packages/SystemUI/res/layout/popupwindows_calendar.xml b/packages/SystemUI/res/layout/popupwindows_calendar.xml
+new file mode 100644
+index 0000000..b38a9ab
+--- /dev/null
++++ b/packages/SystemUI/res/layout/popupwindows_calendar.xml
+@@ -0,0 +1,111 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="@dimen/systemui_size_calendar"
++    android:layout_height="wrap_content"
++    android:background="#342464"
++    android:orientation="vertical" >
++
++    <LinearLayout
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:layout_marginLeft="@dimen/startupmenu_big_padding"
++        android:layout_marginRight="@dimen/startupmenu_big_padding"
++        android:layout_marginTop="@dimen/startupmenu_small_padding"
++        android:orientation="vertical" >
++
++        <TextView
++            android:id="@+id/calendar_time"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_marginBottom="3dp"
++            android:layout_centerVertical="true"
++            android:textSize="@dimen/systemui_pop_date_text_size"
++            android:textColor="#ffffff"/>
++
++        <TextView
++            android:id="@+id/calendar_date"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_centerVertical="true"
++            android:textSize="@dimen/startupmenu_text_size"
++            android:textColor="#ffffff"/>
++    </LinearLayout>
++
++    <View
++        android:layout_width="match_parent"
++        android:layout_height="@dimen/startupmenu_big_padding"/>
++
++    <LinearLayout
++        android:id="@+id/ll_popup"
++        android:layout_width="wrap_content"
++        android:layout_height="wrap_content"
++        android:layout_marginLeft="@dimen/startupmenu_big_padding"
++        android:layout_marginRight="@dimen/startupmenu_big_padding"
++        android:orientation="vertical" >
++
++        <RelativeLayout
++            android:layout_width="match_parent"
++            android:layout_height="@dimen/startupmenu_layout_small_height"
++            android:background="#3f2d76" >
++
++            <RelativeLayout
++                android:id="@+id/calendar_last_month"
++                android:layout_width="@dimen/startupmenu_layout_small_height"
++                android:layout_height="@dimen/startupmenu_layout_small_height"
++                android:layout_alignParentLeft="true"
++                android:layout_marginLeft="@dimen/startupmenu_small_padding"
++                android:layout_centerVertical="true">
++                <TextView
++                    android:layout_width="@dimen/startupmenu_search_icon_size"
++                    android:layout_height="@dimen/startupmenu_search_icon_size"
++                    android:layout_centerInParent="true"
++                    android:background="@mipmap/calendar_left" />
++            </RelativeLayout>
++
++            <TextView
++                android:id="@+id/calendar_month"
++                android:layout_width="wrap_content"
++                android:layout_height="match_parent"
++                android:layout_centerInParent="true"
++                android:gravity="center"
++                android:background="#3f2d76"
++                android:textSize="@dimen/startupmenu_text_size"
++                android:textColor="#ffffff"/>
++
++            <RelativeLayout
++                android:id="@+id/calendar_next_month"
++                android:layout_width="@dimen/startupmenu_layout_small_height"
++                android:layout_height="@dimen/startupmenu_layout_small_height"
++                android:layout_alignParentRight="true"
++                android:layout_marginRight="8dp"
++                android:layout_centerVertical="true">
++                <TextView
++                    android:layout_width="@dimen/startupmenu_search_icon_size"
++                    android:layout_height="@dimen/startupmenu_search_icon_size"
++                    android:layout_centerInParent="true"
++                    android:background="@mipmap/calendar_right" />
++            </RelativeLayout>
++
++        </RelativeLayout>
++
++        <com.android.systemui.dialog.CalendarView
++            android:id="@+id/calendar_view"
++            android:layout_width="@dimen/systemui_width_calendarview"
++            android:layout_height="@dimen/systemui_height_calendarview"
++            android:background="#3f2d76" >
++        </com.android.systemui.dialog.CalendarView>
++
++        <View
++            android:layout_width="match_parent"
++            android:layout_height="@dimen/startupmenu_big_padding"/>
++        <TextView
++            android:id="@+id/calendar_enter"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:textColor="#ffffff"
++            android:layout_marginBottom="@dimen/startupmenu_big_padding"
++            android:textSize="@dimen/startupmenu_text_size" />
++    </LinearLayout>
++
++</LinearLayout>
+diff --git a/packages/SystemUI/res/layout/ringer_volume.xml b/packages/SystemUI/res/layout/ringer_volume.xml
+new file mode 100644
+index 0000000..84b76f4
+--- /dev/null
++++ b/packages/SystemUI/res/layout/ringer_volume.xml
+@@ -0,0 +1,28 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="wrap_content"
++    android:layout_height="350dp"
++    android:background="#342464"
++    android:paddingTop="10dp"
++    android:paddingBottom="10dp"
++    android:paddingLeft="20dp"
++    android:paddingRight="20dp"
++    android:orientation="vertical">
++
++    <com.android.systemui.dialog.VerticalSeekBar
++        android:id="@+id/media_volume_seekbar"
++        android:thumbOffset="0dp"
++        android:minHeight="40dp"
++        android:maxHeight="40dp"
++        android:layout_gravity="center"
++        android:layout_width="wrap_content"
++        android:layout_height="220dp" />
++
++    <ImageView
++        android:id="@+id/media_volume_btn"
++        android:src="@android:drawable/ic_lock_silent_mode_off"
++        android:layout_gravity="center"
++        android:layout_width="40dp"
++        android:layout_height="40dp" />
++
++</LinearLayout>
+diff --git a/packages/SystemUI/res/layout/status_bar_battery.xml b/packages/SystemUI/res/layout/status_bar_battery.xml
+new file mode 100644
+index 0000000..2982fdd
+--- /dev/null
++++ b/packages/SystemUI/res/layout/status_bar_battery.xml
+@@ -0,0 +1,35 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++              android:layout_width="wrap_content"
++              android:layout_height="wrap_content"
++              android:background="#342464"
++              android:orientation="vertical"
++              android:padding="@dimen/startupmenu_small_padding">
++
++    <TextView
++        android:id="@+id/battery_time_percentage"
++        android:layout_width="wrap_content"
++        android:layout_height="wrap_content"
++        android:layout_gravity="center"
++        android:textAlignment="center"
++        android:textColor="#FFFFFF"
++        android:textSize="16sp"/>
++
++    <TextView
++        android:id="@+id/battery_time_remaining"
++        android:layout_width="wrap_content"
++        android:layout_height="wrap_content"
++        android:layout_gravity="center"
++        android:textAlignment="center"
++        android:textColor="#FFFFFF"
++        android:textSize="@dimen/startupmenu_text_size"/>
++
++    <TextView
++        android:id="@+id/battery_time_enter"
++        android:layout_width="wrap_content"
++        android:layout_height="wrap_content"
++        android:layout_gravity="center"
++        android:textColor="#FFFFFF"
++        android:textSize="@dimen/startupmenu_text_size"/>
++
++</LinearLayout>
+diff --git a/packages/SystemUI/res/layout/status_bar_input_method.xml b/packages/SystemUI/res/layout/status_bar_input_method.xml
+new file mode 100644
+index 0000000..128e3e5
+--- /dev/null
++++ b/packages/SystemUI/res/layout/status_bar_input_method.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++              android:layout_width="wrap_content"
++              android:layout_height="wrap_content"
++              android:background="#342464"
++              android:orientation="vertical"
++              android:padding="@dimen/startupmenu_small_padding">
++
++    <ListView
++        android:id="@+id/input_lv_view"
++        android:layout_width="wrap_content"
++        android:layout_height="wrap_content"
++        android:divider="@null"
++        android:dividerHeight="0dp"/>
++
++</LinearLayout>
+diff --git a/packages/SystemUI/res/layout/status_bar_inputmethod_item.xml b/packages/SystemUI/res/layout/status_bar_inputmethod_item.xml
+new file mode 100644
+index 0000000..bed79b3
+--- /dev/null
++++ b/packages/SystemUI/res/layout/status_bar_inputmethod_item.xml
+@@ -0,0 +1,25 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++              android:layout_width="match_parent"
++              android:layout_height="24dp"
++              android:background="#342464"
++              android:orientation="horizontal"
++              android:padding="@dimen/startupmenu_small_padding">
++
++    <ImageView
++        android:id="@+id/input_method_img"
++        android:layout_width="16dp"
++        android:layout_height="16dp"
++        android:layout_gravity="center"
++        />
++
++    <TextView
++        android:id="@+id/input_method_name"
++        android:layout_width="wrap_content"
++        android:layout_height="wrap_content"
++        android:layout_gravity="center"
++        android:layout_marginLeft="8dp"
++        android:textColor="#FFFFFF"
++        android:textSize="12sp"/>
++
++</LinearLayout>
+diff --git a/packages/SystemUI/res/layout/volume_dialog.xml b/packages/SystemUI/res/layout/volume_dialog.xml
+index 4487abc..1e7e143 100644
+--- a/packages/SystemUI/res/layout/volume_dialog.xml
++++ b/packages/SystemUI/res/layout/volume_dialog.xml
+@@ -20,7 +20,6 @@
+     android:layout_height="wrap_content"
+     android:layout_marginBottom="@dimen/volume_dialog_margin_bottom"
+     android:background="@drawable/volume_dialog_background"
+-    android:paddingTop="@dimen/volume_dialog_padding_top"
+     android:theme="@style/qs_theme"
+     android:translationZ="4dp" >
+ 
+@@ -31,11 +30,16 @@
+         android:orientation="vertical" >
+ 
+         <LinearLayout
+-            android:id="@+id/volume_dialog_rows"
+-            android:layout_width="match_parent"
+-            android:layout_height="wrap_content"
+-            android:paddingEnd="@dimen/volume_button_size"
+-            android:orientation="vertical" >
++                android:id="@+id/volume_dialog_rows"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:paddingEnd="@dimen/volume_button_size"
++                android:paddingTop="@dimen/volume_dialog_collapsed_padding_top"
++                android:orientation="vertical" >
++            <View android:id="@+id/spacer"
++                  android:layout_width="match_parent"
++                  android:layout_height="@dimen/volume_dialog_expanded_spacer"
++                  android:visibility="gone"/>
+             <!-- volume rows added and removed here! :-) -->
+         </LinearLayout>
+ 
+@@ -45,21 +49,7 @@
+         <include layout="@layout/tuner_zen_mode_panel" />
+     </LinearLayout>
+ 
+-    <LinearLayout
+-        android:id="@+id/volume_dialog_content"
+-        android:layout_width="wrap_content"
+-        android:layout_height="wrap_content"
+-        android:orientation="vertical"
+-        android:layout_alignParentEnd="true"
+-        android:layout_alignParentTop="true"
+-        android:layout_marginEnd="@dimen/volume_expander_margin_end" >
+-        <TextView
+-            android:layout_width="wrap_content"
+-            android:layout_height="wrap_content"
+-            android:ellipsize="end"
+-            android:maxLines="1"
+-            android:textAppearance="@style/TextAppearance.Volume.Header" />
+-        <com.android.keyguard.AlphaOptimizedImageButton
++    <com.android.keyguard.AlphaOptimizedImageButton
+             xmlns:android="http://schemas.android.com/apk/res/android"
+             xmlns:tools="http://schemas.android.com/tools"
+             android:id="@+id/volume_expand_button"
+@@ -71,7 +61,9 @@
+             android:src="@drawable/ic_volume_collapse_animation"
+             android:background="@drawable/ripple_drawable"
+             tools:ignore="RtlHardcoded"
+-            />
++            android:layout_alignParentEnd="true"
++            android:layout_alignParentTop="true"
++            android:layout_marginTop="@dimen/volume_expander_margin_top"
++            android:layout_marginEnd="@dimen/volume_expander_margin_end"/>
+ 
+-    </LinearLayout>
+ </RelativeLayout>
+diff --git a/packages/SystemUI/res/layout/wifi_content.xml b/packages/SystemUI/res/layout/wifi_content.xml
+new file mode 100644
+index 0000000..3f2de50
+--- /dev/null
++++ b/packages/SystemUI/res/layout/wifi_content.xml
+@@ -0,0 +1,50 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="wrap_content"
++    android:background="@android:color/transparent"
++    android:orientation="vertical">
++
++    <LinearLayout
++        android:id="@+id/wifi_content_main"
++        android:layout_width="match_parent"
++        android:layout_height="24dp"
++        android:orientation="horizontal">
++
++        <ImageView
++            android:id="@+id/wifi_content_is_cnted"
++            android:layout_width="24dp"
++            android:layout_height="wrap_content"
++            android:layout_gravity="center"
++            android:src="@android:drawable/checkbox_off_background"/>
++
++        <TextView
++            android:id="@+id/wifi_content_name"
++            android:layout_width="0dp"
++            android:layout_height="wrap_content"
++            android:layout_gravity="center_vertical"
++            android:layout_marginRight="@dimen/startupmenu_small_padding"
++            android:layout_weight="1"
++            android:focusable="false"
++            android:singleLine="true"
++            android:textColor="@android:color/white"
++            android:textSize="@dimen/startupmenu_text_size"/>
++
++        <ImageView
++            android:id="@+id/wifi_has_psw"
++            android:layout_width="@dimen/startupmenu_big_padding"
++            android:layout_height="wrap_content"
++            android:layout_gravity="center"/>
++
++        <ImageView
++            android:id="@+id/wifi_content_level"
++            android:layout_width="@dimen/startupmenu_big_padding"
++            android:layout_height="wrap_content"
++            android:layout_gravity="center"
++            android:layout_marginLeft="@dimen/startupmenu_small_padding"
++            android:layout_marginRight="@dimen/startupmenu_small_padding"
++            android:focusable="false"
++            />
++    </LinearLayout>
++</LinearLayout>
+diff --git a/packages/SystemUI/res/layout/wifi_list.xml b/packages/SystemUI/res/layout/wifi_list.xml
+new file mode 100644
+index 0000000..a960da6
+--- /dev/null
++++ b/packages/SystemUI/res/layout/wifi_list.xml
+@@ -0,0 +1,56 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++              xmlns:tools="http://schemas.android.com/tools"
++              android:layout_width="wrap_content"
++              android:layout_height="wrap_content"
++              android:background="#342464"
++              android:orientation="vertical"
++              android:padding="@dimen/startupmenu_small_padding"
++              android:showDividers="middle">
++
++    <LinearLayout
++        android:id="@+id/wifi_layout"
++        android:layout_width="wrap_content"
++        android:layout_height="wrap_content"
++        android:orientation="vertical">
++
++        <ListView
++            android:id="@+id/wifi_list"
++            android:layout_width="wrap_content"
++            android:layout_height="1dp"
++            android:descendantFocusability="afterDescendants"
++            android:footerDividersEnabled="true"/>
++
++        <LinearLayout
++            android:id="@+id/wifi_enable_layout"
++            android:layout_width="wrap_content"
++            android:layout_height="@dimen/startupmenu_layout_height"
++            android:gravity="center_vertical"
++            android:orientation="horizontal"
++            android:paddingLeft="@dimen/startupmenu_big_padding">
++
++            <TextView
++                android:id="@+id/wifi_enable"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:text="@string/wifi_enable"
++                android:textColor="@android:color/white"
++                android:textSize="@dimen/startupmenu_text_size"/>
++
++            <Switch
++                android:id="@+id/wifi_enable_btn"
++                android:layout_width="70dp"
++                android:layout_height="wrap_content"
++                android:layout_gravity="right|center_vertical"/>
++        </LinearLayout>
++
++        <TextView
++            android:id="@+id/ethernet_configure"
++            android:layout_width="wrap_content"
++            android:layout_height="@dimen/startupmenu_layout_height"
++            android:paddingLeft="@dimen/startupmenu_big_padding"
++            android:text="@string/status_bar_ethernet"
++            android:textColor="@android:color/white"
++            android:textSize="@dimen/startupmenu_text_size"/>
++    </LinearLayout>
++</LinearLayout>
+diff --git a/packages/SystemUI/res/values/dimens.xml b/packages/SystemUI/res/values/dimens.xml
+index 2e9407b..af481d6 100644
+--- a/packages/SystemUI/res/values/dimens.xml
++++ b/packages/SystemUI/res/values/dimens.xml
+@@ -662,6 +662,8 @@
+     <dimen name="volume_dialog_margin_bottom">4dp</dimen>
+     <dimen name="volume_dialog_padding_top">8dp</dimen>
+     <dimen name="volume_dialog_padding_end">40dp</dimen>
++    <dimen name="volume_dialog_collapsed_padding_top">8dp</dimen>
++    <dimen name="volume_dialog_expanded_spacer">14dp</dimen>
+ 
+     <dimen name="volume_row_padding_bottom">9.4dp</dimen>
+     <dimen name="volume_row_padding_start">4dp</dimen>
+diff --git a/packages/SystemUI/res/values/strings.xml b/packages/SystemUI/res/values/strings.xml
+index bb368df..099b7c3 100644
+--- a/packages/SystemUI/res/values/strings.xml
++++ b/packages/SystemUI/res/values/strings.xml
+@@ -1310,7 +1310,7 @@
+     <string name="show_demo_mode">Show demo mode</string>
+ 
+     <!-- Name of the ethernet status bar icon. -->
+-    <string name="status_bar_ethernet">Ethernet</string>
++    <!--<string name="status_bar_ethernet">Ethernet</string>-->
+ 
+     <!-- Name of the alarm status bar icon. -->
+     <string name="status_bar_alarm">Alarm</string>
+@@ -2075,4 +2075,44 @@
+     <string name="uninstall">Unistall</string>
+     <string name="remove_out">Remove out</string>
+ 
++    <!--calendar-->
++    <string name="year">-</string>
++    <string name="month">-</string>
++    <string name="day"></string>
++    <string name="text_month"> </string>
++    <string name="morning">AM</string>
++    <string name="afternoon">PM</string>
++    <string name="status_bar_info_hide">Auto hide</string>
++    <string name="status_bar_info_show">Always show</string>
++    <string name="status_bar_ethernet">Configure Ethernet</string>
++    <string name="monday">Mon</string>
++    <string name="tuesday">Tue</string>
++    <string name="wednesday">Wed</string>
++    <string name="thursday">Thu</string>
++    <string name="friday">Fri</string>
++    <string name="saturday">Sat</string>
++    <string name="sunday">Sun</string>
++    <string name="set_date_and_time">Set date and time</string>
++
++    <!--wifi-->
++    <string name="wifi_cnt">Net Connected</string>
++    <string name="wifi_not_cnt">Net not Connected</string>
++    <string name="wifi_cancel">Cancel</string>
++    <string name="wifi_ok">OK</string>
++    <string name="wifi_test">Wifi_testsadsfadfdsdghjkassdfghjklsdfghjkl;</string>
++    <string name="wifi_try_cnt">Connect</string>
++    <string name="wifi_discnt">Disconnect</string>
++    <string name="wifi_cnting">Connecting</string>
++    <string name="wifi_enable">WLAN Switched On</string>
++    <string name="wifi_unable">WLAN Switched Off</string>
++
++    <!--battery-->
++    <string name="battery_percent_full">"Full Battery"</string>
++    <string name="battery_remaining">"Remaining Time <xliff:g id="HOUR">%1$d</xliff:g> hrs <xliff:g id="MINUTE">%2$d</xliff:g> mins"</string>
++    <string name="charge_remaining">"Charging Time <xliff:g id="HOUR">%1d</xliff:g> hrs <xliff:g id="MINUTE">%2$d</xliff:g> mins"</string>
++    <string name="battery_remaining_string">"Remaining Time <xliff:g id="TIME">%1$s</xliff:g>"</string>
++    <string name="charge_remaining_string">"Charging Time <xliff:g id="TIME">%1$s</xliff:g>"</string>
++    <string name="battery_percent">"Battery <xliff:g id="TIME">%1$d</xliff:g>"</string>
++    <string name="battery_saver_settings">Set energy saving mode</string>
++
+ </resources>
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java
+index 4c1a02c..cb04f1c 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java
+@@ -77,7 +77,7 @@ public class BatteryDialog extends BaseDialog implements BatteryController.Batte
+             }
+         });
+ 
+-        mBatteryController.addStateChangedCallback(this);
++        mBatteryController.addCallback(this);
+     }
+ 
+     @Override
+-- 
+2.7.4
+

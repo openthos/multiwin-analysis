@@ -1,0 +1,84 @@
+From d004954f11ca4e28a31801722262da90a9b7b1a9 Mon Sep 17 00:00:00 2001
+From: Your Name <you@example.com>
+Date: Thu, 19 Oct 2017 06:11:58 +0000
+Subject: [PATCH 009/110] Oreo: frameworks: base: SystemUI: add longclick for
+ startupmenu and fix a bug that when other dialog show but the
+ notificationView doesn't diamiss
+
+Signed-off-by: Your Name <you@example.com>
+---
+ .../src/com/android/systemui/startupmenu/StartMenuAdapter.java    | 4 ++--
+ .../android/systemui/statusbar/phone/OpenthosStatusBarView.java   | 3 +++
+ .../src/com/android/systemui/statusbar/phone/StatusBar.java       | 8 +++++++-
+ 3 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java b/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
+index 620b8d0..7d66df91 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
+@@ -118,7 +118,7 @@ public class StartMenuAdapter extends BaseAdapter
+                 break;
+             case MotionEvent.ACTION_UP:
+                 if (!(mIsLeftKey || mIsRightKey || mIsLongPress)) {
+-//                    openApplication(appInfo);
++                    openApplication(appInfo);
+                 }
+                 break;
+             default:
+@@ -150,7 +150,7 @@ public class StartMenuAdapter extends BaseAdapter
+     @Override
+     public boolean onLongClick(View v) {
+         mIsLongPress = true;
+-//        showDialog(mDownX, mDownY, (AppEntry) v.getTag());
++        showDialog(mDownX, mDownY, (AppEntry) v.getTag());
+         return false;
+     }
+ 
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+index 36da406..5d5c5c6 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+@@ -141,6 +141,8 @@ public class OpenthosStatusBarView extends PanelBar{
+                    showDialog(mCalendarView, mCalendarDialog);
+                    break;
+                case R.id.iv_home_status_bar:
++                   Toast.makeText(mContext, "home", Toast.LENGTH_SHORT).show();
++                   mStatusBar.awakenDreams();
+                    break;
+             }
+         }
+@@ -150,6 +152,7 @@ public class OpenthosStatusBarView extends PanelBar{
+         if (view == null) {
+             return;
+         }
++        mStatusBar.hideCustomNotificationPanel();
+         if (mCurrentDialog == null) {
+             dialog.show(view);
+             mCurrentDialog = dialog;
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 349de31..826586c 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -3156,12 +3156,18 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+     public void showCustomNotificationPanel() {
+         if (mNotificationPanel.isFullyCollapsed()) {
+-	    mNotificationPanel.expand(true);
++            mNotificationPanel.expand(true);
+         } else if (mNotificationPanel.isFullyExpanded()) {
+             mNotificationPanel.collapse(false, 1.0f);
+         }
+     }
+ 
++    public void hideCustomNotificationPanel() {
++        if (mNotificationPanel.isFullyExpanded()) {
++            mNotificationPanel.collapse(false, 1.0f);
++        }
++    }
++
+     public void animateCollapseQuickSettings() {
+         if (mState == StatusBarState.SHADE) {
+             mStatusBarView.collapsePanel(true, false /* delayed */, 1.0f /* speedUpFactor */);
+-- 
+2.7.4
+

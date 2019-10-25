@@ -1,0 +1,549 @@
+From f0be0ad86fde3ace9d85754b40b36a5cb4ecb2c7 Mon Sep 17 00:00:00 2001
+From: luojunhuan <forward_m@126.com>
+Date: Mon, 30 Oct 2017 10:13:40 +0000
+Subject: [PATCH 038/110] Oreo: frameworks: base: SystemUI: Support language
+ switching about startupMenu, battery, calendar, wifi
+
+Signed-off-by: luojunhuan <forward_m@126.com>
+---
+ .../com/android/systemui/dialog/BatteryDialog.java |  10 +-
+ .../com/android/systemui/dialog/MenuDialog.java    |   9 +-
+ .../android/systemui/dialog/StartupMenuDialog.java |  13 ++-
+ .../systemui/startupmenu/LaunchAppUtil.java        | 127 +++++++++++++++++++++
+ .../systemui/startupmenu/StartMenuAdapter.java     |   2 +-
+ .../src/com/android/systemui/startupmenu/U.java    | 127 ---------------------
+ .../statusbar/phone/OpenthosStatusBarView.java     |  18 ++-
+ .../android/systemui/statusbar/phone/QSView.java   |   9 +-
+ .../systemui/statusbar/phone/StatusBar.java        |   4 +-
+ 9 files changed, 166 insertions(+), 153 deletions(-)
+ create mode 100644 packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+ delete mode 100644 packages/SystemUI/src/com/android/systemui/startupmenu/U.java
+
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java
+index c27c1db..c577229 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/BatteryDialog.java
+@@ -14,7 +14,7 @@ import android.widget.TextView;
+ 
+ import com.android.internal.os.BatteryStatsHelper;
+ import com.android.systemui.R;
+-import com.android.systemui.startupmenu.U;
++import com.android.systemui.startupmenu.LaunchAppUtil;
+ import com.android.systemui.statusbar.policy.BatteryController;
+ import com.android.systemui.statusbar.policy.BatteryControllerImpl;
+ 
+@@ -22,8 +22,8 @@ import java.util.List;
+ 
+ public class BatteryDialog extends BaseDialog implements BatteryController.BatteryStateChangeCallback {
+     private static final String BATTERY_SETTINGS = "com.android.settings";
+-    private static final String BATTERY_SETTINGS_SAVER = BATTERY_SETTINGS
+-	                        + ".fuelgauge.BatterySaverSettings";
++    private static final String BATTERY_SETTINGS_SAVER =
++            "com.android.settings.Settings$PowerUsageSummaryActivity";
+     private static final String BATTERY_HISTORY_FILE = "tmp_bat_history.bin";
+     private static final int REMAIN_HOUR_DEFAULT = 3;
+     private static final int REMAIN_MINUTE_DEFAULT = 30;
+@@ -41,6 +41,8 @@ public class BatteryDialog extends BaseDialog implements BatteryController.Batte
+         setContentView(mContentView);
+     }
+ 
++
++
+     @Override
+     protected void onCreate(Bundle savedInstanceState) {
+         super.onCreate(savedInstanceState);
+@@ -73,7 +75,7 @@ public class BatteryDialog extends BaseDialog implements BatteryController.Batte
+         mBatterySavingMode.setOnClickListener(new View.OnClickListener() {
+             @Override
+             public void onClick(View view) {
+-                U.launchApp(getContext(),
++                LaunchAppUtil.launchApp(getContext(),
+                         new ComponentName(BATTERY_SETTINGS, BATTERY_SETTINGS_SAVER));
+                 dismiss();
+             }
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
+index 3ca0253..0378d15 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
+@@ -5,7 +5,6 @@ import android.content.Context;
+ import android.content.Intent;
+ import android.graphics.PixelFormat;
+ import android.net.Uri;
+-import android.os.Bundle;
+ import android.support.annotation.NonNull;
+ import android.view.Gravity;
+ import android.view.LayoutInflater;
+@@ -24,8 +23,8 @@ import com.android.systemui.R;
+ import com.android.systemui.SysUiServiceProvider;
+ import com.android.systemui.sql.SqliteOperate;
+ import com.android.systemui.startupmenu.AppEntry;
++import com.android.systemui.startupmenu.LaunchAppUtil;
+ import com.android.systemui.startupmenu.DialogType;
+-import com.android.systemui.startupmenu.U;
+ import com.android.systemui.statusbar.phone.StatusBar;
+ 
+ import java.util.ArrayList;
+@@ -185,13 +184,13 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+         dismiss();
+         String content = mDatas.get(position);
+         if (content.equals(getContext().getString(R.string.open))) {
+-            U.launchApp(getContext(), mComponentName);
++            LaunchAppUtil.launchApp(getContext(), mComponentName);
+             SqliteOperate.updateDataStorage(getContext(), mAppEntry);
+         } else if (content.equals(getContext().getString(R.string.phone_mode))) {
+-            U.launchApp(getContext(), mComponentName, U.PHONE_MODE);
++            LaunchAppUtil.launchApp(getContext(), mComponentName, LaunchAppUtil.PHONE_MODE);
+             SqliteOperate.updateDataStorage(getContext(), mAppEntry);
+         } else if (content.equals(getContext().getString(R.string.desktop_mode))) {
+-            U.launchApp(getContext(), mComponentName, U.DESKTOP_MODE);
++            LaunchAppUtil.launchApp(getContext(), mComponentName, LaunchAppUtil.DESKTOP_MODE);
+             SqliteOperate.updateDataStorage(getContext(), mAppEntry);
+         } else if (content.equals(getContext().getString(R.string.lock_app))) {
+             mStatusBar.locked(mComponentName);
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/StartupMenuDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/StartupMenuDialog.java
+index 07087dd..6c0fde1 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/StartupMenuDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/StartupMenuDialog.java
+@@ -29,10 +29,10 @@ import com.android.systemui.power.PowerSourceActivity;
+ import com.android.systemui.sql.SqliteOpenHelper;
+ import com.android.systemui.sql.StartMenuDatabaseField;
+ import com.android.systemui.startupmenu.AppEntry;
++import com.android.systemui.startupmenu.LaunchAppUtil;
+ import com.android.systemui.startupmenu.ShowType;
+ import com.android.systemui.startupmenu.SortSelectPopupWindow;
+ import com.android.systemui.startupmenu.StartMenuAdapter;
+-import com.android.systemui.startupmenu.U;
+ 
+ import java.io.File;
+ import java.text.Collator;
+@@ -93,6 +93,11 @@ public class StartupMenuDialog extends BaseDialog
+         return mStartupMenuDialog;
+     }
+ 
++    public static StartupMenuDialog reCreateStartupMenudialog(Context context){
++        mStartupMenuDialog = new StartupMenuDialog(context);
++        return mStartupMenuDialog;
++    }
++
+     private StartupMenuDialog(@NonNull Context context) {
+         super(context);
+         mContentView =
+@@ -136,7 +141,7 @@ public class StartupMenuDialog extends BaseDialog
+ 
+         mSearchView.addTextChangedListener(this);
+         mSortSelectPopupWindow = new SortSelectPopupWindow(getContext());
+-        mType = U.getSharedPreferences(getContext()).getInt("sortType", DEFAULT_SORT);
++        mType = LaunchAppUtil.getSharedPreferences(getContext()).getInt("sortType", DEFAULT_SORT);
+ 
+         mHandler = new Handler();
+     }
+@@ -163,7 +168,7 @@ public class StartupMenuDialog extends BaseDialog
+                 dismiss();
+                 break;
+             case R.id.system_setting:
+-                U.launchApp(getContext(),
++                LaunchAppUtil.launchApp(getContext(),
+                         new ComponentName("com.android.settings", "com.android.settings.Settings"));
+                 dismiss();
+                 break;
+@@ -430,7 +435,7 @@ public class StartupMenuDialog extends BaseDialog
+     }
+ 
+     private void saveSortTypeToSP(int type) {
+-        U.getSharedPreferences(getContext()).edit().putInt("sortType", type).commit();
++        LaunchAppUtil.getSharedPreferences(getContext()).edit().putInt("sortType", type).commit();
+     }
+ 
+     @Override
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+new file mode 100644
+index 0000000..448dae1
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+@@ -0,0 +1,127 @@
++package com.android.systemui.startupmenu;
++
++import android.app.ActivityOptions;
++import android.content.ComponentName;
++import android.content.Context;
++import android.content.Intent;
++import android.content.SharedPreferences;
++import android.graphics.Rect;
++import android.os.Bundle;
++import android.util.DisplayMetrics;
++import android.view.Display;
++import android.view.WindowManager;
++
++import com.android.systemui.R;
++import com.android.systemui.dialog.MenuDialog;
++import com.android.systemui.dialog.StartupMenuDialog;
++
++import java.lang.reflect.Method;
++
++/**
++ * Created by ljh on 17-9-25.
++ */
++
++public class LaunchAppUtil {
++
++    private static final int FULLSCREEN_WORKSPACE_STACK_ID = 1;
++    private static final int FREEFORM_WORKSPACE_STACK_ID = 2;
++
++    public static final int STANDARD_MODE = 0;
++    public static final int DESKTOP_MODE = 1;
++    public static final int PHONE_MODE = 2;
++    private static SharedPreferences pref;
++
++    public static SharedPreferences getSharedPreferences(Context context) {
++        if (pref == null) pref = context.getSharedPreferences("data", Context.MODE_PRIVATE);
++        return pref;
++    }
++
++    public static void launchApp(Context context, String packageName, String activityName) {
++        launchApp(context, new ComponentName(packageName, activityName));
++    }
++
++    public static void launchApp(Context context, ComponentName componentName) {
++        launchApp(context, componentName, DESKTOP_MODE);
++    }
++
++    public static void launchApp(Context context, String packageName) {
++        launchApp(context,
++                context.getPackageManager().getLaunchIntentForPackage(packageName), DESKTOP_MODE);
++    }
++
++    public static void launchApp(Context context, ComponentName componentName, int startMode) {
++        StartupMenuDialog.dismissDialog();
++        MenuDialog.dismissMenuDialog();
++        Intent intent = new Intent();
++        intent.setComponent(componentName);
++        launchApp(context, intent, startMode);
++    }
++
++    public static void launchApp(Context context, Intent intent) {
++        launchApp(context, intent, DESKTOP_MODE);
++    }
++
++    public static void launchApp(Context context, Intent intent, int startMode) {
++        intent.setAction(Intent.ACTION_MAIN);
++        intent.addCategory(Intent.CATEGORY_LAUNCHER);
++        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
++        intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
++        context.startActivity(intent, getBundle(context, startMode));
++    }
++
++    private static Bundle getBundle(Context context, int startMode) {
++        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
++            ActivityOptions options = ActivityOptions.makeBasic();
++            try {
++                Method method = ActivityOptions.class.getMethod("setLaunchStackId", int.class);
++                method.invoke(options, FREEFORM_WORKSPACE_STACK_ID);
++                DisplayMetrics metrics = getRealDisplayMetrics(context);
++                int width1, width2, height1, height2;
++                switch (startMode) {
++                    case STANDARD_MODE:
++                        break;
++                    case DESKTOP_MODE:
++                        width1 = metrics.widthPixels / 8;
++                        width2 = metrics.widthPixels - width1;
++                        height1 = metrics.heightPixels / 8;
++                        height2 = metrics.heightPixels - height1;
++                        options.setLaunchBounds(new Rect(width1, height1, width2, height2));
++                        break;
++                    case PHONE_MODE:
++                        width1 = metrics.widthPixels / 2;
++                        width2 = context.getResources().getDimensionPixelSize(R.dimen.phone_size_width) / 2;
++                        height1 = metrics.heightPixels / 2;
++                        height2 = context.getResources().getDimensionPixelSize(R.dimen.phone_size_height) / 2;
++                        options.setLaunchBounds(new Rect(
++                                width1 - width2,
++                                height1 - height2,
++                                width1 + width2,
++                                height1 + height2));
++                        break;
++                }
++                return options.toBundle();
++            } catch (Exception e) { /* Gracefully fail */
++                return null;
++            }
++        } else {
++            return null;
++        }
++    }
++
++    public static DisplayMetrics getRealDisplayMetrics(Context context) {
++        DisplayMetrics metrics = new DisplayMetrics();
++        WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
++        Display disp = wm.getDefaultDisplay();
++
++        if (isChromeOs(context))
++            disp.getRealMetrics(metrics);
++        else
++            disp.getMetrics(metrics);
++
++        return metrics;
++    }
++
++    public static boolean isChromeOs(Context context) {
++        return context.getPackageManager().hasSystemFeature("org.chromium.arc");
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java b/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
+index 7c003d9..31f9239 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
+@@ -154,7 +154,7 @@ public class StartMenuAdapter extends BaseAdapter
+     }
+ 
+     private void openApplication(AppEntry appInfo) {
+-        U.launchApp(mContext, appInfo.getComponentName());
++        LaunchAppUtil.launchApp(mContext, appInfo.getComponentName());
+         SqliteOperate.updateDataStorage(mContext, appInfo);
+     }
+ 
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/U.java b/packages/SystemUI/src/com/android/systemui/startupmenu/U.java
+deleted file mode 100644
+index 6a94ab9..0000000
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/U.java
++++ /dev/null
+@@ -1,127 +0,0 @@
+-package com.android.systemui.startupmenu;
+-
+-import android.app.ActivityOptions;
+-import android.content.ComponentName;
+-import android.content.Context;
+-import android.content.Intent;
+-import android.content.SharedPreferences;
+-import android.graphics.Rect;
+-import android.os.Bundle;
+-import android.util.DisplayMetrics;
+-import android.view.Display;
+-import android.view.WindowManager;
+-
+-import com.android.systemui.R;
+-import com.android.systemui.dialog.MenuDialog;
+-import com.android.systemui.dialog.StartupMenuDialog;
+-
+-import java.lang.reflect.Method;
+-
+-/**
+- * Created by ljh on 17-9-25.
+- */
+-
+-public class U {
+-
+-    private static final int FULLSCREEN_WORKSPACE_STACK_ID = 1;
+-    private static final int FREEFORM_WORKSPACE_STACK_ID = 2;
+-
+-    public static final int STANDARD_MODE = 0;
+-    public static final int DESKTOP_MODE = 1;
+-    public static final int PHONE_MODE = 2;
+-    private static SharedPreferences pref;
+-
+-    public static SharedPreferences getSharedPreferences(Context context) {
+-        if (pref == null) pref = context.getSharedPreferences("data", Context.MODE_PRIVATE);
+-        return pref;
+-    }
+-
+-    public static void launchApp(Context context, String packageName, String activityName) {
+-        launchApp(context, new ComponentName(packageName, activityName));
+-    }
+-
+-    public static void launchApp(Context context, ComponentName componentName) {
+-        launchApp(context, componentName, DESKTOP_MODE);
+-    }
+-
+-    public static void launchApp(Context context, String packageName) {
+-        launchApp(context,
+-                context.getPackageManager().getLaunchIntentForPackage(packageName), DESKTOP_MODE);
+-    }
+-
+-    public static void launchApp(Context context, ComponentName componentName, int startMode) {
+-        StartupMenuDialog.dismissDialog();
+-        MenuDialog.dismissMenuDialog();
+-        Intent intent = new Intent();
+-        intent.setComponent(componentName);
+-        launchApp(context, intent, startMode);
+-    }
+-
+-    public static void launchApp(Context context, Intent intent) {
+-        launchApp(context, intent, DESKTOP_MODE);
+-    }
+-
+-    public static void launchApp(Context context, Intent intent, int startMode) {
+-        intent.setAction(Intent.ACTION_MAIN);
+-        intent.addCategory(Intent.CATEGORY_LAUNCHER);
+-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+-        intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+-        context.startActivity(intent, getBundle(context, startMode));
+-    }
+-
+-    private static Bundle getBundle(Context context, int startMode) {
+-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+-            ActivityOptions options = ActivityOptions.makeBasic();
+-            try {
+-                Method method = ActivityOptions.class.getMethod("setLaunchStackId", int.class);
+-                method.invoke(options, FREEFORM_WORKSPACE_STACK_ID);
+-                DisplayMetrics metrics = getRealDisplayMetrics(context);
+-                int width1, width2, height1, height2;
+-                switch (startMode) {
+-                    case STANDARD_MODE:
+-                        break;
+-                    case DESKTOP_MODE:
+-                        width1 = metrics.widthPixels / 8;
+-                        width2 = metrics.widthPixels - width1;
+-                        height1 = metrics.heightPixels / 8;
+-                        height2 = metrics.heightPixels - height1;
+-                        options.setLaunchBounds(new Rect(width1, height1, width2, height2));
+-                        break;
+-                    case PHONE_MODE:
+-                        width1 = metrics.widthPixels / 2;
+-                        width2 = context.getResources().getDimensionPixelSize(R.dimen.phone_size_width) / 2;
+-                        height1 = metrics.heightPixels / 2;
+-                        height2 = context.getResources().getDimensionPixelSize(R.dimen.phone_size_height) / 2;
+-                        options.setLaunchBounds(new Rect(
+-                                width1 - width2,
+-                                height1 - height2,
+-                                width1 + width2,
+-                                height1 + height2));
+-                        break;
+-                }
+-                return options.toBundle();
+-            } catch (Exception e) { /* Gracefully fail */
+-                return null;
+-            }
+-        } else {
+-            return null;
+-        }
+-    }
+-
+-    public static DisplayMetrics getRealDisplayMetrics(Context context) {
+-        DisplayMetrics metrics = new DisplayMetrics();
+-        WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+-        Display disp = wm.getDefaultDisplay();
+-
+-        if (isChromeOs(context))
+-            disp.getRealMetrics(metrics);
+-        else
+-            disp.getMetrics(metrics);
+-
+-        return metrics;
+-    }
+-
+-    public static boolean isChromeOs(Context context) {
+-        return context.getPackageManager().hasSystemFeature("org.chromium.arc");
+-    }
+-}
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+index 271a393..c9568e6 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosStatusBarView.java
+@@ -2,6 +2,7 @@ package com.android.systemui.statusbar.phone;
+ 
+ import android.content.Context;
+ import android.content.Intent;
++import android.content.res.Configuration;
+ import android.graphics.Canvas;
+ import android.view.MotionEvent;
+ import android.view.ViewGroup;
+@@ -90,16 +91,17 @@ public class OpenthosStatusBarView extends PanelBar {
+         mCalendarView = (CalendarDisplayView) findViewById(R.id.iv_date_status_bar);
+         mHomeView = (ImageView) findViewById(R.id.iv_home_status_bar);
+         //mSrollStatusBar = (HorizontalScrollView) findViewById(R.id.sroll_status_bar);
+-
+-        //init dialog.
++        initDialog();
+         mStartupMenuDialog = StartupMenuDialog.getInstance(getContext());
++        openthosStatusBarClickListener();
++    }
++
++    private void initDialog() {
+         mInputManagerDialog = new InputMethodDialog(getContext());
+         mBatteryDialog = new BatteryDialog(getContext());
+         mWifiDialog = new WifiDialog(getContext());
+         mVolumeDialog = new VolumeDialog(getContext());
+         mCalendarDialog = new CalendarDialog(getContext());
+-
+-        openthosStatusBarClickListener();
+     }
+ 
+     private void openthosStatusBarClickListener() {
+@@ -208,4 +210,12 @@ public class OpenthosStatusBarView extends PanelBar {
+                 R.dimen.status_bar_height);
+         setLayoutParams(layoutParams);
+     }
++
++    @Override
++    protected void onConfigurationChanged(Configuration newConfig) {
++        super.onConfigurationChanged(newConfig);
++        android.util.Log.i("ljh", "OpenthosStatusBarView onConfigurationChanged");
++        mStartupMenuDialog = StartupMenuDialog.reCreateStartupMenudialog(getContext());
++        initDialog();
++    }
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/QSView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/QSView.java
+index 1de6609..8d54791 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/QSView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/QSView.java
+@@ -4,18 +4,15 @@ import android.content.ComponentName;
+ import android.content.Context;
+ import android.graphics.Canvas;
+ import android.support.annotation.Nullable;
+-import android.hardware.input.InputManager;
+ import android.net.ConnectivityManager;
+ import android.net.EthernetManager;
+-import android.view.KeyEvent;
+ import android.view.View;
+ import android.view.MotionEvent;
+ import android.widget.ImageView;
+-import android.widget.Toast;
+ import android.widget.LinearLayout;
+ import android.util.AttributeSet;
+-import android.util.Log;
+-import com.android.systemui.startupmenu.U;
++
++import com.android.systemui.startupmenu.LaunchAppUtil;
+ 
+ import com.android.systemui.R;
+ 
+@@ -88,7 +85,7 @@ public class QSView extends LinearLayout {
+ 		    }
+                     break;
+                 case R.id.qs_settings:
+-                    U.launchApp(getContext(),
++                    LaunchAppUtil.launchApp(getContext(),
+                         new ComponentName("com.android.settings", "com.android.settings.Settings"));
+                     break;
+                 case R.id.qs_projection:
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 1c5b380..48fd985 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -203,6 +203,7 @@ import com.android.systemui.recents.events.activity.UndockingTaskEvent;
+ import com.android.systemui.recents.misc.SystemServicesProxy;
+ import com.android.systemui.stackdivider.Divider;
+ import com.android.systemui.stackdivider.WindowManagerProxy;
++import com.android.systemui.startupmenu.LaunchAppUtil;
+ import com.android.systemui.startupmenu.DialogType;
+ import com.android.systemui.statusbar.ActivatableNotificationView;
+ import com.android.systemui.statusbar.BackDropView;
+@@ -256,7 +257,6 @@ import com.android.systemui.statusbar.stack.StackStateAnimator;
+ import com.android.systemui.util.NotificationChannels;
+ import com.android.systemui.util.leak.LeakDetector;
+ import com.android.systemui.volume.VolumeComponent;
+-import com.android.systemui.startupmenu.U;
+ 
+ import java.io.FileDescriptor;
+ import java.io.PrintWriter;
+@@ -3457,7 +3457,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+                     if (mShowIcons.get(cmp).isRun()) {
+                         am.setFocusedTask(mShowIcons.get(cmp).getTaskId());
+                     } else {
+-                        U.launchApp(mContext, cmp);
++                        LaunchAppUtil.launchApp(mContext, cmp);
+                     }
+                 } catch (Exception e) {
+                     Log.e(TAG, "Error during setFocuesTask", e);
+-- 
+2.7.4
+

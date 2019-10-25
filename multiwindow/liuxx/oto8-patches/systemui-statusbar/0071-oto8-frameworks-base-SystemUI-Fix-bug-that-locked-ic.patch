@@ -1,0 +1,255 @@
+From c9e2f5abf548d7f45a54707fa68c335b6bf3fc61 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Fri, 8 Mar 2019 06:19:23 +0000
+Subject: [PATCH 071/110] oto8: frameworks: base: SystemUI: Fix bug that locked
+ icon's order maybe changed after reboot.
+
+Also bind taskbar icon with taskrecord more accurately by get packageName from
+taksrecord instead of activityrecord.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+Reviewed-by: Liu Xiaoxu <liuxiaoxu@openthos.org>
+---
+ .../systemui/statusbar/phone/StatusBar.java        | 92 +++++++++++-----------
+ .../android/server/am/ActivityManagerService.java  |  2 +-
+ .../java/com/android/server/am/ActivityStack.java  |  2 +-
+ 3 files changed, 46 insertions(+), 50 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index f334197..ff4c6fa 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -272,7 +272,7 @@ import java.util.ArrayList;
+ import java.util.Collection;
+ import java.util.Collections;
+ import java.util.HashMap;
+-import java.util.LinkedHashMap;
++import java.util.LinkedList;
+ import java.util.HashSet;
+ import java.util.List;
+ import java.util.Locale;
+@@ -452,7 +452,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+     Point mCurrentDisplaySize = new Point();
+ 
+     protected LinearLayout mActivityLayout;
+-    protected int mPrevTaskId = -1;
++    //protected int mPrevTaskId = -1;
++    protected String mPrevPackageName = null;
+     protected StatusBarWindowView mStatusBarWindow;
+     protected OpenthosStatusBarView mOpenthosStatusBarView;
+     protected PhoneStatusBarView mStatusBarView;
+@@ -808,7 +809,6 @@ public class StatusBar extends SystemUI implements DemoMode,
+     private HashMap<ExpandableNotificationRow, List<ExpandableNotificationRow>> mTmpChildOrderMap
+             = new HashMap<>();
+     private HashMap<String, TaskBarIcon> mLockedIcons = new HashMap<>();
+-    private LinkedHashMap<String, AppInfo> mLockedInfos = new LinkedHashMap<>();
+     private Map<String, TaskBarIcon> mRunIcons = new HashMap<>();
+     private RankingMap mLatestRankingMap;
+     private boolean mNoAnimationOnNextBarModeChange;
+@@ -3386,7 +3386,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+         return mFingerprintUnlockController;
+     }
+ 
+-    private String serialize(LinkedHashMap<String, AppInfo> appinfos) {
++    private String serialize(LinkedList<AppInfo> appinfos) {
+         ByteArrayOutputStream byteArrayOutputStream = null;
+         ObjectOutputStream objectOutputStream = null;
+         String serStr = null;
+@@ -3419,15 +3419,15 @@ public class StatusBar extends SystemUI implements DemoMode,
+         }
+     }
+ 
+-    private LinkedHashMap<String, AppInfo> deSerialization(String str) {
++    private LinkedList<AppInfo> deSerialization(String str) {
+         ByteArrayInputStream byteArrayInputStream = null;
+         ObjectInputStream objectInputStream = null;
+-        LinkedHashMap<String, AppInfo> infos = null;
++        LinkedList<AppInfo> infos = null;
+         try {
+             String redStr = java.net.URLDecoder.decode(str, "UTF-8");
+             byteArrayInputStream = new ByteArrayInputStream(redStr.getBytes("ISO-8859-1"));
+             objectInputStream = new ObjectInputStream(byteArrayInputStream);
+-            infos = (LinkedHashMap<String, AppInfo>) objectInputStream.readObject();
++            infos = (LinkedList<AppInfo>) objectInputStream.readObject();
+             objectInputStream.close();
+             byteArrayInputStream.close();
+         } catch (Exception e) {
+@@ -3466,11 +3466,11 @@ public class StatusBar extends SystemUI implements DemoMode,
+ 
+ 
+     private void initTaskbarIcons() {
+-        LinkedHashMap<String, AppInfo> dockedMap = deSerialization(getObject());
+-        if (dockedMap == null) {
++        LinkedList<AppInfo> dockedList = deSerialization(getObject());
++        if (dockedList == null) {
+             return;
+         }
+-        for (AppInfo info : dockedMap.values()) {
++        for (AppInfo info : dockedList) {
+             addToTaskbar(-1, info);
+         }
+     }
+@@ -3486,26 +3486,22 @@ public class StatusBar extends SystemUI implements DemoMode,
+     }
+ 
+     public void bindIconToTaskId(int taskId, ComponentName componentName) {
+-        TaskBarIcon locked = mLockedIcons.get(componentName.getPackageName());
+-        if (!canAdd(componentName.getPackageName()) && locked == null) {
++        String packageName = componentName.getPackageName();
++        if (!canAdd(componentName.getPackageName())) {
+             return;
+         }
+-        if (mPrevTaskId != -1) {
+-            for (TaskBarIcon buttonView : mRunIcons.values()) {
+-                if (buttonView.containTask(mPrevTaskId)) {
+-                    buttonView.setFocusInApplications(false);
+-                }
+-                if (buttonView.containTask(taskId)) {
+-                    buttonView.setFocusInApplications(true);
+-                    return;
+-                }
++        if (mPrevPackageName != null) {
++            TaskBarIcon prevButtonView = mRunIcons.get(mPrevPackageName);
++            if (prevButtonView != null) {
++                prevButtonView.setFocusInApplications(false);
+             }
+         }
+ 
+-        String packageName = componentName.getPackageName();
++        //mPrevTaskId = taskId;
++        mPrevPackageName = packageName;
+         TaskBarIcon buttonView = mRunIcons.get(packageName);
+         if (buttonView == null) {
+-            buttonView = locked;
++            buttonView = mLockedIcons.get(componentName.getPackageName());
+             if (buttonView == null) {
+                 buttonView = new TaskBarIcon(mContext, componentName);
+                 mActivityLayout.addView(buttonView);
+@@ -3515,7 +3511,6 @@ public class StatusBar extends SystemUI implements DemoMode,
+         mRunIcons.put(packageName, buttonView);
+         buttonView.addTaskId(taskId);
+         buttonView.setFocusInApplications(true);
+-        mPrevTaskId = taskId;
+     }
+ 
+     private boolean canAdd(String packageName) {
+@@ -3534,13 +3529,14 @@ public class StatusBar extends SystemUI implements DemoMode,
+         TaskBarIcon buttonView = mRunIcons.get(packageName);
+         if (buttonView != null) {
+             buttonView.closeTask(taskId);
+-            if (!buttonView.isLocked() && buttonView.noRunTask()) {
+-                mActivityLayout.removeView(buttonView);
++            if (!buttonView.isRun()) {
+                 mRunIcons.remove(packageName);
++                if (!buttonView.isLocked())
++                    mActivityLayout.removeView(buttonView);
+             }
+-        } else {
+-            Log.e(TAG, "taskid:" + taskId + " can't find icon to close");
++            return;
+         }
++        Log.e(TAG, "taskid:" + taskId + " can't find icon to close");
+     }
+ 
+     public void closeApp(int taskId, String packageName) {
+@@ -3556,6 +3552,17 @@ public class StatusBar extends SystemUI implements DemoMode,
+         }
+     }
+ 
++    private void updateLockedList() {
++        LinkedList<AppInfo> dockedList = new LinkedList<>();
++        for (int i = 0; i < mActivityLayout.getChildCount(); i++) {
++            TaskBarIcon button = (TaskBarIcon) mActivityLayout.getChildAt(i);
++            AppInfo info = button.getAppInfo();
++            if (info.isLocked())
++                dockedList.add(info);
++        }
++        saveObject(serialize(dockedList));
++    }
++
+     public void addToTaskbar(int taskId, AppInfo appInfo) {
+         ComponentName componentName = appInfo.getComponentName();
+         TaskBarIcon buttonView = mLockedIcons.get(componentName.getPackageName());
+@@ -3567,9 +3574,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+             mActivityLayout.addView(buttonView);
+         }
+         mLockedIcons.put(componentName.getPackageName(), buttonView);
+-        mLockedInfos.put(componentName.getPackageName(), appInfo);
+-        saveObject(serialize(mLockedInfos));
+         buttonView.locked();
++        updateLockedList();
+     }
+ 
+     public void addToTaskbar(int taskId, ComponentName componentName) {
+@@ -3583,33 +3589,23 @@ public class StatusBar extends SystemUI implements DemoMode,
+             mActivityLayout.addView(buttonView);
+         }
+         mLockedIcons.put(componentName.getPackageName(), buttonView);
+-        mLockedInfos.put(componentName.getPackageName(), appInfo);
+-        saveObject(serialize(mLockedInfos));
+         buttonView.locked();
++        updateLockedList();
+     }
+ 
+     public void removeFromTaskbar(String packageName) {
+-        for (TaskBarIcon buttonView : mLockedIcons.values()) {
+-            if (buttonView.getPackageName().equals(packageName)) {
++        TaskBarIcon buttonView = mLockedIcons.get(packageName);
++        if (buttonView != null) {
++            buttonView.unlocked();
++            mLockedIcons.remove(packageName);
++            updateLockedList();
++            if (!buttonView.isRun())
+                 mActivityLayout.removeView(buttonView);
+-                mLockedIcons.remove(packageName);
+-                mLockedInfos.remove(packageName);
+-                saveObject(serialize(mLockedInfos));
+-            }
+         }
+     }
+ 
+     public void removeFromTaskbar(ComponentName componentName) {
+-        TaskBarIcon buttonView = mLockedIcons.get(componentName.getPackageName());
+-        if (buttonView != null) {
+-            if (!buttonView.isRun()) {
+-                mActivityLayout.removeView(buttonView);
+-            }
+-            buttonView.unlocked();
+-            mLockedIcons.remove(componentName.getPackageName());
+-            mLockedInfos.remove(componentName.getPackageName());
+-            saveObject(serialize(mLockedInfos));
+-        }
++        removeFromTaskbar(componentName.getPackageName());
+     }
+ 
+     @Override
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index b547728..90ed79e 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -3120,7 +3120,7 @@ public class ActivityManagerService extends IActivityManager.Stub
+             StatusBarManagerInternal statusBarManager =
+                                    LocalServices.getService(StatusBarManagerInternal.class);
+             if (statusBarManager != null) {
+-                statusBarManager.changeStatusBarIcon(r.getTask().taskId, r.realActivity, true);
++                statusBarManager.changeStatusBarIcon(task.taskId, task.realActivity, true);
+             }
+         } else {
+             r.appTimeTracker = null;
+diff --git a/services/core/java/com/android/server/am/ActivityStack.java b/services/core/java/com/android/server/am/ActivityStack.java
+index 4ac185c..ba5c087 100644
+--- a/services/core/java/com/android/server/am/ActivityStack.java
++++ b/services/core/java/com/android/server/am/ActivityStack.java
+@@ -4173,7 +4173,7 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
+             // statement will only execute once since overlays are also considered activities.
+             if (lastActivity) {
+                 removeTask(task, reason, REMOVE_TASK_MODE_DESTROYING);
+-                mService.removeTaskIcon(task.taskId, r.realActivity);
++                mService.removeTaskIcon(task.taskId, task.realActivity);
+             }
+         }
+         cleanUpActivityServicesLocked(r);
+-- 
+2.7.4
+

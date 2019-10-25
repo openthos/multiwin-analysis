@@ -1,0 +1,987 @@
+From 53a07f922a23bdaf9a2c05c46b9a260ffe253818 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Tue, 26 Feb 2019 07:01:10 +0000
+Subject: [PATCH 062/110] oto8: frameworks: base: SystemUI: Bind taskbarIcon to
+ PackageName.
+
+And releas a beta of select window by another menu when there is
+
+several window have same packageName. So these windows could using
+
+one icon like ubuntu and windows.
+
+Also releas a beta of keep taskbarIcon after reboot by Serialization.
+
+There is a known problem that the order of icons may be change after reboot.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ core/java/android/view/WindowManager.java          |   2 +
+ .../com/android/systemui/dialog/BaseDialog.java    |   2 +-
+ .../com/android/systemui/dialog/DialogType.java    |   4 +-
+ .../com/android/systemui/dialog/MenuDialog.java    |  47 ++++-
+ .../android/systemui/startupmenu/AppAdapter.java   |   7 +-
+ .../systemui/startupmenu/LaunchAppUtil.java        |   3 +-
+ .../systemui/startupmenu/StartupMenuView.java      |   9 +-
+ .../android/systemui/startupmenu/bean/AppInfo.java |  22 ++-
+ .../systemui/startupmenu/listener/OnMenuClick.java |   2 +-
+ .../startupmenu/utils/AppOperateManager.java       |  12 +-
+ .../systemui/statusbar/phone/StatusBar.java        | 199 ++++++++++++++++-----
+ .../systemui/statusbar/view/TaskBarIcon.java       | 145 ++++++++++++---
+ .../android/server/am/ActivityManagerService.java  |   4 +-
+ .../java/com/android/server/am/ActivityStack.java  |   2 +-
+ .../android/server/wm/WindowManagerService.java    |   2 +
+ 15 files changed, 362 insertions(+), 100 deletions(-)
+
+diff --git a/core/java/android/view/WindowManager.java b/core/java/android/view/WindowManager.java
+index 742ca92..d709c7a 100644
+--- a/core/java/android/view/WindowManager.java
++++ b/core/java/android/view/WindowManager.java
+@@ -749,6 +749,8 @@ public interface WindowManager extends ViewManager {
+          */
+         public static final int TYPE_APPLICATION_OVERLAY = FIRST_SYSTEM_WINDOW + 38;
+ 
++        public static final int TYPE_STATUS_BAR_DIALOG = FIRST_SYSTEM_WINDOW + 39;
++
+         /**
+          * End of types of system windows.
+          */
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
+index 14176e2..6642d25 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
+@@ -65,7 +65,7 @@ public class BaseDialog extends Dialog {
+             mContentView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+         }
+         Window dialogWindow = getWindow();
+-        dialogWindow.setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
++        dialogWindow.setType(WindowManager.LayoutParams.TYPE_STATUS_BAR_DIALOG);
+         dialogWindow.setWindowAnimations(R.style.ShowDialog);
+         WindowManager.LayoutParams lp = dialogWindow.getAttributes();
+         lp.format = PixelFormat.TRANSPARENT;
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/DialogType.java b/packages/SystemUI/src/com/android/systemui/dialog/DialogType.java
+index a1938ea..d7de0f1 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/DialogType.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/DialogType.java
+@@ -5,5 +5,5 @@ package com.android.systemui.dialog;
+  */
+ 
+ public enum DialogType {
+-    LIST, GRID, SORT, SHOW_TASKBAR, BAR_LOCK_CLOSE, BAR_LOCK_OPEN, BAR_UNLOCK_OPEN, NOTIFY_NAME
+-}
+\ No newline at end of file
++    LIST, GRID, SORT, SHOW_TASKBAR, BAR_LOCK_CLOSE, BAR_LOCK_OPEN, BAR_UNLOCK_OPEN, NOTIFY_NAME, SELECT_TASK
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
+index ca3cfa3..17fd2e6 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
+@@ -1,5 +1,7 @@
+ package com.android.systemui.dialog;
+ 
++import android.app.ActivityManager;
++import android.app.IActivityManager;
+ import android.content.Context;
+ import android.graphics.PixelFormat;
+ import android.view.Gravity;
+@@ -23,13 +25,16 @@ import com.android.systemui.statusbar.phone.StatusBar;
+ import java.util.ArrayList;
+ import java.util.Arrays;
+ import java.util.List;
++import java.util.HashSet;
+ 
+ public class MenuDialog extends BaseDialog {
+     private List<String> mDatas;
++    private HashSet<Integer> mTasks;
+     private DialogAdapter mAdapter;
+     private ListView mListView;
+     private AppInfo mAppInfo;
+     private OnMenuClick mOnMenuClick;
++    private int mTaskId;
+     private int mWidth;
+     private int mHeight;
+     private StatusBar mStatusBar;
+@@ -87,6 +92,22 @@ public class MenuDialog extends BaseDialog {
+         show(type, x, y);
+     }
+ 
++    public void show(DialogType type, AppInfo appInfo, View view, int taskId) {
++        mDialogType = type;
++        mAppInfo = appInfo;
++        prepareData();
++        mTaskId = taskId;
++        show(view);
++    }
++
++    public void show(DialogType type, AppInfo appInfo, View view, HashSet<Integer> tasks) {
++        mDialogType = type;
++        mAppInfo = appInfo;
++        mTasks = tasks;
++        prepareData();
++        show(view);
++    }
++
+     public void show(DialogType type, AppInfo appInfo, View view) {
+         mDialogType = type;
+         mAppInfo = appInfo;
+@@ -172,6 +193,12 @@ public class MenuDialog extends BaseDialog {
+             case NOTIFY_NAME:
+                 sArr = new String[]{mAppInfo.getLabel()};
+                 break;
++            case SELECT_TASK:
++                sArr = new String[mTasks.size()];
++                for (int i = 0; i < mTasks.size(); i++) {
++                    sArr[i] = String.valueOf((int) mTasks.toArray()[i]);
++                }
++                break;
+         }
+         mDatas.addAll(Arrays.asList(sArr));
+         mAdapter.notifyDataSetChanged();
+@@ -224,6 +251,7 @@ public class MenuDialog extends BaseDialog {
+                 convertView.setTag(holder);
+                 holder.text.setOnHoverListener(mHoverListener);
+                 holder.text.setOnClickListener(mClickListener);
++                holder.text.setOnTouchListener(mTouchListener);
+             } else {
+                 holder = (ViewHolder) convertView.getTag();
+             }
+@@ -231,6 +259,20 @@ public class MenuDialog extends BaseDialog {
+             return convertView;
+         }
+ 
++        private View.OnTouchListener mTouchListener = new View.OnTouchListener() {
++            @Override
++            public boolean onTouch(View v, MotionEvent e) {
++                if (mDialogType == DialogType.SELECT_TASK
++                        && e.getAction() == MotionEvent.ACTION_DOWN
++                        && e.getButtonState() == MotionEvent.BUTTON_SECONDARY) {
++                    mOnMenuClick.menuClick(v, MenuDialog.this,
++                            mAppInfo, ((TextView) v).getText().toString(), -3);
++                    return true;
++                }
++                return false;
++            }
++        };
++
+         private View.OnClickListener mClickListener = new View.OnClickListener() {
+             @Override
+             public void onClick(View v) {
+@@ -238,9 +280,12 @@ public class MenuDialog extends BaseDialog {
+                     if (mDialogType == DialogType.SORT) {
+                         mOnMenuClick.sortShow(v, MenuDialog.this,
+                                 ((TextView) v).getText().toString());
++                    } else if (mDialogType == DialogType.SELECT_TASK) {
++                        mOnMenuClick.menuClick(v, MenuDialog.this,
++                                mAppInfo, ((TextView) v).getText().toString(), -2);
+                     } else {
+                         mOnMenuClick.menuClick(v, MenuDialog.this,
+-                                mAppInfo, ((TextView) v).getText().toString());
++                                mAppInfo, ((TextView) v).getText().toString(), mTaskId);
+                     }
+                 }
+             }
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/AppAdapter.java b/packages/SystemUI/src/com/android/systemui/startupmenu/AppAdapter.java
+index 0c67431..530875a 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/AppAdapter.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/AppAdapter.java
+@@ -60,7 +60,12 @@ public class AppAdapter extends BaseAdapter {
+         }
+ 
+         AppInfo appInfo = mAppInfos.get(position);
+-        holder.appIcon.setImageDrawable(appInfo.getIcon());
++        try {
++            holder.appIcon.setImageDrawable(
++                mContext.getPackageManager().getApplicationIcon(appInfo.getPackageName()));
++        } catch (Exception e) {
++            e.printStackTrace();
++        }
+         holder.tvAppLabel.setText(appInfo.getLabel());
+         holder.layout.setTag(appInfo);
+         return convertView;
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+index 8c39d51..b2648df 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/LaunchAppUtil.java
+@@ -113,8 +113,7 @@ public class LaunchAppUtil {
+         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+             ActivityOptions options = ActivityOptions.makeBasic();
+             try {
+-                Method method = ActivityOptions.class.getMethod("setLaunchStackId", int.class);
+-                method.invoke(options, FREEFORM_WORKSPACE_STACK_ID);
++                options.setLaunchStackId(FREEFORM_WORKSPACE_STACK_ID);
+                 DisplayMetrics metrics = getRealDisplayMetrics(context);
+                 int width1, width2, height1, height2;
+                 switch (startMode) {
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/StartupMenuView.java b/packages/SystemUI/src/com/android/systemui/startupmenu/StartupMenuView.java
+index e6f1a3d..d586711 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/StartupMenuView.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/StartupMenuView.java
+@@ -452,7 +452,7 @@ public class StartupMenuView extends FrameLayout
+ 
+     private OnMenuClick mOnMenuClick = new OnMenuClick() {
+         @Override
+-        public void menuClick(View view, Dialog dialog, AppInfo appInfo, String menu) {
++        public void menuClick(View view, Dialog dialog, AppInfo appInfo, String menu, int taskId) {
+             if (menu.equals(getContext().getString(R.string.open))) {
+                 mOperateManager.openApplication(appInfo.getComponentName());
+             } else if (menu.equals(getContext().getString(R.string.phone_mode))) {
+@@ -460,9 +460,10 @@ public class StartupMenuView extends FrameLayout
+             } else if (menu.equals(getContext().getString(R.string.desktop_mode))) {
+                 mOperateManager.runDesktopMode(appInfo.getComponentName());
+             } else if (menu.equals(getContext().getString(R.string.lock_to_task_bar))) {
+-                mOperateManager.addToTaskbar(appInfo.getPackageName());
++                mOperateManager.addToTaskbar(-1, appInfo.getComponentName());
+             } else if (menu.equals(getContext().getString(R.string.unlock_from_task_bar))) {
+-                mOperateManager.removeFromTaskbar(appInfo.getPackageName());
++                mOperateManager.removeFromTaskbar(appInfo.getComponentName());
++                appInfo.setLocked(false);
+             } else if (menu.equals(getContext().getString(R.string.remove_from_list))) {
+                 removeApplicaton(appInfo);
+             } else if (menu.equals(getContext().getString(R.string.uninstall))) {
+@@ -498,4 +499,4 @@ public class StartupMenuView extends FrameLayout
+             mOperateManager.reloadData();
+         }
+     };
+-}
+\ No newline at end of file
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/bean/AppInfo.java b/packages/SystemUI/src/com/android/systemui/startupmenu/bean/AppInfo.java
+index b125ec2..02e8f1c 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/bean/AppInfo.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/bean/AppInfo.java
+@@ -22,6 +22,7 @@ import android.os.Process;
+ import android.os.UserManager;
+ 
+ import java.io.Serializable;
++import java.util.ArrayList;
+ 
+ public class AppInfo implements Serializable {
+     static final long serialVersionUID = -3982172488299272068L;
+@@ -29,12 +30,11 @@ public class AppInfo implements Serializable {
+     private String label;
+     private String packageName;
+     private String activityName;
+-    private ComponentName componentName;
+     private Long userId;
+     private Long installTime;
+     private Long lastTimeUsed;
+     private int useCounts;
+-    private Drawable icon;
++    private ArrayList<Integer> mTasks = new ArrayList<>();
+     private boolean isSystemApp;
+     private boolean isLocked;
+ 
+@@ -51,7 +51,6 @@ public class AppInfo implements Serializable {
+     }
+ 
+     public AppInfo(ComponentName componentName) {
+-        this.componentName = componentName;
+         this.packageName = componentName.getPackageName();
+         this.activityName = componentName.getClassName();
+     }
+@@ -81,14 +80,13 @@ public class AppInfo implements Serializable {
+     }
+ 
+     public ComponentName getComponentName() {
+-        if (componentName == null) {
+-            componentName = new ComponentName(packageName, activityName);
+-        }
++        ComponentName componentName = new ComponentName(packageName, activityName);
+         return componentName;
+     }
+ 
+     public void setComponentName(ComponentName componentName) {
+-        this.componentName = componentName;
++        packageName = componentName.getPackageName();
++        activityName = componentName.getClassName();
+     }
+ 
+     public Long getUserId(Context context) {
+@@ -123,16 +121,16 @@ public class AppInfo implements Serializable {
+         return useCounts;
+     }
+ 
++    public int getTaskCount() {
++        return mTasks.size();
++    }
++
+     public void setUseCounts(int useCounts) {
+         this.useCounts = useCounts;
+     }
+ 
+-    public Drawable getIcon() {
+-        return icon;
+-    }
+ 
+     public void setIcon(Drawable icon) {
+-        this.icon = icon;
+     }
+ 
+     public boolean isSystemApp() {
+@@ -150,4 +148,4 @@ public class AppInfo implements Serializable {
+     public void setLocked(boolean locked) {
+         isLocked = locked;
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/listener/OnMenuClick.java b/packages/SystemUI/src/com/android/systemui/startupmenu/listener/OnMenuClick.java
+index 10ccf06..e48be63 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/listener/OnMenuClick.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/listener/OnMenuClick.java
+@@ -6,7 +6,7 @@ import android.view.View;
+ import com.android.systemui.startupmenu.bean.AppInfo;
+ 
+ public interface OnMenuClick {
+-    void menuClick(View view, Dialog dialog, AppInfo appInfo, String menu);
++    void menuClick(View view, Dialog dialog, AppInfo appInfo, String menu, int taskId);
+ 
+     void sortShow(View view, Dialog dialog, String menu);
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/utils/AppOperateManager.java b/packages/SystemUI/src/com/android/systemui/startupmenu/utils/AppOperateManager.java
+index 2843e29..71b8896 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/utils/AppOperateManager.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/utils/AppOperateManager.java
+@@ -85,16 +85,20 @@ public class AppOperateManager {
+         dismissStartupMenuDialog();
+     }
+ 
+-    public void addToTaskbar(String packageName) {
+-        mStatusBar.addToTaskbar(packageName);
++    public void addToTaskbar(int taskId, ComponentName componentName) {
++        mStatusBar.addToTaskbar(taskId, componentName);
++    }
++
++    public void removeFromTaskbar(ComponentName componentName) {
++        mStatusBar.removeFromTaskbar(componentName);
+     }
+ 
+     public void removeFromTaskbar(String packageName) {
+         mStatusBar.removeFromTaskbar(packageName);
+     }
+ 
+-    public void closeApp(String packageName) {
+-        mStatusBar.closeApp(packageName);
++    public void closeApp(int taskId, String packageName) {
++        mStatusBar.closeApp(taskId, packageName);
+     }
+ 
+     public void uninstallApp(String packageName) {
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 0301558..8cfe6cb 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -67,6 +67,8 @@ import android.content.pm.PackageManager.NameNotFoundException;
+ import android.content.pm.UserInfo;
+ import android.content.res.Configuration;
+ import android.content.res.Resources;
++import android.content.SharedPreferences;
++import android.content.SharedPreferences.Editor;
+ import android.database.ContentObserver;
+ import android.graphics.Bitmap;
+ import android.graphics.Canvas;
+@@ -256,14 +258,21 @@ import com.android.systemui.statusbar.view.TaskBarIcon;
+ import com.android.systemui.util.NotificationChannels;
+ import com.android.systemui.util.leak.LeakDetector;
+ import com.android.systemui.volume.VolumeComponent;
++import com.android.systemui.startupmenu.SqliteOpenHelper;
+ 
+ import java.io.FileDescriptor;
+ import java.io.PrintWriter;
+ import java.io.StringWriter;
++import java.io.ByteArrayInputStream;
++import java.io.ByteArrayOutputStream;
++import java.io.IOException;
++import java.io.ObjectInputStream;
++import java.io.ObjectOutputStream;
+ import java.util.ArrayList;
+ import java.util.Collection;
+ import java.util.Collections;
+ import java.util.HashMap;
++import java.util.LinkedHashMap;
+ import java.util.HashSet;
+ import java.util.List;
+ import java.util.Locale;
+@@ -798,7 +807,9 @@ public class StatusBar extends SystemUI implements DemoMode,
+     };
+     private HashMap<ExpandableNotificationRow, List<ExpandableNotificationRow>> mTmpChildOrderMap
+             = new HashMap<>();
+-    private Map<String, TaskBarIcon> mShowIcons = new HashMap<>();
++    private HashMap<String, TaskBarIcon> mLockedIcons = new HashMap<>();
++    private LinkedHashMap<String, AppInfo> mLockedInfos = new LinkedHashMap<>();
++    private Map<String, TaskBarIcon> mRunIcons = new HashMap<>();
+     private RankingMap mLatestRankingMap;
+     private boolean mNoAnimationOnNextBarModeChange;
+     private FalsingManager mFalsingManager;
+@@ -3375,102 +3386,204 @@ public class StatusBar extends SystemUI implements DemoMode,
+         return mFingerprintUnlockController;
+     }
+ 
++    private String serialize(LinkedHashMap<String, AppInfo> appinfos) throws IOException {
++        long startTime = System.currentTimeMillis();
++        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
++        ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
++        objectOutputStream.writeObject(appinfos);
++        String serStr = byteArrayOutputStream.toString("ISO-8859-1");
++        serStr = java.net.URLEncoder.encode(serStr, "UTF-8");
++        objectOutputStream.close();
++        byteArrayOutputStream.close();
++        long endTime = System.currentTimeMillis();
++        return serStr;
++    }
++
++    private LinkedHashMap<String, AppInfo> deSerialization(String str) throws IOException,
++            ClassNotFoundException {
++        long startTime = System.currentTimeMillis();
++        String redStr = java.net.URLDecoder.decode(str, "UTF-8");
++        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(
++                redStr.getBytes("ISO-8859-1"));
++        ObjectInputStream objectInputStream = new ObjectInputStream(
++                byteArrayInputStream);
++        LinkedHashMap<String, AppInfo> infos = (LinkedHashMap<String, AppInfo>) objectInputStream.readObject();
++        objectInputStream.close();
++        byteArrayInputStream.close();
++        long endTime = System.currentTimeMillis();
++        return infos;
++    }
++
++    void saveObject(String strObject) {
++        SharedPreferences sp = mContext.getSharedPreferences("lockedmap", 0);
++        Editor edit = sp.edit();
++        edit.putString("lockedmap", strObject);
++        edit.commit();
++    }
++
++    String getObject() {
++        SharedPreferences sp = mContext.getSharedPreferences("lockedmap", 0);
++        String re = sp.getString("lockedmap", null);
++        return re;
++    }
++
++
+     private void initTaskbarIcons() {
+-//        SqliteOpenHelper.getInstance(mContext).queryLockedApp(new DataCallback() {
+-//            @Override
+-//            public void callback(Map<String, AppInfo> appInfoMaps) {
+-//                for (String packageName : appInfoMaps.keySet()) {
+-//                    TaskBarButtonView buttonView =
+-//                            new TaskBarButtonView(mContext, appInfoMaps.get(packageName));
+-//                    mActivityLayout.addView(buttonView);
+-//                    mShowIcons.put(packageName, buttonView);
+-//                }
+-//            }
+-//        });
++        try {
++            for (AppInfo info : deSerialization(getObject()).values()) {
++                addToTaskbar(-1, info);
++            }
++        } catch (Exception e) {
++            Log.e(TAG, "Error during serialize", e);
++        }
+     }
+ 
+     @Override
+     public void changeStatusBarIcon(int taskId, ComponentName componentName, boolean keep) {
+         Log.i("StatusBar", "taskId " + taskId + " keep " + keep + " cmp" + componentName);
+-        if (!keep || componentName == null) {
+-            iconClose(taskId);
++        if (!keep) {
++            iconClose(taskId, componentName.getPackageName());
+             return;
+         }
+         bindIconToTaskId(taskId, componentName);
+     }
+ 
+     public void bindIconToTaskId(int taskId, ComponentName componentName) {
+-        if (!canAdd(componentName.getPackageName())) {
++        TaskBarIcon locked = mLockedIcons.get(componentName.getPackageName());
++        if (!canAdd(componentName.getPackageName()) && locked == null) {
+             return;
+         }
+         if (mPrevTaskId != -1) {
+-            for (TaskBarIcon buttonView : mShowIcons.values()) {
+-                if (mPrevTaskId == buttonView.getTaskId()) {
++            for (TaskBarIcon buttonView : mRunIcons.values()) {
++                if (buttonView.containTask(mPrevTaskId)) {
+                     buttonView.setFocusInApplications(false);
+                 }
+             }
+         }
+ 
+         String packageName = componentName.getPackageName();
+-        TaskBarIcon buttonView = mShowIcons.get(packageName);
++        TaskBarIcon buttonView = mRunIcons.get(packageName);
+         if (buttonView == null) {
+-            buttonView = new TaskBarIcon(mContext, packageName);
+-            mActivityLayout.addView(buttonView);
+-            mShowIcons.put(packageName, buttonView);
++            buttonView = locked;
++            if (buttonView == null) {
++                buttonView = new TaskBarIcon(mContext, componentName);
++                mActivityLayout.addView(buttonView);
++            }
+         }
+ 
+-        buttonView.setTaskId(taskId);
++        mRunIcons.put(packageName, buttonView);
++        buttonView.addTaskId(taskId);
+         buttonView.setFocusInApplications(true);
+         mPrevTaskId = taskId;
+     }
+ 
+     private boolean canAdd(String packageName) {
+-        AppInfo appInfo = AppOperateManager.getInstance(mContext).getAppInfo(packageName);
+-        return appInfo != null && appInfo.getIcon() != null;
++        try {
++            AppInfo appInfo = AppOperateManager.getInstance(mContext).getAppInfo(packageName);
++            PackageManager pm = mContext.getPackageManager();
++            Drawable icon = pm.getApplicationIcon(packageName);
++            return appInfo != null && icon != null;
++        } catch (Exception e) {
++            Log.e(TAG, "Error during add", e);
++            return false;
++        }
+     }
+ 
+-    public void iconClose(int taskId) {
+-        for (TaskBarIcon buttonView : mShowIcons.values()) {
+-            if (taskId == buttonView.getTaskId()) {
+-                if (!buttonView.isLocked()) {
+-                    mActivityLayout.removeView(buttonView);
+-                    mShowIcons.remove(buttonView.getPackageName());
+-                } else {
+-                    buttonView.close();
+-                }
+-                break;
++    public void iconClose(int taskId, String packageName) {
++        TaskBarIcon buttonView = mRunIcons.get(packageName);
++        if (buttonView != null) {
++            buttonView.closeTask(taskId);
++            if (!buttonView.isLocked() && buttonView.noRunTask()) {
++                mActivityLayout.removeView(buttonView);
++                mRunIcons.remove(packageName);
+             }
++        } else {
++            Log.e(TAG, "taskid:" + taskId + " can't find icon to close");
+         }
+     }
+ 
+-    public void closeApp(String packageName) {
++    public void closeApp(int taskId, String packageName) {
+         try {
+-            TaskBarIcon buttonView = mShowIcons.get(packageName);
++            TaskBarIcon buttonView = mRunIcons.get(packageName);
+             if (buttonView != null) {
+-                ActivityManager.getService().removeTask(buttonView.getTaskId());
++                ActivityManager.getService().removeTask(taskId);
++                iconClose(taskId, packageName);
++            } else {
++                Log.e(TAG, "taskId: " + taskId + " can't find running task");
+             }
+         } catch (Exception e) {
+         }
+     }
+ 
+-    public void addToTaskbar(String packageName) {
+-        TaskBarIcon buttonView = mShowIcons.get(packageName);
++    public void addToTaskbar(int taskId, AppInfo appInfo) {
++        ComponentName componentName = appInfo.getComponentName();
++        TaskBarIcon buttonView = mLockedIcons.get(componentName.getPackageName());
++        if (buttonView != null)
++            return;
++        buttonView = mRunIcons.get(componentName.getPackageName());
++        if (buttonView == null) {
++            buttonView = new TaskBarIcon(mContext, componentName, appInfo);
++            mActivityLayout.addView(buttonView);
++        }
++        mLockedIcons.put(componentName.getPackageName(), buttonView);
++        mLockedInfos.put(componentName.getPackageName(), appInfo);
++        try {
++            saveObject(serialize(mLockedInfos));
++        } catch (Exception e) {
++            Log.e(TAG, "Error during serialize", e);
++        }
++        buttonView.locked();
++    }
++
++    public void addToTaskbar(int taskId, ComponentName componentName) {
++        AppInfo appInfo = AppOperateManager.getInstance(mContext).getAppInfo(componentName.getPackageName());
++        TaskBarIcon buttonView = mLockedIcons.get(componentName.getPackageName());
++        if (buttonView != null)
++            return;
++        buttonView = mRunIcons.get(componentName.getPackageName());
+         if (buttonView == null) {
+-            buttonView = new TaskBarIcon(mContext, packageName);
++            buttonView = new TaskBarIcon(mContext, componentName);
+             mActivityLayout.addView(buttonView);
+-            mShowIcons.put(packageName, buttonView);
++        }
++        mLockedIcons.put(componentName.getPackageName(), buttonView);
++        mLockedInfos.put(componentName.getPackageName(), appInfo);
++        try {
++            saveObject(serialize(mLockedInfos));
++        } catch (Exception e) {
++            Log.e(TAG, "Error during serialize", e);
+         }
+         buttonView.locked();
+     }
+ 
+     public void removeFromTaskbar(String packageName) {
+-        TaskBarIcon buttonView = mShowIcons.get(packageName);
++        for (TaskBarIcon buttonView : mLockedIcons.values()) {
++            if (buttonView.getPackageName().equals(packageName)) {
++                mActivityLayout.removeView(buttonView);
++                mLockedIcons.remove(packageName);
++                mLockedInfos.remove(packageName);
++                try {
++                    saveObject(serialize(mLockedInfos));
++                } catch (Exception e) {
++                    Log.e(TAG, "Error during serialize", e);
++                }
++            }
++        }
++    }
++
++    public void removeFromTaskbar(ComponentName componentName) {
++        TaskBarIcon buttonView = mLockedIcons.get(componentName.getPackageName());
+         if (buttonView != null) {
+             if (!buttonView.isRun()) {
+                 mActivityLayout.removeView(buttonView);
+-                mShowIcons.remove(packageName);
+             }
+             buttonView.unlocked();
++            mLockedIcons.remove(componentName.getPackageName());
++            mLockedInfos.remove(componentName.getPackageName());
++            try {
++                saveObject(serialize(mLockedInfos));
++            } catch (Exception e) {
++                Log.e(TAG, "Error during serialize", e);
++            }
+         }
+     }
+ 
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java b/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java
+index f3c9742..253fb3d0 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/view/TaskBarIcon.java
+@@ -4,7 +4,9 @@ import android.app.ActivityManager;
+ import android.app.Dialog;
+ import android.app.IActivityManager;
+ import android.content.Context;
++import android.content.ComponentName;
+ import android.content.res.Configuration;
++import android.graphics.Rect;
+ import android.view.LayoutInflater;
+ import android.view.MotionEvent;
+ import android.view.View;
+@@ -19,26 +21,46 @@ import com.android.systemui.startupmenu.bean.AppInfo;
+ import com.android.systemui.startupmenu.listener.OnMenuClick;
+ import com.android.systemui.startupmenu.utils.AppOperateManager;
+ 
+-public class TaskBarIcon extends FrameLayout implements View.OnTouchListener,
+-        View.OnLongClickListener, OnMenuClick, View.OnHoverListener {
++import java.io.Serializable;
++import java.util.HashSet;
++import java.util.Iterator;
++
++public class TaskBarIcon extends FrameLayout implements View.OnTouchListener, Serializable,
++        View.OnLongClickListener, View.OnClickListener, OnMenuClick, View.OnHoverListener {
+ 
+     private static MenuDialog mMenuDialog;
+-    private MenuDialog mHoverDialog;
++    private static MenuDialog mHoverDialog;
++    private static MenuDialog mTaskDialog;
+     private AppOperateManager mOperateManager;
+     private SqliteOpenHelper mOpenHelper;
+     private ImageView mIconView;
+     private View mFocuseView;
+     private View mRunView;
++    private AppInfo mAppInfo;
++    private HashSet<Integer> mTasks = new HashSet<>();
+ 
+     private String mPackageName;
++    private ComponentName mComponentName;
+     private boolean mIsFocusInApplications;
+     private boolean mIsRun;
+     private int mTaskId;
++    private Rect mTmpRect = new Rect();
+ 
+-    public TaskBarIcon(Context context, String packageName) {
++    public TaskBarIcon(Context context, ComponentName componentName, AppInfo appInfo) {
++        super(context);
++        LayoutInflater.from(context).inflate(R.layout.taskbar_button_layout, this);
++        mComponentName = componentName;
++        mPackageName = componentName.getPackageName();
++        mAppInfo = appInfo;
++        initView();
++        initData();
++        initListener();
++    }
++    public TaskBarIcon(Context context, ComponentName componentName) {
+         super(context);
+         LayoutInflater.from(context).inflate(R.layout.taskbar_button_layout, this);
+-        mPackageName = packageName;
++        mComponentName = componentName;
++        mPackageName = componentName.getPackageName();
+         initView();
+         initData();
+         initListener();
+@@ -51,38 +73,63 @@ public class TaskBarIcon extends FrameLayout implements View.OnTouchListener,
+     }
+ 
+     private void initData() {
+-        mOperateManager = AppOperateManager.getInstance(getContext());
+-        mOpenHelper = SqliteOpenHelper.getInstance(getContext());
+-        mIconView.setImageDrawable(getAppInfo().getIcon());
+-        initDialog();
++        try {
++            mOperateManager = AppOperateManager.getInstance(getContext());
++            mOpenHelper = SqliteOpenHelper.getInstance(getContext());
++            mIconView.setImageDrawable(getContext().getPackageManager().
++                    getApplicationIcon(getAppInfo().getPackageName()));
++            initDialog();
++        } catch (Exception e) {
++            e.printStackTrace();
++        }
+     }
+ 
+     private void initListener() {
+         setOnLongClickListener(this);
+         setOnTouchListener(this);
++        setOnClickListener(this);
+         setOnHoverListener(this);
+     }
+ 
+     private void initDialog() {
+         if (mMenuDialog == null) {
+             mMenuDialog = new MenuDialog(getContext());
+-            mMenuDialog.setOnMenuClick(this);
+         }
+-        mHoverDialog = new MenuDialog(getContext());
++        if (mHoverDialog == null) {
++            mHoverDialog = new MenuDialog(getContext());
++        }
++        if (mTaskDialog == null) {
++            mTaskDialog = new MenuDialog(getContext());
++        }
++        mMenuDialog.setOnMenuClick(this);
++        mTaskDialog.setOnMenuClick(this);
++    }
++
++    @Override
++    public void onClick(View v) {
++        startRun();
+     }
+ 
+     @Override
+     public boolean onTouch(View v, MotionEvent event) {
+-        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+-            startRun();
++        if (event.getAction() == MotionEvent.ACTION_DOWN
++            && event.getButtonState() == MotionEvent.BUTTON_SECONDARY) {
++            //startRun();
++            showDialog();
+         }
++        mHoverDialog.dismiss();
+         return false;
+     }
+ 
+     @Override
+     public boolean onLongClick(View v) {
+         showDialog();
+-        return true;
++        return false;
++    }
++
++    public static void dismissHoverDialog() {
++        if (mHoverDialog.isShowing())
++            mHoverDialog.dismiss();
+     }
+ 
+     @Override
+@@ -94,14 +141,16 @@ public class TaskBarIcon extends FrameLayout implements View.OnTouchListener,
+                 }
+                 break;
+             case MotionEvent.ACTION_HOVER_EXIT:
+-                mHoverDialog.dismiss();
++                ((View)getParent()).getBoundsOnScreen(mTmpRect);
++                if (!mTmpRect.contains((int) event.getRawX(), (int) event.getRawY()))
++                    mHoverDialog.dismiss();
+                 break;
+         }
+         return false;
+     }
+ 
+     @Override
+-    public void menuClick(View view, Dialog dialog, AppInfo appInfo, String menu) {
++    public void menuClick(View view, Dialog dialog, AppInfo appInfo, String menu, int taskId) {
+         if (menu.equals(getContext().getString(R.string.open))) {
+             mOperateManager.openApplication(appInfo.getComponentName());
+         } else if (menu.equals(getContext().getString(R.string.phone_mode))) {
+@@ -109,12 +158,27 @@ public class TaskBarIcon extends FrameLayout implements View.OnTouchListener,
+         } else if (menu.equals(getContext().getString(R.string.desktop_mode))) {
+             mOperateManager.runDesktopMode(appInfo.getComponentName());
+         } else if (menu.equals(getContext().getString(R.string.lock_to_task_bar))) {
+-            mOperateManager.addToTaskbar(appInfo.getPackageName());
++            mOperateManager.addToTaskbar(taskId, appInfo.getComponentName());
+         } else if (menu.equals(getContext().getString(R.string.unlock_from_task_bar))) {
+-            mOperateManager.removeFromTaskbar(appInfo.getPackageName());
++            mOperateManager.removeFromTaskbar(appInfo.getComponentName());
+         } else if (menu.equals(getContext().getString(R.string.close))) {
+-            mOperateManager.closeApp(appInfo.getPackageName());
++            Integer[] it = mTasks.toArray(new Integer[0]);
++            for (int i : it) {
++                mOperateManager.closeApp(i, appInfo.getPackageName());
++            }
++        }
++        if (taskId == -2) {
++            try {
++                IActivityManager am = ActivityManager.getService();
++                am.setFocusedTask(Integer.parseInt(menu));
++            } catch (Exception e) {
++                e.printStackTrace();
++            }
++        }
++        if (taskId == -3) {
++            mOperateManager.closeApp(Integer.parseInt(menu), appInfo.getPackageName());
+         }
++        mHoverDialog.dismiss();
+         dialog.dismiss();
+     }
+ 
+@@ -124,12 +188,13 @@ public class TaskBarIcon extends FrameLayout implements View.OnTouchListener,
+     }
+ 
+     private void showDialog() {
++        mMenuDialog.setOnMenuClick(this);
+         if (!isRun()) {
+-            mMenuDialog.show(DialogType.BAR_LOCK_CLOSE, getAppInfo(), this);
++            mMenuDialog.show(DialogType.BAR_LOCK_CLOSE, getAppInfo(), this, mTaskId);
+         } else if (isLocked()) {
+-            mMenuDialog.show(DialogType.BAR_LOCK_OPEN, getAppInfo(), this);
++            mMenuDialog.show(DialogType.BAR_LOCK_OPEN, getAppInfo(), this, mTaskId);
+         } else {
+-            mMenuDialog.show(DialogType.BAR_UNLOCK_OPEN, getAppInfo(), this);
++            mMenuDialog.show(DialogType.BAR_UNLOCK_OPEN, getAppInfo(), this, mTaskId);
+         }
+     }
+ 
+@@ -147,11 +212,15 @@ public class TaskBarIcon extends FrameLayout implements View.OnTouchListener,
+         try {
+             IActivityManager am = ActivityManager.getService();
+             if (isRun()) {
+-                am.setFocusedTask(mTaskId);
++                if (mTasks.size() > 1) {
++                    mTaskDialog.show(DialogType.SELECT_TASK, getAppInfo(), this, mTasks);
++                } else {
++                    am.setFocusedTask(mTasks.iterator().next());
++                }
+             } else {
+-                mOperateManager.openApplication(getAppInfo().getComponentName());
++                mOperateManager.openApplication(mComponentName/*getAppInfo().getComponentName()*/);
+             }
+-            setFocusInApplications(true);
++            //setFocusInApplications(true);
+         } catch (Exception e) {
+             e.printStackTrace();
+         }
+@@ -162,13 +231,17 @@ public class TaskBarIcon extends FrameLayout implements View.OnTouchListener,
+     }
+ 
+     public AppInfo getAppInfo() {
+-        return mOperateManager.getAppInfo(mPackageName);
++        return mAppInfo != null ? mAppInfo : mOperateManager.getAppInfo(mPackageName);
+     }
+ 
+     public String getPackageName() {
+         return mPackageName;
+     }
+ 
++    public ComponentName getComponentName() {
++        return mComponentName;
++    }
++
+     public boolean isLocked() {
+         return getAppInfo().isLocked();
+     }
+@@ -215,6 +288,26 @@ public class TaskBarIcon extends FrameLayout implements View.OnTouchListener,
+ 
+     public void setTaskId(int taskId) {
+         mTaskId = taskId;
++        initDialog();
++    }
++
++    public boolean noRunTask() {
++        return mTasks.size() == 0;
++    }
++
++    public boolean containTask(int taskId) {
++        return mTasks.contains((Integer) taskId);
++    }
++
++    public void addTaskId(int taskId) {
++        mTasks.add(taskId);
++    }
++
++    public void closeTask(int taskId) {
++        mTasks.remove((Integer)taskId);
++        if (noRunTask()) {
++            close();
++        }
+     }
+ 
+     @Override
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index 5c352a9..81c68a6 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -4978,11 +4978,11 @@ public class ActivityManagerService extends IActivityManager.Stub
+         return ret;
+     }
+ 
+-    public void removeTaskIcon(int taskId) {
++    public void removeTaskIcon(int taskId, ComponentName cp) {
+         StatusBarManagerInternal statusBarManager =
+                            LocalServices.getService(StatusBarManagerInternal.class);
+         if (statusBarManager != null) {
+-            statusBarManager.changeStatusBarIcon(taskId, null, false);
++            statusBarManager.changeStatusBarIcon(taskId, cp, false);
+         }
+     }
+ 
+diff --git a/services/core/java/com/android/server/am/ActivityStack.java b/services/core/java/com/android/server/am/ActivityStack.java
+index ff45b85..4ac185c 100644
+--- a/services/core/java/com/android/server/am/ActivityStack.java
++++ b/services/core/java/com/android/server/am/ActivityStack.java
+@@ -4173,7 +4173,7 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
+             // statement will only execute once since overlays are also considered activities.
+             if (lastActivity) {
+                 removeTask(task, reason, REMOVE_TASK_MODE_DESTROYING);
+-                mService.removeTaskIcon(task.taskId);
++                mService.removeTaskIcon(task.taskId, r.realActivity);
+             }
+         }
+         cleanUpActivityServicesLocked(r);
+diff --git a/services/core/java/com/android/server/wm/WindowManagerService.java b/services/core/java/com/android/server/wm/WindowManagerService.java
+index 19516d8..e55bc0f 100644
+--- a/services/core/java/com/android/server/wm/WindowManagerService.java
++++ b/services/core/java/com/android/server/wm/WindowManagerService.java
+@@ -60,6 +60,7 @@ import static android.view.WindowManager.LayoutParams.TYPE_NAVIGATION_BAR;
+ import static android.view.WindowManager.LayoutParams.TYPE_PRIVATE_PRESENTATION;
+ import static android.view.WindowManager.LayoutParams.TYPE_QS_DIALOG;
+ import static android.view.WindowManager.LayoutParams.TYPE_STATUS_BAR;
++import static android.view.WindowManager.LayoutParams.TYPE_STATUS_BAR_DIALOG;
+ import static android.view.WindowManager.LayoutParams.TYPE_TOAST;
+ import static android.view.WindowManager.LayoutParams.TYPE_VOICE_INTERACTION;
+ import static android.view.WindowManager.LayoutParams.TYPE_WALLPAPER;
+@@ -1190,6 +1191,7 @@ public class WindowManagerService extends IWindowManager.Stub
+             case TYPE_STATUS_BAR:
+             case TYPE_NAVIGATION_BAR:
+             case TYPE_INPUT_METHOD_DIALOG:
++            case TYPE_STATUS_BAR_DIALOG:
+                 return true;
+         }
+         return false;
+-- 
+2.7.4
+

@@ -1,0 +1,236 @@
+From d963d6f17cd36925a28e111bad0b1ce2a28f7e3f Mon Sep 17 00:00:00 2001
+From: CaoYongren <m18410261910@163.com>
+Date: Mon, 23 Oct 2017 09:56:00 +0000
+Subject: [PATCH 029/110] Oreo: frameworks: base: SystemUI: notification panel
+ add feature isolation / settings.
+
+Change-Id: I18e8dabf9c873fea7f62a443126e9c30ca8368ed
+Signed-off-by: CaoYongren <m18410261910@163.com>
+---
+ .../res/layout/openthos_notification_panel.xml     |   8 +-
+ .../mipmap-hdpi/ic_notification_isolation_off.png  | Bin 0 -> 797 bytes
+ .../mipmap-hdpi/ic_notification_projection_off.png | Bin 0 -> 582 bytes
+ .../android/systemui/statusbar/phone/QSView.java   | 124 +++++++++++++++++++++
+ 4 files changed, 128 insertions(+), 4 deletions(-)
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/ic_notification_isolation_off.png
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/ic_notification_projection_off.png
+ create mode 100644 packages/SystemUI/src/com/android/systemui/statusbar/phone/QSView.java
+
+diff --git a/packages/SystemUI/res/layout/openthos_notification_panel.xml b/packages/SystemUI/res/layout/openthos_notification_panel.xml
+index 3866280..4b2735f 100644
+--- a/packages/SystemUI/res/layout/openthos_notification_panel.xml
++++ b/packages/SystemUI/res/layout/openthos_notification_panel.xml
+@@ -113,7 +113,7 @@
+     <!-- end of print panel -->
+ 
+     <!-- start qs panel-->
+-    <LinearLayout
++    <com.android.systemui.statusbar.phone.QSView
+         android:weightSum = "4"
+         android:layout_weight="0.2"
+         android:layout_width="@dimen/notification_panel_width"
+@@ -151,7 +151,7 @@
+                 android:id="@+id/qs_isolation"
+                 android:layout_width="30dp"
+                 android:layout_height="30dp"
+-                android:src="@mipmap/ic_notification_isolation_on"/>
++                android:src="@mipmap/ic_notification_isolation_off"/>
+             <TextView
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+@@ -189,7 +189,7 @@
+                 android:id="@+id/qs_projection"
+                 android:layout_width="30dp"
+                 android:layout_height="30dp"
+-                android:src="@mipmap/ic_notification_projection_on"/>
++                android:src="@mipmap/ic_notification_projection_off"/>
+             <TextView
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+@@ -198,6 +198,6 @@
+                 android:textStyle="bold"
+                 android:text="@string/notification_projection"/>
+         </LinearLayout>
+-    </LinearLayout>
++    </com.android.systemui.statusbar.phone.QSView>
+     <!-- end quick settings layout -->
+ </LinearLayout>
+diff --git a/packages/SystemUI/res/mipmap-hdpi/ic_notification_isolation_off.png b/packages/SystemUI/res/mipmap-hdpi/ic_notification_isolation_off.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..274ba86f6b301675820a9556a4beda00d932244e
+GIT binary patch
+literal 797
+zcmV+&1LFLNP)<h;3K|Lk000e1NJLTq000;O000;W1^@s6;CDUv00001b5ch_0Itp)
+z=>Px%*GWV{R7ee#mS1R&Q5?rTn=R!}@+W$e3&L6!la`{4np(3V*@d`S+bGJlcHu%%
+zO3DTAo!m(-6bfZaLP>24jWFiVrunmksr`F>zR!Ek({s-AKE3m;&(1l&-}jvJoaa2}
+zybESbL%Ce86x$NWz$6U8a1aDjl*PpW$Dkwbq#eL+xB@@H*Ea%}p)TI9U>#F8{DG_t
+zl$+oQNQ01tHfVq*I0TpAD@a{XRd8@K;7Sbd;5T%^7`%rAP?FY>+)OwOUqBDIH_fZ3
+zUIpJl>W6u$W-ozvF+6}NX!g?iCW&n@4tf%;<Xk~xN)UfJ+z0hv@7M@vsV|`qs$l?r
+z!5M3$z8NmSd2k0XCgO|WGd#5Y!jeEMNDT^5R>B9+B&T5)OoEm6Xp1w5X%KHQrp72w
+zKuhb10#s;Mft^H8<?BY=Z|j&!;S*d9V^kKx1e~xYTM}CbA0htqG($bMKEEWZSE<#P
+z>l3U1omBU|5#XfuQZ&IR_`2x_Vr`8z2bOCB9e-&sU$}pnq?<@RXp$UEz(t5Y0P4Q%
+zSQ$-FX0qeHE7pEW{RoV}80bDqJ%HrwSY_JGT9CGqNQk&TPwj&*9m<+S2Li<R8FQtc
+z;;k_yzHLl;kJn(C@x+S-G;ZUW6%U$vHKkTD5VkS(LZ?Ya1+nc=OlPAGrb34oa5sw6
+z=m6a#nmH2f6>tllflm4>gX(YKFX$@Q{)D2w1Ef|P(>t3B!_Wyqlqgccs}<@d9RXe8
+zx{rF`HQ0|QKMH{skWLjD*Gc2A15NS+?2Wq9G1&$Noj~a%{Lf12@sFw_x^Blylq7Yl
+zX5~V6U~R(W1@P3sBan2>>+?P6+1w_EcF>Y_2WgYrU;`|L3~Yp>a1W#*Xog16Uh4OH
+zzdNee!Z087s<dHgdQRdv%(mUB?*aW*Ym$;_y=RPT7+^K%-qOD+x@-Elr}`-q!e2|U
+bf_(NL7%`8UUF`Nu00000NkvXXu0mjf(1&eN
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/mipmap-hdpi/ic_notification_projection_off.png b/packages/SystemUI/res/mipmap-hdpi/ic_notification_projection_off.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..55cb5cc4662d5673b5ccd0b7df6537163eb7fbc1
+GIT binary patch
+literal 582
+zcmV-M0=fN(P)<h;3K|Lk000e1NJLTq000;O000;W1^@s6;CDUv00001b5ch_0Itp)
+z=>Px%07*naR7efAmCGvzQ5c7fOOaT(B$R|KCG3@rg)EhYqJ$`=P%JDYDal_zBuh$m
+ze3G?|QpAFUP)Z?}h|lxW=QQ)p%y+}Dp5Alb^Im4=%$!L|Lcw4#2MRR)YgrUdrsx6W
+z!x-$tZ**!|*0m`>gHHHMotxqeQXwbgn8x<PGjzco#4A04Hb)YdJ{-FIOzbG!!zI)?
+z0%MqvGXqcdP(6Pmp4}7^-ANX#5nN*y6C5}is0K|YF|&{j>olpxCM@lNOEej$a0&|p
+zu)%l)d+G{wJ2G&c5nqozq|U9r0ka3;@vQAaqPih5#q$nqjjkBqfv)TkhQaX~GWSv|
+z&K^jQ)<DTBxDDMf0gc@H5!P2+xp@O!o9vZE!9o1<kPF(AO0PICUrY^@NE2=N0;tI*
+zO)9Wa6>|esqDeny3GyI7lQL{X+4rD@gx9d>V&-~XjcC$GoP0VGwiq|yJ2L^{0|J^=
+z7(P7s#CIH?qdERLc!CosvBxkU0x8q(cZ~_qap8ODv9<`$peDN8Z!tCv;@X3s0zZ~V
+z)4_NZ3So!BMOcUId*E0IO>{C=k@(=XX!EH~Ib0B{<30`E;5}M{aV3QkFcH<ns+zpR
+zG6c9oHSrf$qhD$~tPuYKN1$J@zX;IJ<F~r9{8~_1A5pE}dIY~}>VqtWcKBa?0e*%8
+U<eQj4iU0rr07*qoM6N<$f-P74ga7~l
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/QSView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/QSView.java
+new file mode 100644
+index 0000000..1de6609
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/QSView.java
+@@ -0,0 +1,124 @@
++package com.android.systemui.statusbar.phone;
++
++import android.content.ComponentName;
++import android.content.Context;
++import android.graphics.Canvas;
++import android.support.annotation.Nullable;
++import android.hardware.input.InputManager;
++import android.net.ConnectivityManager;
++import android.net.EthernetManager;
++import android.view.KeyEvent;
++import android.view.View;
++import android.view.MotionEvent;
++import android.widget.ImageView;
++import android.widget.Toast;
++import android.widget.LinearLayout;
++import android.util.AttributeSet;
++import android.util.Log;
++import com.android.systemui.startupmenu.U;
++
++import com.android.systemui.R;
++
++/**
++ * Created by matthew on 17-10-20.
++ */
++
++public class QSView extends LinearLayout {
++
++    private final static String TAG = "QSView";
++    private Context mContext;
++    private ImageView mSettings;
++    private ImageView mScreenShot;
++    private ImageView mProjection;
++    private ImageView mIsolation;
++    private int mNumClick = 0;
++
++    public QSView(Context context) {
++        super(context);
++        mContext = context;
++    }
++
++    public QSView(Context context, @Nullable AttributeSet attrs) {
++        super(context, attrs);
++        mContext = context;
++    }
++
++    public QSView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
++        super(context, attrs, defStyleAttr);
++        mContext = context;
++    }
++
++    @Override
++    protected void onLayout(boolean changed, int l, int t, int r, int b) {
++        super.onLayout(changed, l, t, r, b);
++    }
++
++    @Override
++    protected void onFinishInflate() {
++        mSettings = (ImageView) findViewById(R.id.qs_settings);
++        mScreenShot = (ImageView) findViewById(R.id.qs_shot_screen);
++        mScreenShot = (ImageView) findViewById(R.id.qs_isolation);
++        mProjection = (ImageView) findViewById(R.id.qs_projection);
++        mIsolation = (ImageView) findViewById(R.id.qs_isolation);
++        clickQsPanel();
++    }
++
++    private void clickQsPanel() {
++        mSettings.setOnClickListener(mQSViewListener);
++        mScreenShot.setOnClickListener(mQSViewListener);
++        mProjection.setOnClickListener(mQSViewListener);
++        mIsolation.setOnClickListener(mQSViewListener);
++    }
++
++    private View.OnClickListener mQSViewListener = new View.OnClickListener() {
++        @Override
++        public void onClick(View v) {
++            switch (v.getId()) {
++                case R.id.qs_shot_screen:
++                   //((InputManager)mContext.getSystemService(Context.INPUT_SERVICE))
++                   //    .sendKeyEvent(KeyEvent.KEYCODE_SYSRQ);
++                    break;
++                case R.id.qs_isolation:
++		    if ((mNumClick ++) % 2 == 0) {
++                        stopAllConnection(false);
++                        mIsolation.setImageDrawable(getResources().getDrawable(R.mipmap.ic_notification_isolation_off));
++		    } else {
++			stopAllConnection(true);
++                        mIsolation.setImageDrawable(getResources().getDrawable(R.mipmap.ic_notification_isolation_on));
++		    }
++                    break;
++                case R.id.qs_settings:
++                    U.launchApp(getContext(),
++                        new ComponentName("com.android.settings", "com.android.settings.Settings"));
++                    break;
++                case R.id.qs_projection:
++                    break;
++            }
++        }
++    };
++
++    @Override
++    protected void onDraw(Canvas canvas) {
++        super.onDraw(canvas);
++    }
++
++    @Override
++    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
++        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
++    }
++
++    @Override
++    public boolean onTouchEvent(MotionEvent event) {
++        return super.onTouchEvent(event);
++    }
++
++    public void stopAllConnection(boolean state) {
++        final ConnectivityManager mgr = (ConnectivityManager) mContext
++                .getSystemService(Context.CONNECTIVITY_SERVICE);
++        final EthernetManager ethManager = (EthernetManager)mContext
++                .getSystemService(Context.ETHERNET_SERVICE);
++        mgr.setAirplaneMode(state);
++        //ethManager.stop();
++        //ethManager.start();
++    }
++}
+-- 
+2.7.4
+

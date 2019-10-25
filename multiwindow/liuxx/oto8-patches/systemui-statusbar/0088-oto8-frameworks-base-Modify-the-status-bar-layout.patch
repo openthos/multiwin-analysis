@@ -1,0 +1,48 @@
+From f751127c3eeade950b74e844d8e90bf2e859b6df Mon Sep 17 00:00:00 2001
+From: Lu Ning <luning@openthos.org>
+Date: Tue, 16 Apr 2019 07:23:09 +0000
+Subject: [PATCH 088/110] oto8: frameworks: base: Modify the status bar layout
+
+Signed-off-by: Lu Ning <luning@openthos.org>
+Reviewed-by: Wang Zhixu <wangzhixu@openthos.org>
+---
+ packages/SystemUI/res/layout/openthos_status_bar.xml             | 9 ---------
+ .../android/systemui/statusbar/phone/StatusBarWindowManager.java | 2 +-
+ 2 files changed, 1 insertion(+), 10 deletions(-)
+
+diff --git a/packages/SystemUI/res/layout/openthos_status_bar.xml b/packages/SystemUI/res/layout/openthos_status_bar.xml
+index e571441..907692c 100644
+--- a/packages/SystemUI/res/layout/openthos_status_bar.xml
++++ b/packages/SystemUI/res/layout/openthos_status_bar.xml
+@@ -21,15 +21,6 @@
+             android:background="@mipmap/statusbar_sysbar_menu"
+             app:scapeSize="1" />
+ 
+-        <View
+-            android:layout_width="@dimen/padding_one"
+-            android:layout_height="match_parent"
+-            android:layout_marginBottom="@dimen/padding_ten"
+-            android:layout_marginLeft="@dimen/padding_three"
+-            android:layout_marginRight="@dimen/padding_three"
+-            android:layout_marginTop="@dimen/padding_ten"
+-            android:background="@color/white" />
+-
+         <HorizontalScrollView
+             android:id="@+id/ll_scroll_icon_container"
+             android:layout_width="1dp"
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
+index 2e27818..7e17c6e 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarWindowManager.java
+@@ -102,7 +102,7 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
+                         | WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS,
+                 PixelFormat.TRANSLUCENT);
+         mLp.token = new Binder();
+-        mLp.gravity = Gravity.LEFT | Gravity.TOP;
++        mLp.gravity = Gravity.RIGHT | Gravity.TOP;
+         mLp.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
+         mLp.setTitle("StatusBar");
+         mLp.packageName = mContext.getPackageName();
+-- 
+2.7.4
+

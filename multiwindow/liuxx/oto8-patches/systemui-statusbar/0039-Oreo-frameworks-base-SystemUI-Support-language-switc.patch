@@ -1,0 +1,333 @@
+From eef14c01ec70aa58cbf8c38f99190888b7df53cb Mon Sep 17 00:00:00 2001
+From: CaoYongren <m18410261910@163.com>
+Date: Wed, 1 Nov 2017 02:22:20 +0000
+Subject: [PATCH 039/110] Oreo: frameworks: base: SystemUI: Support language
+ switching about notificationPanel
+
+Change-Id: I04f839cb43aaea72c29bcd694d2a25c465c78f38
+Signed-off-by: CaoYongren <m18410261910@163.com>
+---
+ .../res/layout/openthos_notification_panel.xml     |   9 ++-
+ .../mipmap-hdpi/ic_notification_screen_shot.9.png  | Bin 2060 -> 0 bytes
+ .../mipmap-hdpi/ic_notification_screen_shot.png    | Bin 0 -> 2060 bytes
+ .../statusbar/phone/OpenthosNotificationView.java  |  71 +++++++++++++++++++++
+ .../android/systemui/statusbar/phone/QSView.java   |  46 ++++++++++---
+ 5 files changed, 116 insertions(+), 10 deletions(-)
+ delete mode 100644 packages/SystemUI/res/mipmap-hdpi/ic_notification_screen_shot.9.png
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/ic_notification_screen_shot.png
+ create mode 100644 packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosNotificationView.java
+
+diff --git a/packages/SystemUI/res/layout/openthos_notification_panel.xml b/packages/SystemUI/res/layout/openthos_notification_panel.xml
+index 684bf2d..d600d83 100644
+--- a/packages/SystemUI/res/layout/openthos_notification_panel.xml
++++ b/packages/SystemUI/res/layout/openthos_notification_panel.xml
+@@ -1,5 +1,5 @@
+ <?xml version="1.0" encoding="utf-8"?>
+-<LinearLayout
++<com.android.systemui.statusbar.phone.OpenthosNotificationView
+     xmlns:android="http://schemas.android.com/apk/res/android"
+     android:id="@+id/notification_container_parent"
+     android:layout_width="@dimen/notification_panel_width"
+@@ -18,6 +18,7 @@
+         android:background="#1Affffff">
+ 
+         <TextView
++            android:id="@+id/notification_info"
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:layout_alignParentLeft="true"
+@@ -144,6 +145,7 @@
+                 android:src="@mipmap/ic_notification_screen_shot"/>
+ 
+             <TextView
++                android:id="@+id/shot_screen"
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+                 android:text="@string/notification_shot_screen"
+@@ -166,6 +168,7 @@
+                 android:src="@mipmap/ic_notification_isolation_off"/>
+ 
+             <TextView
++                android:id="@+id/isolation"
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+                 android:text="@string/notification_isolation_on"
+@@ -188,6 +191,7 @@
+                 android:src="@mipmap/ic_notification_setting"/>
+ 
+             <TextView
++                android:id="@+id/settings"
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+                 android:text="@string/notification_settings"
+@@ -210,6 +214,7 @@
+                 android:src="@mipmap/ic_notification_projection_off"/>
+ 
+             <TextView
++                android:id="@+id/projection"
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+                 android:text="@string/notification_projection"
+@@ -219,4 +224,4 @@
+         </LinearLayout>
+     </com.android.systemui.statusbar.phone.QSView>
+     <!-- end quick settings layout -->
+-</LinearLayout>
++</com.android.systemui.statusbar.phone.OpenthosNotificationView>
+diff --git a/packages/SystemUI/res/mipmap-hdpi/ic_notification_screen_shot.9.png b/packages/SystemUI/res/mipmap-hdpi/ic_notification_screen_shot.9.png
+deleted file mode 100644
+index 45259d7ff0b93034e598faf08c9d137c4c7ffb23..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 2060
+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
+
+diff --git a/packages/SystemUI/res/mipmap-hdpi/ic_notification_screen_shot.png b/packages/SystemUI/res/mipmap-hdpi/ic_notification_screen_shot.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..45259d7ff0b93034e598faf08c9d137c4c7ffb23
+GIT binary patch
+literal 2060
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosNotificationView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosNotificationView.java
+new file mode 100644
+index 0000000..b08403b
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/OpenthosNotificationView.java
+@@ -0,0 +1,71 @@
++package com.android.systemui.statusbar.phone;
++
++import android.content.Context;
++import android.content.res.Configuration;
++import android.graphics.Canvas;
++import android.util.AttributeSet;
++import android.util.TypedValue;
++import android.widget.LinearLayout;
++import android.widget.Button;
++import android.widget.FrameLayout;
++import android.widget.TextView;
++import com.android.systemui.R;
++
++/**
++ * Created by matthew on 17-10-31.
++ */
++
++public class OpenthosNotificationView extends LinearLayout {
++
++    public OpenthosNotificationView(Context context) {
++        super(context);
++    }
++
++    public OpenthosNotificationView(Context context, AttributeSet attrs) {
++        super(context, attrs);
++    }
++
++    public OpenthosNotificationView(Context context, AttributeSet attrs, int defStyleAttr) {
++        super(context, attrs, defStyleAttr);
++    }
++
++    @Override
++    protected void onConfigurationChanged(Configuration newConfig) {
++        super.onConfigurationChanged(newConfig);
++        initView();
++    }
++
++    @Override
++    protected void onFinishInflate() {
++        super.onFinishInflate();
++    }
++
++    @Override
++    protected void onLayout(boolean changed, int l, int t, int r, int b) {
++        super.onLayout(changed, l, t, r, b);
++    }
++
++    @Override
++    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
++        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
++    }
++
++    @Override
++    protected void onDraw(Canvas canvas) {
++        super.onDraw(canvas);
++    }
++
++    private void initView() {
++        TextView notificationInfo = (TextView)findViewById(R.id.notification_info);
++        Button notificationManager = (Button)findViewById(R.id.notification_manager);
++        Button clearAll = (Button)findViewById(R.id.notification_clear_all);
++        TextView printMessage = (TextView)findViewById(R.id.print_message);
++        Button printManager = (Button)findViewById(R.id.printManager);
++
++        notificationInfo.setText(getResources().getString(R.string.notification_info));
++        notificationManager.setText(getResources().getString(R.string.notification_manager));
++        clearAll.setText(getResources().getString(R.string.clear_all));
++        printMessage.setText(getResources().getString(R.string.print_message));
++        printManager.setText(getResources().getString(R.string.print_manager));
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/QSView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/QSView.java
+index 8d54791..afa7d73 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/QSView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/QSView.java
+@@ -2,15 +2,18 @@ package com.android.systemui.statusbar.phone;
+ 
+ import android.content.ComponentName;
+ import android.content.Context;
++import android.content.res.Configuration;
+ import android.graphics.Canvas;
+ import android.support.annotation.Nullable;
+ import android.net.ConnectivityManager;
+ import android.net.EthernetManager;
++import android.util.TypedValue;
+ import android.view.View;
+ import android.view.MotionEvent;
+ import android.widget.ImageView;
+ import android.widget.LinearLayout;
+ import android.util.AttributeSet;
++import android.widget.TextView;
+ 
+ import com.android.systemui.startupmenu.LaunchAppUtil;
+ 
+@@ -72,21 +75,21 @@ public class QSView extends LinearLayout {
+         public void onClick(View v) {
+             switch (v.getId()) {
+                 case R.id.qs_shot_screen:
+-                   //((InputManager)mContext.getSystemService(Context.INPUT_SERVICE))
+-                   //    .sendKeyEvent(KeyEvent.KEYCODE_SYSRQ);
++                    //((InputManager)mContext.getSystemService(Context.INPUT_SERVICE))
++                    //    .sendKeyEvent(KeyEvent.KEYCODE_SYSRQ);
+                     break;
+                 case R.id.qs_isolation:
+-		    if ((mNumClick ++) % 2 == 0) {
++                    if ((mNumClick++) % 2 == 0) {
+                         stopAllConnection(false);
+                         mIsolation.setImageDrawable(getResources().getDrawable(R.mipmap.ic_notification_isolation_off));
+-		    } else {
+-			stopAllConnection(true);
++                    } else {
++                        stopAllConnection(true);
+                         mIsolation.setImageDrawable(getResources().getDrawable(R.mipmap.ic_notification_isolation_on));
+-		    }
++                    }
+                     break;
+                 case R.id.qs_settings:
+                     LaunchAppUtil.launchApp(getContext(),
+-                        new ComponentName("com.android.settings", "com.android.settings.Settings"));
++                            new ComponentName("com.android.settings", "com.android.settings.Settings"));
+                     break;
+                 case R.id.qs_projection:
+                     break;
+@@ -112,10 +115,37 @@ public class QSView extends LinearLayout {
+     public void stopAllConnection(boolean state) {
+         final ConnectivityManager mgr = (ConnectivityManager) mContext
+                 .getSystemService(Context.CONNECTIVITY_SERVICE);
+-        final EthernetManager ethManager = (EthernetManager)mContext
++        final EthernetManager ethManager = (EthernetManager) mContext
+                 .getSystemService(Context.ETHERNET_SERVICE);
+         mgr.setAirplaneMode(state);
+         //ethManager.stop();
+         //ethManager.start();
+     }
++
++    @Override
++    protected void onConfigurationChanged(Configuration newConfig) {
++        super.onConfigurationChanged(newConfig);
++        updateResource();
++    }
++
++    private void updateResource() {
++        TextView shotScreen = (TextView) findViewById(R.id.shot_screen);
++        TextView isolation = (TextView) findViewById(R.id.isolation);
++        TextView settings = (TextView) findViewById(R.id.settings);
++        TextView projection = (TextView) findViewById(R.id.projection);
++
++        shotScreen.setText(getResources().getString(R.string.notification_shot_screen));
++        isolation.setText(getResources().getString(R.string.notification_isolation));
++        settings.setText(getResources().getString(R.string.notification_settings));
++        projection.setText(getResources().getString(R.string.notification_projection));
++
++        shotScreen.setTextSize(TypedValue.COMPLEX_UNIT_PX,
++                getResources().getDimensionPixelSize(R.dimen.qs_font_size_sixteen));
++        isolation.setTextSize(TypedValue.COMPLEX_UNIT_PX,
++                getResources().getDimensionPixelSize(R.dimen.qs_font_size_sixteen));
++        settings.setTextSize(TypedValue.COMPLEX_UNIT_PX,
++                getResources().getDimensionPixelSize(R.dimen.qs_font_size_sixteen));
++        projection.setTextSize(TypedValue.COMPLEX_UNIT_PX,
++                getResources().getDimensionPixelSize(R.dimen.qs_font_size_sixteen));
++    }
+ }
+-- 
+2.7.4
+
