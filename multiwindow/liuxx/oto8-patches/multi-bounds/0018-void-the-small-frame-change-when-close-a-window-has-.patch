@@ -1,0 +1,31 @@
+From fd013a6b8bc21bee10424f25b59b33f8b004d09e Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Fri, 22 Sep 2017 01:39:11 +0000
+Subject: [PATCH 018/110] void the small frame change when close a window has
+ been relaunched.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ core/java/android/view/WindowManager.java | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/core/java/android/view/WindowManager.java b/core/java/android/view/WindowManager.java
+index 86402a7..742ca92 100644
+--- a/core/java/android/view/WindowManager.java
++++ b/core/java/android/view/WindowManager.java
+@@ -2386,7 +2386,11 @@ public interface WindowManager extends ViewManager {
+             }
+ 
+             if (!surfaceInsets.equals(o.surfaceInsets)) {
+-                surfaceInsets.set(o.surfaceInsets);
++                surfaceInsets.set(
++                        Math.max(o.surfaceInsets.left, surfaceInsets.left),
++                        Math.max(o.surfaceInsets.top, surfaceInsets.top),
++                        Math.max(o.surfaceInsets.right, surfaceInsets.right),
++                        Math.max(o.surfaceInsets.bottom, surfaceInsets.bottom));
+                 changes |= SURFACE_INSETS_CHANGED;
+             }
+ 
+-- 
+2.7.4
+
