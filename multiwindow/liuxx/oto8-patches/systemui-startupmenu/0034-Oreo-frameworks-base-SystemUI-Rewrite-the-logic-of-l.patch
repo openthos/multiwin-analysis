@@ -1,0 +1,974 @@
+From edbdbd39bdfbef3a890a6de957f67bfa4d1e7c72 Mon Sep 17 00:00:00 2001
+From: luojunhuan <forward_m@126.com>
+Date: Fri, 27 Oct 2017 02:51:12 +0000
+Subject: [PATCH 034/110] Oreo: frameworks: base: SystemUI: Rewrite the logic
+ of lock app and unlock app
+
+Signed-off-by: luojunhuan <forward_m@126.com>
+---
+ packages/SystemUI/res/layout/ringer_volume.xml     |   2 +-
+ packages/SystemUI/res/values-zh-rCN/strings.xml    |   3 +-
+ packages/SystemUI/res/values/arrays.xml            |  16 +-
+ packages/SystemUI/res/values/strings.xml           |   2 -
+ .../src/com/android/systemui/dialog/BarDialog.java | 283 ---------------------
+ .../com/android/systemui/dialog/BaseDialog.java    |   4 -
+ .../com/android/systemui/dialog/MenuDialog.java    | 101 ++++----
+ .../com/android/systemui/dialog/TaskbarIcon.java   |  84 ++++++
+ .../android/systemui/startupmenu/DialogType.java   |   4 +-
+ .../systemui/startupmenu/StartMenuAdapter.java     |   3 -
+ .../systemui/statusbar/phone/StatusBar.java        | 136 +++++-----
+ 11 files changed, 236 insertions(+), 402 deletions(-)
+ delete mode 100644 packages/SystemUI/src/com/android/systemui/dialog/BarDialog.java
+ create mode 100644 packages/SystemUI/src/com/android/systemui/dialog/TaskbarIcon.java
+
+diff --git a/packages/SystemUI/res/layout/ringer_volume.xml b/packages/SystemUI/res/layout/ringer_volume.xml
+index 84b76f4..6383def 100644
+--- a/packages/SystemUI/res/layout/ringer_volume.xml
++++ b/packages/SystemUI/res/layout/ringer_volume.xml
+@@ -15,7 +15,7 @@
+         android:minHeight="40dp"
+         android:maxHeight="40dp"
+         android:layout_gravity="center"
+-        android:layout_width="wrap_content"
++        android:layout_width="5dp"
+         android:layout_height="220dp" />
+ 
+     <ImageView
+diff --git a/packages/SystemUI/res/values-zh-rCN/strings.xml b/packages/SystemUI/res/values-zh-rCN/strings.xml
+index c86c87f..9965d1c 100644
+--- a/packages/SystemUI/res/values-zh-rCN/strings.xml
++++ b/packages/SystemUI/res/values-zh-rCN/strings.xml
+@@ -788,10 +788,11 @@
+     <string name="time_sort">安装时间</string>
+     <string name="default_sort">默认</string>
+     <string name="open">打开</string>
++    <string name="close">关闭</string>
+     <string name="phone_mode">手机模式</string>
+     <string name="desktop_mode">桌面模式</string>
+     <string name="lock_app">固定到任务栏</string>
+-    <string name="unlock_app">接触固定</string>
++    <string name="unlock_app">解除固定</string>
+     <string name="uninstall">卸载</string>
+     <string name="remove_out">移除</string>
+ 
+diff --git a/packages/SystemUI/res/values/arrays.xml b/packages/SystemUI/res/values/arrays.xml
+index 55b895c..affe9ea 100644
+--- a/packages/SystemUI/res/values/arrays.xml
++++ b/packages/SystemUI/res/values/arrays.xml
+@@ -26,7 +26,7 @@
+         <item>@string/remove_out</item>
+     </string-array>
+ 
+-    <string-array name="grid_menu">
++    <string-array name="grid_menu_lock">
+         <item>@string/open</item>
+         <item>@string/phone_mode</item>
+         <item>@string/desktop_mode</item>
+@@ -34,19 +34,27 @@
+         <item>@string/uninstall</item>
+     </string-array>
+ 
++    <string-array name="grid_menu_unlock">
++        <item>@string/open</item>
++        <item>@string/phone_mode</item>
++        <item>@string/desktop_mode</item>
++        <item>@string/unlock_app</item>
++        <item>@string/uninstall</item>
++    </string-array>
++
+     <string-array name="bar_menu_normal">
+         <item>@string/close</item>
+-        <item>@string/dock</item>
++        <item>@string/lock_app</item>
+     </string-array>
+ 
+     <string-array name="bar_menu_docked_closed">
+         <item>@string/open</item>
+-        <item>@string/undock</item>
++        <item>@string/unlock_app</item>
+     </string-array>
+ 
+     <string-array name="bar_menu_docked_open">
+         <item>@string/close</item>
+-        <item>@string/undock</item>
++        <item>@string/unlock_app</item>
+     </string-array>
+ 
+     <string-array name="bar_show_hide">
+diff --git a/packages/SystemUI/res/values/strings.xml b/packages/SystemUI/res/values/strings.xml
+index 8ae48f5..195b161 100644
+--- a/packages/SystemUI/res/values/strings.xml
++++ b/packages/SystemUI/res/values/strings.xml
+@@ -2070,8 +2070,6 @@
+     <string name="default_sort">Default</string>
+     <string name="open">Open</string>
+     <string name="close">Close</string>
+-    <string name="dock">Dock</string>
+-    <string name="undock">Undock</string>
+     <string name="phone_mode">Phone mode</string>
+     <string name="desktop_mode">Desktop mode</string>
+     <string name="lock_app">Lock app</string>
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/BarDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/BarDialog.java
+deleted file mode 100644
+index c76f7a7..0000000
+--- a/packages/SystemUI/src/com/android/systemui/dialog/BarDialog.java
++++ /dev/null
+@@ -1,283 +0,0 @@
+-package com.android.systemui.dialog;
+-
+-import android.app.ActivityManagerNative;
+-import android.app.ActivityManager;
+-import android.content.ActivityNotFoundException;
+-import android.content.Context;
+-import android.content.Intent;
+-import android.content.ComponentName;
+-import android.graphics.PixelFormat;
+-import android.graphics.Point;
+-import android.net.Uri;
+-import android.os.Build;
+-import android.os.Bundle;
+-import android.support.annotation.NonNull;
+-import android.support.v4.content.LocalBroadcastManager;
+-import android.util.Slog;
+-import android.view.Display;
+-import android.view.Gravity;
+-import android.view.LayoutInflater;
+-import android.view.MotionEvent;
+-import android.view.View;
+-import android.view.ViewGroup;
+-import android.view.Window;
+-import android.view.WindowManager;
+-import android.widget.AdapterView;
+-import android.widget.BaseAdapter;
+-import android.widget.LinearLayout;
+-import android.widget.FrameLayout;
+-import android.widget.ListView;
+-import android.widget.TextView;
+-
+-import com.android.systemui.R;
+-import com.android.systemui.startupmenu.DialogType;
+-import com.android.systemui.sql.SqliteOperate;
+-import com.android.systemui.startupmenu.U;
+-
+-import java.util.ArrayList;
+-import java.util.Arrays;
+-import java.util.List;
+-import java.util.HashMap;
+-
+-/**
+- * Created by ljh on 17-9-14.
+- */
+-
+-public class BarDialog extends BaseDialog implements AdapterView.OnItemClickListener {
+-    private static BarDialog listDialog;
+-    private static ComponentName mComponentName;
+-    private static int mTaskId;
+-    private static HashMap<Integer, FrameLayout> mIconMap;
+-    private static HashMap<ComponentName, FrameLayout> mDockedMap;
+-    private static LinearLayout mActivityLayout;
+-    private static FrameLayout mIconLayout;
+-    public static int mShowX;
+-    public static int mShowY;
+-    public List<String> mDatas;
+-    public DialogAdapter mAdapter;
+-    private ListView mListView;
+-    private Point mPoint;
+-    private int mWidth;
+-    private int mHeight;
+-    private int mStatusBarHeight;
+-
+-    public static BarDialog getInstance(Context context, ComponentName appEntry, int taskId,
+-                                        LinearLayout activityLayout,
+-                                        FrameLayout iconLayout,
+-                                        HashMap<Integer, FrameLayout> iconMap,
+-                                        HashMap<ComponentName, FrameLayout> dockedMap) {
+-        if (listDialog == null) {
+-            listDialog = new BarDialog(context);
+-        }
+-        mComponentName = appEntry;
+-        mTaskId = taskId;
+-        mIconMap = iconMap;
+-        mDockedMap = dockedMap;
+-        mActivityLayout = activityLayout;
+-        mIconLayout = iconLayout;
+-        return listDialog;
+-    }
+-
+-    public static void dismissBarDialog() {
+-        if (listDialog != null && listDialog.isShowing()) {
+-            listDialog.dismiss();
+-        }
+-    }
+-
+-    private BarDialog(@NonNull Context context) {
+-        super(context);
+-        requestWindowFeature(Window.FEATURE_NO_TITLE);
+-        mContentView = LayoutInflater.from(getContext()).inflate(R.layout.menu_dialog, null, false);
+-        setContentView(mContentView);
+-        create();
+-    }
+-
+-    @Override
+-    public void initListener() {
+-        mListView.setOnItemClickListener(this);
+-    }
+-
+-    @Override
+-    protected void onCreate(Bundle savedInstanceState) {
+-        super.onCreate(savedInstanceState);
+-//        setContentView(R.layout.menu_dialog);
+-//        initView();
+-//        initData();
+-    }
+-
+-    @Override
+-    public void initView() {
+-        mListView = (ListView) findViewById(R.id.list);
+-        Slog.e("LADEHUNTER+BARDIALOG", "mListView: " + mListView + " after initView");
+-    }
+-
+-    @Override
+-    public void initData() {
+-        mDatas = new ArrayList<>();
+-        mAdapter = new DialogAdapter();
+-        Slog.e("LADEHUNTER+BARDIALOG", "mAdapater: " + mAdapter + " in initData", new Exception());
+-        mListView.setAdapter(mAdapter);
+-        Display defaultDisplay = ((WindowManager)
+-                getContext().getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
+-        mPoint = new Point();
+-        defaultDisplay.getRealSize(mPoint);
+-
+-    }
+-
+-    public void showDialog() {
+-        prepareData();
+-        show(mIconLayout);
+-    }
+-
+-    @Override
+-    public void onWindowFocusChanged(boolean hasFocus) {
+-        super.onWindowFocusChanged(hasFocus);
+-        if (!hasFocus) {
+-            dismiss();
+-        }
+-    }
+-
+-    private void prepareData() {
+-        mDatas.clear();
+-        boolean docked = mDockedMap.containsKey(mComponentName);
+-        boolean run = mIconMap.containsKey(mTaskId);
+-        Slog.e("LADEHUNTER+BARDIALOG", "mComponentName: " + mComponentName);
+-        Slog.e("LADEHUNTER+BARDIALOG", "mTaskId: " + mTaskId);
+-        Slog.e("LADEHUNTER+BARDIALOG", "mIconMap: " + mIconMap);
+-        Slog.e("LADEHUNTER+BARDIALOG", "mDockedMap: " + mDockedMap);
+-        Slog.e("LADEHUNTER+BARDIALOG", "mIconLayout: " + mIconLayout);
+-        Slog.e("LADEHUNTER+BARDIALOG", "docked: " + docked + " run: " + run);
+-        String[] sArr;
+-        if (docked && run) {
+-            sArr = getContext().getResources().getStringArray(
+-                    R.array.bar_menu_docked_open);
+-            Slog.e("LADEHUNTER+BARDIALOG", "bar_menu_docked_open");
+-        } else if (docked) {
+-            sArr = getContext().getResources().getStringArray(
+-                    R.array.bar_menu_docked_closed);
+-            Slog.e("LADEHUNTER+BARDIALOG", "bar_menu_docked_closed");
+-        } else {
+-            sArr = getContext().getResources().getStringArray(
+-                    R.array.bar_menu_normal);
+-            Slog.e("LADEHUNTER+BARDIALOG", "bar_menu_normal");
+-        }
+-        mDatas.addAll(Arrays.asList(sArr));
+-        Slog.e("LADEHUNTER+BARDIALOG", "mDatas: " + mDatas);
+-        mAdapter.notifyDataSetChanged();
+-        Slog.e("LADEHUNTER+BARDIALOG", "mAdapter: " + mAdapter);
+-        mWidth = 0;
+-        mHeight = 0;
+-        for (int i = 0; i < mAdapter.getCount(); i++) {
+-            View view = mAdapter.getView(i, null, null);
+-            view.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+-            mWidth = Math.max(view.getMeasuredWidth(), mWidth);
+-            Slog.e("LADEHUNTER+BARDIALOG", "mWidth: " + mWidth);
+-            mHeight = mHeight + view.getMeasuredHeight();
+-            Slog.e("LADEHUNTER+BARDIALOG", "mHeight: " + mHeight);
+-        }
+-
+-        mListView.setLayoutParams(new LinearLayout.LayoutParams(mWidth, mHeight));
+-        Slog.e("LADEHUNTER+BARDIALOG", "mListView: " + mListView);
+-    }
+-
+-    @Override
+-    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+-        boolean run = mIconMap.containsKey(mTaskId);
+-        boolean docked = mDockedMap.containsKey(mComponentName);
+-        boolean iconDocked = mDockedMap.containsValue(mIconLayout);
+-        dismiss();
+-        String content = mDatas.get(position);
+-        if (content.equals(getContext().getString(R.string.open))) {
+-            U.launchApp(getContext(), mComponentName);
+-        } else if (content.equals(getContext().getString(R.string.close))) {
+-            try {
+-                ActivityManager.getService().removeTask(mTaskId);
+-            } catch (Exception e) {
+-            }
+-        } else if (content.equals(getContext().getString(R.string.dock))) {
+-            if (!docked) {
+-                mDockedMap.put(mComponentName, mIconLayout);
+-            }
+-        } else if (content.equals(getContext().getString(R.string.undock))) {
+-            if (iconDocked) {
+-                mDockedMap.remove(mComponentName);
+-                if (!run) {
+-                    mActivityLayout.removeView(mIconLayout);
+-                }
+-            }
+-        }
+-    }
+-
+-    private void dismissAndHideStartMenu(boolean hideStartMenu) {
+-        dismiss();
+-    }
+-
+-    private void uninstallApp() {
+-        Uri uri = Uri.parse("package:" + mComponentName.getPackageName());
+-        Intent intent = new Intent(Intent.ACTION_DELETE, uri);
+-        getContext().startActivity(intent);
+-    }
+-
+-    private class DialogAdapter extends BaseAdapter {
+-
+-        @Override
+-        public int getCount() {
+-            return mDatas.size();
+-        }
+-
+-        @Override
+-        public String getItem(int position) {
+-            return mDatas.get(position);
+-        }
+-
+-        @Override
+-        public long getItemId(int position) {
+-            return position;
+-        }
+-
+-        @Override
+-        public View getView(int position, View convertView, ViewGroup parent) {
+-            ViewHolder holder;
+-            if (convertView == null) {
+-                convertView =
+-                        LayoutInflater.from(getContext()).inflate(R.layout.menu_dialog_item, parent, false);
+-                holder = new ViewHolder(convertView);
+-                convertView.setTag(holder);
+-            } else {
+-                holder = (ViewHolder) convertView.getTag();
+-            }
+-//            if (mType == DialogType.GRID
+-//                    && getItem(position).equals(getContext().getString(R.string.lock_app))
+-//                    && mInstance.isPinned(mComponentName.getComponentName())) {
+-//                mDatas.set(position, getContext().getString(R.string.unlock_app));
+-//                holder.text.setText(getContext().getString(R.string.unlock_app));
+-//            } else {
+-//                holder.text.setText(getItem(position));
+-//            }
+-            holder.text.setText(getItem(position));
+-            return convertView;
+-        }
+-
+-        private class ViewHolder implements View.OnHoverListener {
+-            private TextView text;
+-
+-            public ViewHolder(View view) {
+-                text = (TextView) view.findViewById(R.id.text);
+-                view.setOnHoverListener(this);
+-            }
+-
+-            @Override
+-            public boolean onHover(View v, MotionEvent event) {
+-                switch (event.getAction()) {
+-                    case MotionEvent.ACTION_HOVER_ENTER:
+-                        v.setBackgroundResource(R.color.common_hover_bg);
+-                        break;
+-                    case MotionEvent.ACTION_HOVER_EXIT:
+-                        v.setBackgroundResource(android.R.color.white);
+-                        break;
+-                }
+-                return false;
+-            }
+-        }
+-    }
+-}
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
+index 4a343a0..45b3574 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/BaseDialog.java
+@@ -97,10 +97,6 @@ public class BaseDialog extends Dialog {
+         show();
+     }
+ 
+-    public void show(DialogType type, int x, int y) {
+-
+-    }
+-
+     @Override
+     public void onWindowFocusChanged(boolean hasFocus) {
+         if (!hasFocus) {
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
+index 3521099..3ca0253 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/MenuDialog.java
+@@ -1,5 +1,6 @@
+ package com.android.systemui.dialog;
+ 
++import android.content.ComponentName;
+ import android.content.Context;
+ import android.content.Intent;
+ import android.graphics.PixelFormat;
+@@ -20,10 +21,12 @@ import android.widget.ListView;
+ import android.widget.TextView;
+ 
+ import com.android.systemui.R;
++import com.android.systemui.SysUiServiceProvider;
+ import com.android.systemui.sql.SqliteOperate;
+ import com.android.systemui.startupmenu.AppEntry;
+ import com.android.systemui.startupmenu.DialogType;
+ import com.android.systemui.startupmenu.U;
++import com.android.systemui.statusbar.phone.StatusBar;
+ 
+ import java.util.ArrayList;
+ import java.util.Arrays;
+@@ -34,14 +37,16 @@ import java.util.List;
+  */
+ 
+ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickListener {
+-    private static AppEntry mAppEntry;
+     private static MenuDialog listDialog;
+     private List<String> mDatas;
+     private DialogAdapter mAdapter;
+     private ListView mListView;
++    private AppEntry mAppEntry;
++    private ComponentName mComponentName;
+     private int mWidth;
+     private int mHeight;
+     private int mStatusBarHeight;
++    private StatusBar mStatusBar;
+ 
+     public static MenuDialog getInstance(Context context) {
+         if (listDialog == null) {
+@@ -69,15 +74,6 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+         mListView.setOnItemClickListener(this);
+     }
+ 
+-    @Override
+-    protected void onCreate(Bundle savedInstanceState) {
+-        super.onCreate(savedInstanceState);
+-        android.util.Log.i("ljh", "oncreate");
+-//        setContentView(R.layout.menu_dialog);
+-//        initView();
+-//        initData();
+-    }
+-
+     public void initView() {
+         mListView = (ListView) mContentView.findViewById(R.id.list);
+     }
+@@ -86,40 +82,50 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+         mDatas = new ArrayList<>();
+         mAdapter = new DialogAdapter();
+         mListView.setAdapter(mAdapter);
++        mStatusBar = SysUiServiceProvider.getComponent(getContext(), StatusBar.class);
+     }
+ 
+     public void show(DialogType type, AppEntry appEntry, int x, int y) {
+-        android.util.Log.i("ljh", "show");
+         mAppEntry = appEntry;
++        mComponentName = appEntry.getComponentName();
+         show(type, x, y);
+     }
+ 
+-    public void show(DialogType type, int x, int y) {
+-
++    public void show(DialogType type, ComponentName componentName, View view) {
++        mComponentName = componentName;
+         prepareData(type);
++        show(view);
++    }
+ 
++    public void show(DialogType type, int x, int y) {
++        prepareData(type);
+         Window dialogWindow = getWindow();
+         dialogWindow.setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
+-
+         WindowManager.LayoutParams lp = dialogWindow.getAttributes();
+         lp.format = PixelFormat.TRANSPARENT;
+         lp.dimAmount = 0;
+-        if (type == DialogType.SHOW_TASKBAR) {
+-            dialogWindow.setGravity(Gravity.LEFT | Gravity.BOTTOM);
+-            lp.x = x - mWidth / 2;
+-            lp.y = 0;
+-        } else {
+-            dialogWindow.setGravity(Gravity.CENTER);
+-            if (x > mPoint.x - mWidth) {
+-                lp.x = x - mWidth / 2 - mPoint.x / 2;
+-            } else {
+-                lp.x = x + mWidth / 2 - mPoint.x / 2;
+-            }
+-            if (y < mPoint.y - mStatusBarHeight - mHeight) {
+-                lp.y = y + mHeight / 2 - mPoint.y / 2;
+-            } else {
+-                lp.y = y - mHeight / 2 - mPoint.y / 2;
+-            }
++        switch (type) {
++            case SHOW_TASKBAR:
++            case BAR_LOCK_OPEN:
++            case BAR_LOCK_CLOSE:
++            case BAR_NORMAL:
++                dialogWindow.setGravity(Gravity.LEFT | Gravity.BOTTOM);
++                lp.x = x - mWidth / 2;
++                lp.y = 0;
++                break;
++            default:
++                dialogWindow.setGravity(Gravity.CENTER);
++                if (x > mPoint.x - mWidth) {
++                    lp.x = x - mWidth / 2 - mPoint.x / 2;
++                } else {
++                    lp.x = x + mWidth / 2 - mPoint.x / 2;
++                }
++                if (y < mPoint.y - mStatusBarHeight - mHeight) {
++                    lp.y = y + mHeight / 2 - mPoint.y / 2;
++                } else {
++                    lp.y = y - mHeight / 2 - mPoint.y / 2;
++                }
++                break;
+         }
+         dialogWindow.setAttributes(lp);
+         show();
+@@ -138,7 +144,11 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+         String[] sArr = null;
+         switch (type) {
+             case GRID:
+-                sArr = getContext().getResources().getStringArray(R.array.grid_menu);
++                if (mStatusBar.isLocked(mComponentName)) {
++                    sArr = getContext().getResources().getStringArray(R.array.grid_menu_unlock);
++                } else {
++                    sArr = getContext().getResources().getStringArray(R.array.grid_menu_lock);
++                }
+                 break;
+             case LIST:
+                 sArr = getContext().getResources().getStringArray(R.array.list_menu);
+@@ -146,6 +156,15 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+             case SHOW_TASKBAR:
+                 sArr = getContext().getResources().getStringArray(R.array.bar_show_hide);
+                 break;
++            case BAR_LOCK_OPEN:
++                sArr = getContext().getResources().getStringArray(R.array.bar_menu_docked_open);
++                break;
++            case BAR_LOCK_CLOSE:
++                sArr = getContext().getResources().getStringArray(R.array.bar_menu_docked_closed);
++                break;
++            case BAR_NORMAL:
++                sArr = getContext().getResources().getStringArray(R.array.bar_menu_normal);
++                break;
+         }
+         mDatas.addAll(Arrays.asList(sArr));
+         mAdapter.notifyDataSetChanged();
+@@ -166,24 +185,26 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+         dismiss();
+         String content = mDatas.get(position);
+         if (content.equals(getContext().getString(R.string.open))) {
+-            U.launchApp(getContext(), mAppEntry.getComponentName());
++            U.launchApp(getContext(), mComponentName);
+             SqliteOperate.updateDataStorage(getContext(), mAppEntry);
+         } else if (content.equals(getContext().getString(R.string.phone_mode))) {
+-            U.launchApp(getContext(), mAppEntry.getComponentName(), U.PHONE_MODE);
++            U.launchApp(getContext(), mComponentName, U.PHONE_MODE);
+             SqliteOperate.updateDataStorage(getContext(), mAppEntry);
+         } else if (content.equals(getContext().getString(R.string.desktop_mode))) {
+-            U.launchApp(getContext(), mAppEntry.getComponentName(), U.DESKTOP_MODE);
++            U.launchApp(getContext(), mComponentName, U.DESKTOP_MODE);
+             SqliteOperate.updateDataStorage(getContext(), mAppEntry);
+         } else if (content.equals(getContext().getString(R.string.lock_app))) {
+-
++            mStatusBar.locked(mComponentName);
+         } else if (content.equals(getContext().getString(R.string.unlock_app))) {
+-
++            mStatusBar.unlocked(mComponentName);
+         } else if (content.equals(getContext().getString(R.string.remove_out))) {
+             StartupMenuDialog.getInstance(getContext()).mCommonDatas.remove(mAppEntry);
+             StartupMenuDialog.getInstance(getContext()).mCommonAdapter.notifyDataSetChanged();
+             SqliteOperate.deleteDataStorage(getContext(), mAppEntry.getPackageName());
+         } else if (content.equals(getContext().getString(R.string.uninstall))) {
+             uninstallApp();
++        } else if (content.equals(getContext().getString(R.string.close))) {
++            mStatusBar.closeApp(mComponentName);
+         } else if (content.equals(getContext().getString(R.string.status_bar_info_show))) {
+ 
+         } else if (content.equals(getContext().getString(R.string.status_bar_info_hide))) {
+@@ -229,14 +250,6 @@ public class MenuDialog extends BaseDialog implements AdapterView.OnItemClickLis
+             } else {
+                 holder = (ViewHolder) convertView.getTag();
+             }
+-//            if (mType == DialogType.GRID
+-//                    && getItem(position).equals(getContext().getString(R.string.lock_app))
+-//                    && mInstance.isPinned(mAppEntry.getComponentName())) {
+-//                mDatas.set(position, getContext().getString(R.string.unlock_app));
+-//                holder.text.setText(getContext().getString(R.string.unlock_app));
+-//            } else {
+-//                holder.text.setText(getItem(position));
+-//            }
+             holder.text.setText(getItem(position));
+             return convertView;
+         }
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/TaskbarIcon.java b/packages/SystemUI/src/com/android/systemui/dialog/TaskbarIcon.java
+new file mode 100644
+index 0000000..3d5e5d8
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/dialog/TaskbarIcon.java
+@@ -0,0 +1,84 @@
++package com.android.systemui.dialog;
++
++import android.content.ComponentName;
++import android.view.View;
++import android.widget.FrameLayout;
++
++import com.android.systemui.R;
++
++/**
++ * Created by ljh on 17-10-25.
++ */
++
++public class TaskbarIcon {
++    private int taskId;
++    private ComponentName componentName;
++    private FrameLayout iconLayout;
++    private boolean isRun;
++    private boolean isLocked;
++    private boolean isFocus;
++    private View focuseView;
++    private View runView;
++
++    public TaskbarIcon(ComponentName componentName, FrameLayout iconLayout) {
++        this.componentName = componentName;
++        this.iconLayout = iconLayout;
++        focuseView = iconLayout.findViewById(R.id.activity_focused);
++        runView = iconLayout.findViewById(R.id.activity_run);
++    }
++
++    public int getTaskId() {
++        return taskId;
++    }
++
++    public void setTaskId(int taskId) {
++        this.taskId = taskId;
++    }
++
++    public ComponentName getComponentName() {
++        return componentName;
++    }
++
++    public void setComponentName(ComponentName componentName) {
++        this.componentName = componentName;
++    }
++
++    public FrameLayout getIconLayout() {
++        return iconLayout;
++    }
++
++    public void setIconLayout(FrameLayout iconLayout) {
++        this.iconLayout = iconLayout;
++    }
++
++    public boolean isRun() {
++        return isRun;
++    }
++
++    public void setRun(boolean run) {
++        if (run) {
++            runView.setVisibility(View.VISIBLE);
++        } else {
++            runView.setVisibility(View.GONE);
++            setFocus(false);
++        }
++        isRun = run;
++    }
++
++    public boolean isFocus() {
++        return isFocus;
++    }
++
++    public void setFocus(boolean focus) {
++        focuseView.setVisibility(focus ? View.VISIBLE : View.GONE);
++        isFocus = focus;
++    }
++
++    public boolean isLocked() {
++        return isLocked;
++    }
++
++    public void setLocked(boolean locked) {
++        isLocked = locked;
++    }
++}
+\ No newline at end of file
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/DialogType.java b/packages/SystemUI/src/com/android/systemui/startupmenu/DialogType.java
+index 8c77f1f..a68ba3b 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/DialogType.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/DialogType.java
+@@ -5,5 +5,5 @@ package com.android.systemui.startupmenu;
+  */
+ 
+ public enum DialogType {
+-    LIST, GRID, SHOW_TASKBAR
+-}
++    LIST, GRID, SHOW_TASKBAR, BAR_LOCK_OPEN, BAR_LOCK_CLOSE, BAR_NORMAL
++}
+\ No newline at end of file
+diff --git a/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java b/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
+index 7d66df91..7c003d9 100644
+--- a/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
++++ b/packages/SystemUI/src/com/android/systemui/startupmenu/StartMenuAdapter.java
+@@ -16,7 +16,6 @@
+ package com.android.systemui.startupmenu;
+ 
+ import android.content.Context;
+-import android.util.Log;
+ import android.view.LayoutInflater;
+ import android.view.MotionEvent;
+ import android.view.View;
+@@ -183,8 +182,6 @@ public class StartMenuAdapter extends BaseAdapter
+     }
+ 
+     private void showDialog(int x, int y, AppEntry appInfo) {
+-        Log.i("ljh", "弹菜单");
+         mMenuDialog.show(mType == ShowType.GRID ? DialogType.GRID : DialogType.LIST, appInfo, x, y);
+-
+     }
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+index 05f616c..55f41bf 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBar.java
+@@ -176,8 +176,8 @@ import com.android.systemui.UiOffloadThread;
+ import com.android.systemui.assist.AssistManager;
+ import com.android.systemui.classifier.FalsingLog;
+ import com.android.systemui.classifier.FalsingManager;
+-import com.android.systemui.dialog.BaseDialog;
+ import com.android.systemui.dialog.MenuDialog;
++import com.android.systemui.dialog.TaskbarIcon;
+ import com.android.systemui.colorextraction.SysuiColorExtractor;
+ import com.android.systemui.doze.DozeHost;
+ import com.android.systemui.doze.DozeLog;
+@@ -257,8 +257,6 @@ import com.android.systemui.util.NotificationChannels;
+ import com.android.systemui.util.leak.LeakDetector;
+ import com.android.systemui.volume.VolumeComponent;
+ import com.android.systemui.startupmenu.U;
+-import com.android.systemui.dialog.BarDialog;
+-import com.android.systemui.statusbar.phone.OpenthosStatusBarView;
+ 
+ import java.io.FileDescriptor;
+ import java.io.PrintWriter;
+@@ -443,7 +441,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     Point mCurrentDisplaySize = new Point();
+ 
+     protected LinearLayout mActivityLayout;
+-    protected int mPrevTaskId = -1;
++    protected ComponentName mPrevCmp;
+     protected StatusBarWindowView mStatusBarWindow;
+     protected OpenthosStatusBarView mOpenthosStatusBarView;
+     protected PhoneStatusBarView mStatusBarView;
+@@ -798,8 +796,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     };
+     private HashMap<ExpandableNotificationRow, List<ExpandableNotificationRow>> mTmpChildOrderMap
+             = new HashMap<>();
+-    private HashMap<Integer, FrameLayout> mIconMap = new HashMap<>();
+-    private HashMap<ComponentName, FrameLayout> mDockedMap = new HashMap<>();
++    private Map<ComponentName, TaskbarIcon> mShowIcons = new HashMap<>();
+     private RankingMap mLatestRankingMap;
+     private boolean mNoAnimationOnNextBarModeChange;
+     private FalsingManager mFalsingManager;
+@@ -817,7 +814,7 @@ public class StatusBar extends SystemUI implements DemoMode,
+     private View mNavigationBarView;
+     private int mDownX;
+     private int mDownY;
+-    private BaseDialog mShowTaskbarDialog;
++    private MenuDialog mShowTaskbarDialog;
+ 
+     @Override
+     public void start() {
+@@ -3381,28 +3378,51 @@ public class StatusBar extends SystemUI implements DemoMode,
+     }
+ 
+     public void iconClose(int taskId) {
+-        FrameLayout v = mIconMap.remove(taskId);
+-        if (v != null) {
+-            if (!mDockedMap.containsValue(v)) {
+-                mActivityLayout.removeView(v);
+-            } else {
+-                v.findViewById(R.id.activity_focused).
+-                        setVisibility(View.GONE);
+-                v.findViewById(R.id.activity_run).
+-                        setVisibility(View.GONE);
++        for (ComponentName cmp : mShowIcons.keySet()) {
++            TaskbarIcon taskbarIcon = mShowIcons.get(cmp);
++            if (taskbarIcon.getTaskId() == taskId) {
++                if (!taskbarIcon.isLocked()) {
++                    mActivityLayout.removeView(taskbarIcon.getIconLayout());
++                    mShowIcons.remove(cmp);
++                }
++                taskbarIcon.setRun(false);
++                break;
+             }
+         }
+     }
+ 
+-    public void setFocusedIcon(int taskId) {
+-        if (taskId != mPrevTaskId) {
+-            mIconMap.get(taskId).findViewById(R.id.activity_focused).
+-                    setVisibility(View.VISIBLE);
+-            if (mIconMap.get(mPrevTaskId) != null) {
+-                mIconMap.get(mPrevTaskId).findViewById(R.id.activity_focused).
+-                        setVisibility(View.GONE);
++    public boolean isLocked(ComponentName componentName) {
++        if (mShowIcons.get(componentName) != null) {
++            return mShowIcons.get(componentName).isLocked();
++        }
++        return false;
++    }
++
++    public void locked(ComponentName componentName) {
++        TaskbarIcon taskbarIcon = mShowIcons.get(componentName);
++        if (taskbarIcon == null) {
++            taskbarIcon = new TaskbarIcon(componentName, createIconLayout(componentName));
++            mShowIcons.put(componentName, taskbarIcon);
++        }
++        taskbarIcon.setLocked(true);
++    }
++
++    public void unlocked(ComponentName componentName) {
++        TaskbarIcon taskbarIcon = mShowIcons.get(componentName);
++        if (taskbarIcon != null) {
++            if (!taskbarIcon.isRun()) {
++                mActivityLayout.removeView(taskbarIcon.getIconLayout());
++                mShowIcons.remove(componentName);
++            } else {
++                taskbarIcon.setLocked(false);
+             }
+-            mPrevTaskId = taskId;
++        }
++    }
++
++    public void closeApp(ComponentName componentName) {
++        try {
++            ActivityManager.getService().removeTask(mShowIcons.get(componentName).getTaskId());
++        } catch (Exception e) {
+         }
+     }
+ 
+@@ -3423,24 +3443,9 @@ public class StatusBar extends SystemUI implements DemoMode,
+         return icon;
+     }
+ 
+-    public void bindIconToTaskId(int taskId, ComponentName cmp) {
+-        FrameLayout iconLayout;
+-        if (!mDockedMap.containsKey(cmp) || (mIconMap.containsValue(mDockedMap.get(cmp))
+-                && mIconMap.get(taskId) == null)) {
+-            iconLayout = (FrameLayout) View.inflate(mContext,
+-                    R.layout.statusbar_activity_button, null);
+-            mActivityLayout.addView(iconLayout);
+-        } else {
+-            iconLayout = mDockedMap.get(cmp);
+-        }
+-        iconLayout.findViewById(R.id.activity_focused).setVisibility(View.VISIBLE);
+-        iconLayout.findViewById(R.id.activity_run).setVisibility(View.VISIBLE);
+-        mIconMap.put(taskId, iconLayout);
+-        if (mIconMap.get(mPrevTaskId) != null) {
+-            mIconMap.get(mPrevTaskId).findViewById(R.id.activity_focused).
+-                    setVisibility(View.GONE);
+-        }
+-        mPrevTaskId = taskId;
++    private FrameLayout createIconLayout(final ComponentName cmp) {
++        final FrameLayout iconLayout = (FrameLayout) View.inflate(mContext,
++                R.layout.statusbar_activity_button, null);
+         ImageView iconView = (ImageView) iconLayout.findViewById(R.id.icon_view);
+         iconView.setImageDrawable(getPackageIcon(cmp.getPackageName()));
+         iconView.setOnClickListener(new View.OnClickListener() {
+@@ -3448,8 +3453,8 @@ public class StatusBar extends SystemUI implements DemoMode,
+             public void onClick(View v) {
+                 try {
+                     IActivityManager am = ActivityManager.getService();
+-                    if (mIconMap.get(taskId) != null) {
+-                        am.setFocusedTask(taskId);
++                    if (mShowIcons.get(cmp).isRun()) {
++                        am.setFocusedTask(mShowIcons.get(cmp).getTaskId());
+                     } else {
+                         U.launchApp(mContext, cmp);
+                     }
+@@ -3461,38 +3466,53 @@ public class StatusBar extends SystemUI implements DemoMode,
+         iconView.setOnLongClickListener(new View.OnLongClickListener() {
+             @Override
+             public boolean onLongClick(View v) {
+-                BarDialog.getInstance(mContext, cmp, taskId, mActivityLayout,
+-                        iconLayout, mIconMap, mDockedMap).showDialog();
++                TaskbarIcon taskbarIcon = mShowIcons.get(cmp);
++                if (taskbarIcon != null) {
++                    if (taskbarIcon.isRun() && taskbarIcon.isLocked()) {
++                        mShowTaskbarDialog.show(DialogType.BAR_LOCK_OPEN, cmp, iconLayout);
++                    } else if (taskbarIcon.isLocked()) {
++                        mShowTaskbarDialog.show(DialogType.BAR_LOCK_CLOSE, cmp, iconLayout);
++                    } else {
++                        mShowTaskbarDialog.show(DialogType.BAR_NORMAL, cmp, iconLayout);
++                    }
++                }
+                 return true;
+             }
+         });
+         iconView.setOnTouchListener(new View.OnTouchListener() {
+             @Override
+             public boolean onTouch(View v, MotionEvent event) {
+-                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+-                    BarDialog dialog = BarDialog.getInstance(mContext, cmp, taskId,
+-                            mActivityLayout, iconLayout, mIconMap, mDockedMap);
+-                    dialog.mShowX = (int) event.getRawX();
+-                    dialog.mShowY = (int) event.getRawY();
+-                }
+                 return false;
+             }
+         });
++        mActivityLayout.addView(iconLayout);
++        return iconLayout;
++    }
++
++    public void bindIconToTaskId(int taskId, ComponentName cmp) {
++        if (mPrevCmp != null && mShowIcons.get(mPrevCmp) != null) {
++            mShowIcons.get(mPrevCmp).setFocus(false);
++        }
++        TaskbarIcon taskbarIcon = mShowIcons.get(cmp);
++        if (taskbarIcon == null) {
++            taskbarIcon = new TaskbarIcon(cmp, createIconLayout(cmp));
++            mShowIcons.put(cmp, taskbarIcon);
++        }
++        taskbarIcon.setFocus(true);
++        taskbarIcon.setRun(true);
++        taskbarIcon.setTaskId(taskId);
++        mPrevCmp = cmp;
+     }
+ 
+     @Override
+     public void changeStatusBarIcon(int taskId, ComponentName cmp, boolean keep) {
++        android.util.Log.i("ljh", "taskId " + taskId + " keep " + keep + " cmp" + cmp);
+         if (!keep || cmp == null) {
+             iconClose(taskId);
+             return;
+         }
+ 
+-        if (mIconMap.get(taskId) != null) {
+-            setFocusedIcon(taskId);
+-            //setFocused
+-        } else {
+-            bindIconToTaskId(taskId, cmp);
+-        }
++        bindIconToTaskId(taskId, cmp);
+     }
+ 
+     @Override
+-- 
+2.7.4
+

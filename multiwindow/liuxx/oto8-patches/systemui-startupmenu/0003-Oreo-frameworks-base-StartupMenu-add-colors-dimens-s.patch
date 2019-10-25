@@ -1,0 +1,137 @@
+From 1c3e5684d2459bd927cb3d4287748a37d69db2ac Mon Sep 17 00:00:00 2001
+From: Your Name <you@example.com>
+Date: Wed, 18 Oct 2017 09:09:52 +0000
+Subject: [PATCH 003/110] Oreo: frameworks: base: StartupMenu add
+ colors/dimens/strings/styles.
+
+Signed-off-by: Your Name <you@example.com>
+---
+ packages/SystemUI/res/values/colors.xml  |  9 +++++++++
+ packages/SystemUI/res/values/dimens.xml  | 21 ++++++++++++++++++++
+ packages/SystemUI/res/values/strings.xml | 18 +++++++++++++++++
+ packages/SystemUI/res/values/styles.xml  | 34 ++++++++++++++++++++++++++++++++
+ 4 files changed, 82 insertions(+)
+
+diff --git a/packages/SystemUI/res/values/colors.xml b/packages/SystemUI/res/values/colors.xml
+index f244d88..1bc50ec 100644
+--- a/packages/SystemUI/res/values/colors.xml
++++ b/packages/SystemUI/res/values/colors.xml
+@@ -151,6 +151,15 @@
+ 
+     <color name="instant_apps_color">#ff4d5a64</color>
+ 
++    <!--systemui: startupmenu: colors  -->
++    <color name="black">#000000</color>
++    <color name="white">#ffffff</color>
++    <color name="common_hover_bg">#5a41a2</color>
++    <color name="grid_hover_bg">#e9edf0</color>
++    <color name="grid_unhover_bg">#00ffffff</color>
++    <color name="input_bg">#cfcaca</color>
++    <color name="inputmethodfocus">#5b41a2</color>
++
+     <color name="zen_introduction">#ffffffff</color>
+ 
+ </resources>
+diff --git a/packages/SystemUI/res/values/dimens.xml b/packages/SystemUI/res/values/dimens.xml
+index 9901f6f..2e9407b 100644
+--- a/packages/SystemUI/res/values/dimens.xml
++++ b/packages/SystemUI/res/values/dimens.xml
+@@ -858,4 +858,25 @@
+     <!-- Home button padding for sizing -->
+     <dimen name="home_padding">15dp</dimen>
+ 
++    <dimen name="phone_size_width">320dp</dimen>
++    <dimen name="phone_size_height">480dp</dimen>
++
++    <dimen name="startupmenu_grid_icon_size">50dp</dimen>
++    <dimen name="startupmenu_list_icon_size">30dp</dimen>
++    <dimen name="startupmenu_big_padding">15dp</dimen>
++    <dimen name="startupmenu_small_padding">5dp</dimen>
++    <dimen name="startupmenu_common_app_width">180dp</dimen>
++    <dimen name="startupmenu_grid_width">310dp</dimen>
++    <dimen name="systemui_size_wifi_height">400dp</dimen>
++    <dimen name="startupmenu_search_icon_size">10dp</dimen>
++    <dimen name="startupmenu_layout_height">40dp</dimen>
++    <dimen name="startupmenu_layout_small_height">24dp</dimen>
++    <dimen name="startupmenu_app_grid_width">80dp</dimen>
++    <dimen name="startupmenu_text_size">13sp</dimen>
++    <dimen name="systemui_pop_date_text_size">24sp</dimen>
++    <dimen name="systemui_size_calendar">296dp</dimen>
++    <dimen name="systemui_width_calendarview">224dp</dimen>
++    <dimen name="systemui_height_calendarview">154dp</dimen>
++    <dimen name="systemui_date_text_size">10sp</dimen>
++
+ </resources>
+diff --git a/packages/SystemUI/res/values/strings.xml b/packages/SystemUI/res/values/strings.xml
+index 7ccb6b0..bb368df 100644
+--- a/packages/SystemUI/res/values/strings.xml
++++ b/packages/SystemUI/res/values/strings.xml
+@@ -2057,4 +2057,22 @@
+     <string name="touch_filtered_warning">Because an app is obscuring a permission request, Settings
+         can’t verify your response.</string>
+ 
++    <!--startupmenu-->
++    <string name="common_application">common app</string>
++    <string name="system_setting">Setting</string>
++    <string name="power_source">Power</string>
++    <string name="file_manager">File Manager</string>
++    <string name="software_search">Software search</string>
++    <string name="click_sort">click sort</string>
++    <string name="name_sort">A - Z</string>
++    <string name="time_sort">Time</string>
++    <string name="default_sort">Default</string>
++    <string name="open">Open</string>
++    <string name="phone_mode">Phone mode</string>
++    <string name="desktop_mode">Desktop mode</string>
++    <string name="lock_app">Lock app</string>
++    <string name="unlock_app">Unlock app</string>
++    <string name="uninstall">Unistall</string>
++    <string name="remove_out">Remove out</string>
++
+ </resources>
+diff --git a/packages/SystemUI/res/values/styles.xml b/packages/SystemUI/res/values/styles.xml
+index 90c5977..bd0b2bd 100644
+--- a/packages/SystemUI/res/values/styles.xml
++++ b/packages/SystemUI/res/values/styles.xml
+@@ -489,4 +489,38 @@
+         <item name="android:colorBackground">?android:attr/colorSecondary</item>
+     </style>
+ 
++    <style name="Mstyle">
++        <item name="android:gravity">center_vertical</item>
++        <item name="android:textColor">@color/white</item>
++        <item name="android:layout_marginLeft">@dimen/startupmenu_small_padding</item>
++        <item name="android:textSize">@dimen/startupmenu_text_size</item>
++        <item name="android:layout_width">match_parent</item>
++        <item name="android:layout_height">match_parent</item>
++        <item name="android:singleLine">true</item>
++        <item name="android:ellipsize">end</item>
++    </style>
++
++    <style name="SortStyle">
++        <item name="android:paddingTop">@dimen/startupmenu_small_padding</item>
++        <item name="android:paddingBottom">@dimen/startupmenu_small_padding</item>
++        <item name="android:paddingLeft">@dimen/startupmenu_big_padding</item>
++        <item name="android:paddingRight">@dimen/startupmenu_big_padding</item>
++        <item name="android:gravity">center_vertical</item>
++        <item name="android:textColor">@color/gray_text</item>
++        <item name="android:textSize">@dimen/startupmenu_text_size</item>
++        <item name="android:layout_width">match_parent</item>
++        <item name="android:layout_height">@dimen/startupmenu_layout_height</item>
++        <item name="android:singleLine">true</item>
++        <item name="android:ellipsize">end</item>
++    </style>
++
++    <style name="StartMenuDialogStyle" parent="@android:style/Theme.Dialog">
++        <item name="android:windowFrame">@null</item>
++        <item name="android:windowIsFloating">true</item>
++        <item name="android:windowIsTranslucent">true</item>
++        <item name="android:windowNoTitle">true</item>
++        <item name="android:backgroundDimEnabled">false</item>
++        <item name="android:windowBackground">@android:color/transparent</item>
++    </style>
++
+ </resources>
+-- 
+2.7.4
+

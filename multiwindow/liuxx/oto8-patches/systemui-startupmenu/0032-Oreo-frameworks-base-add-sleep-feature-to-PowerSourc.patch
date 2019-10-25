@@ -1,0 +1,39 @@
+From 5c5f13cbf64bc9422b7c8ecd1123c5c7f203fa57 Mon Sep 17 00:00:00 2001
+From: CaoYongren <m18410261910@163.com>
+Date: Wed, 25 Oct 2017 07:26:13 +0000
+Subject: [PATCH 032/110] Oreo: frameworks: base: add sleep feature to
+ PowerSourceActivity.
+
+Change-Id: I04ee61f300aa2080473d3afc45975aec75bee59d
+Signed-off-by: CaoYongren <m18410261910@163.com>
+---
+ .../src/com/android/systemui/power/PowerSourceActivity.java         | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java b/packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java
+index 499c381..305f19b 100644
+--- a/packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java
++++ b/packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java
+@@ -9,7 +9,7 @@ import android.view.MotionEvent;
+ import android.view.View;
+ import android.widget.ImageView;
+ import android.widget.LinearLayout;
+-
++import android.os.SystemClock;
+ import com.android.systemui.R;
+ 
+ import java.lang.reflect.Method;
+@@ -156,8 +156,8 @@ public class PowerSourceActivity extends Activity implements View.OnClickListene
+                 finish();
+                 break;
+             case R.id.power_sleep:
+-                closeButtonShowStatusBar();
+-                finishStatusbarPowerLayout();
++                PowerManager powerManager = (PowerManager) this.getSystemService(Context.POWER_SERVICE);
++                powerManager.goToSleep(SystemClock.uptimeMillis());
+                 finish();
+                 break;
+             case R.id.power_close:
+-- 
+2.7.4
+

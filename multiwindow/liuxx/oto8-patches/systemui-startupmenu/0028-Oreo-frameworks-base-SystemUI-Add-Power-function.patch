@@ -1,0 +1,649 @@
+From fbb0e637e7544644a6e0d4fb5e6274e3aba7f677 Mon Sep 17 00:00:00 2001
+From: luojunhuan <forward_m@126.com>
+Date: Mon, 23 Oct 2017 10:48:47 +0000
+Subject: [PATCH 028/110] Oreo: frameworks: base: SystemUI: Add Power function
+
+Signed-off-by: luojunhuan <forward_m@126.com>
+---
+ packages/SystemUI/AndroidManifest.xml              |  10 ++
+ .../SystemUI/res/layout/activity_power_source.xml  | 129 ++++++++++++++++
+ .../SystemUI/res/mipmap-hdpi/ic_close_white.png    | Bin 0 -> 200 bytes
+ .../res/mipmap-hdpi/ic_power_background.png        | Bin 0 -> 17446 bytes
+ packages/SystemUI/res/mipmap-hdpi/ic_restart.png   | Bin 0 -> 995 bytes
+ .../SystemUI/res/mipmap-hdpi/ic_setting_safety.png | Bin 0 -> 669 bytes
+ packages/SystemUI/res/mipmap-hdpi/ic_sleep.png     | Bin 0 -> 834 bytes
+ .../SystemUI/res/mipmap-hdpi/ic_starter_power.png  | Bin 0 -> 791 bytes
+ .../res/mipmap-hdpi/power_setting_background.png   | Bin 0 -> 425 bytes
+ packages/SystemUI/res/values-zh-rCN/strings.xml    |   6 +
+ packages/SystemUI/res/values/strings.xml           |   6 +
+ packages/SystemUI/res/values/styles.xml            |  12 ++
+ .../android/systemui/dialog/StartupMenuDialog.java |   5 +
+ .../systemui/power/PowerSourceActivity.java        | 168 +++++++++++++++++++++
+ 14 files changed, 336 insertions(+)
+ create mode 100644 packages/SystemUI/res/layout/activity_power_source.xml
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/ic_close_white.png
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/ic_power_background.png
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/ic_restart.png
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/ic_setting_safety.png
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/ic_sleep.png
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/ic_starter_power.png
+ create mode 100644 packages/SystemUI/res/mipmap-hdpi/power_setting_background.png
+ create mode 100644 packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java
+
+diff --git a/packages/SystemUI/AndroidManifest.xml b/packages/SystemUI/AndroidManifest.xml
+index 070634b..f491802 100644
+--- a/packages/SystemUI/AndroidManifest.xml
++++ b/packages/SystemUI/AndroidManifest.xml
+@@ -202,6 +202,10 @@
+     <!-- permission necessary to hide non-system overlay windows from covering up the SystemUI -->
+     <uses-permission android:name="android.permission.HIDE_NON_SYSTEM_OVERLAY_WINDOWS" />
+ 
++    <!--power-->
++    <uses-permission android:name="android.permission.REBOOT"/>
++    <uses-permission android:name="android.permission.SHUTDOWN"/>
++
+     <application
+         android:name=".SystemUIApplication"
+         android:persistent="true"
+@@ -543,6 +547,12 @@
+             </intent-filter>
+         </activity>
+ 
++	 <activity android:name=".power.PowerSourceActivity"
++            android:exported="true"
++            android:excludeFromRecents="true"
++            android:launchMode="singleTask"
++            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"/>
++
+         <!-- Doze with notifications, run in main sysui process for every user  -->
+         <service
+             android:name=".doze.DozeService"
+diff --git a/packages/SystemUI/res/layout/activity_power_source.xml b/packages/SystemUI/res/layout/activity_power_source.xml
+new file mode 100644
+index 0000000..6d5f26a
+--- /dev/null
++++ b/packages/SystemUI/res/layout/activity_power_source.xml
+@@ -0,0 +1,129 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:tools="http://schemas.android.com/tools"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    android:id="@+id/power_source"
++    android:background="#bf000000"
++    android:gravity="center"
++    android:orientation="horizontal"
++    tools:context="com.android.systemui.power.PowerSourceActivity">
++
++        <LinearLayout
++            android:layout_width="560dp"
++            android:layout_height="192dp"
++            android:layout_gravity="center_vertical|center_horizontal"
++            android:background="@mipmap/ic_power_background"
++            android:orientation="vertical" >
++
++            <ImageView
++                android:id="@+id/power_close"
++                android:layout_width="16dp"
++                android:layout_height="16dp"
++                android:layout_marginTop="16dp"
++                android:layout_marginRight="16dp"
++                android:layout_gravity="right|center_vertical"
++                android:src="@mipmap/ic_close_white" />
++
++            <LinearLayout
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_marginTop="40dp"
++                android:layout_gravity="center_vertical|center_horizontal"
++                android:orientation="horizontal" >
++
++                <LinearLayout
++                    android:id="@+id/power_off"
++                    android:layout_width="80dp"
++                    android:layout_height="80dp"
++                    android:paddingTop="13dp"
++                    android:focusable="true"
++                    android:nextFocusRight="@+id/power_sleep"
++                    android:orientation="vertical" >
++
++                    <ImageView
++                        android:layout_width="32dp"
++                        android:layout_height="32dp"
++                        android:scaleType="centerCrop"
++                        android:layout_gravity="center_horizontal"
++                        android:src="@mipmap/ic_starter_power" />
++
++                    <TextView
++                        android:id="@+id/shut_power_off"
++                        style="@style/PowerStyle"
++                        android:text="@string/power_off" />
++                </LinearLayout>
++                <LinearLayout
++                    android:id="@+id/power_sleep"
++                    android:layout_width="80dp"
++                    android:layout_height="80dp"
++                    android:paddingTop="13dp"
++                    android:focusable="true"
++                    android:nextFocusRight="@+id/power_lock"
++                    android:layout_marginLeft="24dp"
++                    android:orientation="vertical" >
++
++                    <ImageView
++                        android:layout_width="32dp"
++                        android:layout_height="32dp"
++                        android:scaleType="centerCrop"
++                        android:layout_gravity="center_horizontal"
++                        android:src="@mipmap/ic_sleep" />
++
++                    <TextView
++                        android:id="@+id/sleep"
++                        style="@style/PowerStyle"
++                        android:text="@string/system_sleep" />
++                </LinearLayout>
++
++                <LinearLayout
++                    android:id="@+id/power_lock"
++                    android:layout_width="80dp"
++                    android:layout_height="80dp"
++                    android:paddingTop="13dp"
++                    android:focusable="true"
++                    android:nextFocusRight="@+id/power_restart"
++                    android:layout_marginLeft="24dp"
++                    android:orientation="vertical" >
++
++                    <ImageView
++                        android:layout_width="32dp"
++                        android:layout_height="32dp"
++                        android:scaleType="centerCrop"
++                        android:layout_gravity="center_horizontal"
++                        android:src="@mipmap/ic_setting_safety" />
++
++                    <TextView
++                        android:id="@+id/lock"
++                        style="@style/PowerStyle"
++                        android:text="@string/system_lock" />
++                </LinearLayout>
++
++                <LinearLayout
++                    android:id="@+id/power_restart"
++                    android:layout_width="80dp"
++                    android:layout_height="80dp"
++                    android:paddingTop="13dp"
++                    android:focusable="true"
++                    android:nextFocusRight="@+id/power_off"
++                    android:layout_marginLeft="24dp"
++                    android:orientation="vertical" >
++
++                    <ImageView
++                        android:layout_width="32dp"
++                        android:layout_height="32dp"
++                        android:scaleType="centerCrop"
++                        android:layout_gravity="center_horizontal"
++                        android:src="@mipmap/ic_restart" />
++
++                    <TextView
++                        android:id="@+id/restart"
++                        style="@style/PowerStyle"
++                        android:text="@string/system_restart" />
++                </LinearLayout>
++
++            </LinearLayout>
++        </LinearLayout>
++
++</LinearLayout>
+diff --git a/packages/SystemUI/res/mipmap-hdpi/ic_close_white.png b/packages/SystemUI/res/mipmap-hdpi/ic_close_white.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..ccc4d95a77bfea32e60969a5dc57a7ed4f4e76ce
+GIT binary patch
+literal 200
+zcmeAS@N?(olHy`uVBq!ia0vp^0wB!61|;P_|4#%`jKx9jP7LeL$-D$|nmk<`Lo5W>
+zPIlxvpuoejH2(G4FaQ6)Sopjo*kw^p(gx8c!<n(JTc+5zb<F9oeZ6!|mQ*~q__M{L
+zb6q4`HvMf|_HdTZOpcDKyNQw~vgT&QL^Pgt*NX{%*c*9x?{wXg$lP1Ww{4ytXIbNR
+yR>|Pi-n3wbDW?}K%&-2d>HO!d@kMS=G5PR2zjRlpM;QZM!{F)a=d#Wzp$Pzxc27V6
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/mipmap-hdpi/ic_power_background.png b/packages/SystemUI/res/mipmap-hdpi/ic_power_background.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..918404d2de9f718221ff2c9ab08fda322ea59a21
+GIT binary patch
+literal 17446
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/mipmap-hdpi/ic_restart.png b/packages/SystemUI/res/mipmap-hdpi/ic_restart.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..bd6a4c4bdf19fb7f1882f1629609d839543039b2
+GIT binary patch
+literal 995
+zcmV<9104K`P)<h;3K|Lk000e1NJLTq001BW001Be1^@s6b9#F800001b5ch_0Itp)
+z=>Px&ok>JNR9FeMmrF=hK^Vt9rse}m%IE?1AWDg}s5ZSIDWr&!EC_n6szpRg7eTnP
+zHkE|6$fcWt=mE8eija_W5d^&;1XCj|t<17aO}+j8w>y_}?>&#XWFP#PneR1o=FFLy
+z<7A{Mkw|0~A>}X|RF`x?H*`9V^BbRy)LW@XDF0nZxD4(>2TXvU3}R@4E;wq_vlHY*
+zk`>sSU@geE4=zC~^uqvT!r~YelzX8NhG7A-@QpHkq4U#Vp7t&EYMU(h)q#<Eo0tS2
+zBD0_+mf;uWo&<-G2L8`uu`0A4N`peOJdBUfZGv{#z!ZM*@Cj1sH59`fD1vdY6GnSY
+z!$#U6+b(K~yy$QTOu|RVo1(OKY3R^_PoM#m*+pe!;Cm8kZ2f)xNKy-u>%LANhQA?^
+z0m>yFW_uM0dSD!Uryg4s)PuhJs8H{N5m@TdouIwkw7p8~>!8XcSwurq|J2Lb=&(yh
+z;S59<C}ktua`{}LJqCeWFlIf7cFjz^#|DrbHi^7S>{~(Wq!;G<_`Ju~4ZFPTMu+_X
+zNXj(;Z919(-|2S+Y7p~GJGsPG1Ur-U$!&ZVg5<acpb?KIJN@rAeGb7nEvT9B!>>b}
+zj=%%>0NU9C1)oB=4KLtSfb$5p>6(Gh;Co_WljsZ4YpM%K7&YNj0}{pfE=ElH@)~s(
+zXe0#ziFG9Fh}GF}Gr-T7E>M{UI<DJ{(p}QA?7GYhY6f(A>FK-<CU@MF)#<AQB!{#H
+zn!$nnVLcE~3%>UPY}-KFv+@PW>X`ABW}plt_ktp@YrhzVub|hGBIvcAe!|rhqf3EZ
+zi&XoGUPbg!(I=r@F4yIkP{sBHB)g4)x-J}&9O)>lL0?O+@kuVR%>^yci*Xx`vmm(~
+zS0+`kWy2b`nzoMacc2SMRH&D_+eU9nZ1+KO(C9Ss9MGYnS<p?!O7Jyz#u+vN_^$^o
+z_?{Ghl;-=@)jNLTr8v42_!WcI{Q<u`=m!lz{|%{vp&2Cc6E4*&eGU2a`rarp;=e#K
+z=7JWH<T3p7-aw85FgN9v(Bb2p54w~}x?p8!kdFhgo8dc1o`Ky1$q{q_>3xYikj~;<
+zg@0QtR`Cr!V+>XkxE*u}ktk6ooQDdC?-|tfjw_)F^jXSRqN9FGa4#WN5@f<LcnuR^
+zM4hN@Ix~80GB2SrBz4prwr3~gAZb2|eV{+563|cR7z{xN+<=GtO-)i-$sc>C`&aD)
+RzAOL$002ovPDHLkV1itE&!YeU
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/mipmap-hdpi/ic_setting_safety.png b/packages/SystemUI/res/mipmap-hdpi/ic_setting_safety.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..21aa1889734642366dcc2176b92182d5ba209089
+GIT binary patch
+literal 669
+zcmV;O0%HA%P)<h;3K|Lk000e1NJLTq001BW001Be1^@s6b9#F800001b5ch_0Itp)
+z=>Px%S4l)cR9FecmcL6JK@`W`XmUmrf~aV9jS7Nd1WOA8f>t&{z|KMvkh8Hjq%x2)
+ze}M|3g$SY~5EBI}3&C)O*a$XSB$os{5kbx7^S#`LW$?~>d#*nCFf(uFz3<!E*&h`Z
+z4{V-A-}n7TtnY^rcn&R~94C;571;DV@0#{*4e>tM16dZnz#PoN2AqN{4gGhjPQur4
+z4M#8v)vf@(1iXYp_yd#fnn+_3je%?xp5B&(HPx^TvRAjQFFH?xHaLUNP*rqsXp*&+
+zuny<Y5t_1f30{KVpu=V|VwxZWI+%7NFbP*MV~_q9LF`-5*=aTBASea0q&YYrKx|7c
+zgYQq7a}cP5bZ8EA0?4rsYmWQ>P%oB3*3QIUp-F@P8*7#8Mk`i8BN3S!qioI}EN>_j
+zl6w`iMQ>Oz>@3nVe+8G0-#UCufH-#oKk>?*4hqoZF&sFH;u`9fv{FE2PJkV_fOm1J
+zxp~pj<LS#^><qYZv5d<qfQ!)EuDP7bA{BsWC+s4ue*k@=MR$}!%mpA+htN8F;1D%~
+zz7y}|W9}KP$;<_ieE`x3&j(8M7wPZ7VBjmYjZ(l9lDp5e^yEvZW3ea&Y$5Q1?d}PL
+z=y%cA)qf3qrMBh**zWHnABT@25q)e@%;{xjGIIg>?Ax^A-!t{)Gh4~OSx)9GV~?%x
+zrPa5h27ZCrA{D?^>#uhLwT-;uBtCt(%oeEtsUWyOBg(R<XP_+6aPWf{5d06EQkCxE
+z&v11y_Up-A%WX^qXFvyP2yz9*C>%~59N@6;{`-FczfneHM`dXd00000NkvXXu0mjf
+D%{VK-
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/mipmap-hdpi/ic_sleep.png b/packages/SystemUI/res/mipmap-hdpi/ic_sleep.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..00da277fc2b5e7f3ff111e578aa54be3733d735c
+GIT binary patch
+literal 834
+zcmV-I1HJr-P)<h;3K|Lk000e1NJLTq001BW001Be1^@s6b9#F800001b5ch_0Itp)
+z=>Px%{7FPXR9FeMmrraAQ5?s+#Zql(B-o`yNKY!_geHi8<v<)rgeHw%5SNC7M39Js
+zlY@iA)lG<yIB-ze5Ta85MM6u~pSG%r1Z^TgcYVIwH=Ehrd9#1)`z4=!Z+`!0=FOYg
+znwly|I-PESc34zyy4rFBg8U<q$Qb$tNYX?<9D$iZzD{)%JqMnQGC2;Dofh>cr<iWV
+zkl`|;<S8uk`#GIctW#By?FKdU6V^E`>?NmAEeyjY=@?`15`Mu}&(G;dp$nk1o@$zy
+z#r!dRhs92dn}Tf=l5F;hF<$`RK#fE_y_1mwagZGJ7vNayLek~eSA9+at%E;sIzKtO
+zZqUM<CR<fDqWmIkOeu6D5YM-9e9GuMWOLGh5+m9fM>8|u56#`@un%@f?W6%NuZqur
+zAr%Rbo9Nc#SLdVwk}otx2Lp;rm4G^Ean(SZsvtcRL&5KW(ZpOeu#*DMxZlZw(i4hd
+zqmNg;0q*M(lDEP&QzU4ZWR!n{jQ^#hfvccxc&;rGwpAe6V)Lm;Pr|jCwCVJ*umt$*
+zGJY*#er4H6I1fI<d&ul^wglME!&ostTYQ0@MD_3len9A1VUNHdTq#IYiGoB;@CdZ`
+zdyk(r6+Rn4vfJuZs(~aM;VbApzpYptK05ne_z0o5DKr<s%i#t{UPE(efHC6Np#WrW
+zjz5Y6a0t9DG{>$3Y|U^O?m!Ckad8y1r4|+ZmV&O-1Bm1VpwJ?E0TL~wH;{n4&<Fa&
+z_C$UsKrfq;1Ydm@et-d(?+?m$f<b5B3v-|!^d?Ke7lU-S*j_&|mMrAeQ*j+)u!i{O
+z)?l1<Z*|66(I>&%GOaOT2IAX6&%4fiWteZ)hNJ#mTm;EO(5^Kl>rlc3|4q;Xl6zp?
+zmaXXs+5_rbG6H8|HPq(^p_>k^a0Xt1BnkVV@~cR26gnXR;~>$folKA4ThOBQ<TsPs
+zupgrNjRqZO7h#amuOs1Xj&&bbKoc~=IOyH3h58P<S!4y@f#|LB5A_V%25ABs-2eap
+M07*qoM6N<$f|nV8;s5{u
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/mipmap-hdpi/ic_starter_power.png b/packages/SystemUI/res/mipmap-hdpi/ic_starter_power.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..072321899b746969fb35c9e8d2b1bc8d04bd837b
+GIT binary patch
+literal 791
+zcmV+y1L*vTP)<h;3K|Lk000e1NJLTq001BW001Be1^@s6b9#F800001b5ch_0Itp)
+z=>Px%(Md!>R9Fesmt9L0K^Vu~qli*cL{g+_UI;<;5$d9X=%x=4K|w(mK}MP%qb`HK
+zfT(DBRTmLNaJsF?i{5TB!;YFSlx3)=-+!AO$7auQj<^dx@MC75d7kG#dv<1aPhH(k
+zwsN`r1RiC64~VotlPkn^J;+vEzxwz(VE_OAny)F+0JmWg?zsiHt~P;}j4wbxG`e}g
+zeG*T=ILOAJ%}wUI+61~7e+aS<aNNz^v`@lGn1cy8pO%2X;sla-Vot+nn1?foziMle
+ze$ndg+bab#w&?_vOI#bgf<JJ!QoYzuz(M#1Z(v`wV8(+cpc=$#5x<5KY<QGbgMkR1
+z!VfrV2P$-k37&vT5Z?`2m@gpm%Hq5LvTNR8ii5bCCZH1JTn5=iuOv<_6#Yc?-e8JD
+zaUk=~ft2vrMQj1S!%`AcPzT2)nmzD1ilSBdvM_3|QFj!Y(Y#_cxOfh0&}p3k9pZHq
+zj|GI<5aQcGT1D5XlWyKRGVY)?3qK_jKLXm_@JWuGOj^y-(xPak)wcL5M^5$y9c}wg
+z{Q^gf=(K6`Xi7$;Llc-Y7kUhN*<K@5DzG&^a#4oEd8wmw$Y@DBJ_mmDJaStDXidVh
+znM6E+w>Y#nGk*+dG#RaNO(5BZ1N5~M`sB>mdZ{n15v#+DbTqEOjCE$zL1Wrz#pi&P
+z!8r=DJJz|)9cuT)3Ta=`4D14ZwJd`Ur)@RWG_|Fn7oTqo+yE^`t<s>^vR}pbP)jH7
+z1gQ2+Kf>`4FbJ~uu(eO>jrAI-^G*e^^@ZoecwGYZX(rQK>zEf1=uj@qfb3ad+P^Ro
+z?t^}^RTzfgGlE#{sv%IWYCNb(JP9W893*$3ZCZru;5{1o;40`}kz!@aP5obyXauzs
+z(ciNv(A~(?YPaYsSKpHAyJLzC+Ri$Wf{mhjiQIxyZ~$6BH5OqCig1?~+$3#~{RP-=
+V^!Wvi6@dT%002ovPDHLkV1nA$Z599k
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/mipmap-hdpi/power_setting_background.png b/packages/SystemUI/res/mipmap-hdpi/power_setting_background.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..164f76efef05b1da3d7629acfece086f706a1bb5
+GIT binary patch
+literal 425
+zcmeAS@N?(olHy`uVBq!ia0vp^0U*r51|<6gKdl8)jKx9jP7LeL$-D%zlRaG=Ln;{G
+z-ZjiV6d>XDa2ad(_J9BHUq2hV;^p5Z-j15j)|_uua5?ws!>buN`LEyn{<qQY+-s|~
+zuWMt^6*u1g^=j9;)7x_I-`2nPeAh<X{F=`W3Gv_erR8q6so-z<x6?H3Ipdu9Ym0pz
+zm^A$R-1pG;E8lyIdwW?p47iTmVPbS^oDr>XKtrIIn?-^(DX)=XvBMc%fdr9`ovchf
+zOorPX8Uhubi49K0pCcdGNZ+$mE08`=xnUpBhgJ>KOV2icoqL_-*qfqy&c^GBdsMzZ
+cFO{(WY$!eN$?VVWz_4fVboFyt=akR{02?Z)!2kdN
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/SystemUI/res/values-zh-rCN/strings.xml b/packages/SystemUI/res/values-zh-rCN/strings.xml
+index 1a84933..c86c87f 100644
+--- a/packages/SystemUI/res/values-zh-rCN/strings.xml
++++ b/packages/SystemUI/res/values-zh-rCN/strings.xml
+@@ -846,4 +846,10 @@
+     <string name="notification_isolation">隔离模式</string>
+     <string name="notification_projection">投影</string>
+     <string name="notification_isolation_on">隔离模式</string>
++
++    <!--power-->
++    <string name="power_off">关机</string>
++    <string name="system_restart">重启</string>
++    <string name="system_sleep">睡眠</string>
++    <string name="system_lock">锁定</string>
+ </resources>
+diff --git a/packages/SystemUI/res/values/strings.xml b/packages/SystemUI/res/values/strings.xml
+index 771f798..46c880d 100644
+--- a/packages/SystemUI/res/values/strings.xml
++++ b/packages/SystemUI/res/values/strings.xml
+@@ -2129,4 +2129,10 @@
+     <string name="notification_isolation">isolation</string>
+     <string name="notification_projection">projection</string>
+     <string name="notification_isolation_on">isolation</string>
++
++    <!--power-->
++    <string name="power_off">Power off</string>
++    <string name="system_restart">Restart</string>
++    <string name="system_sleep">Sleep</string>
++    <string name="system_lock">Lock</string>
+ </resources>
+diff --git a/packages/SystemUI/res/values/styles.xml b/packages/SystemUI/res/values/styles.xml
+index 271d0b7..cd830d0 100644
+--- a/packages/SystemUI/res/values/styles.xml
++++ b/packages/SystemUI/res/values/styles.xml
+@@ -528,4 +528,16 @@
+         <item name="android:windowExitAnimation">@anim/dialog_exit</item>
+     </style>
+ 
++    <style name="PowerStyle">
++        <item name="android:gravity">center</item>
++        <item name="android:textColor">#ffffff</item>
++        <item name="android:textSize">14sp</item>
++        <item name="android:layout_width">wrap_content</item>
++        <item name="android:layout_height">wrap_content</item>
++        <item name="android:singleLine">true</item>
++        <item name="android:ellipsize">end</item>
++        <item name="android:layout_gravity">center_horizontal</item>
++        <item name="android:layout_marginTop">8dp</item>
++    </style>
++
+ </resources>
+diff --git a/packages/SystemUI/src/com/android/systemui/dialog/StartupMenuDialog.java b/packages/SystemUI/src/com/android/systemui/dialog/StartupMenuDialog.java
+index ae7c360..07087dd 100644
+--- a/packages/SystemUI/src/com/android/systemui/dialog/StartupMenuDialog.java
++++ b/packages/SystemUI/src/com/android/systemui/dialog/StartupMenuDialog.java
+@@ -25,6 +25,7 @@ import android.widget.TextView;
+ import android.widget.Toast;
+ 
+ import com.android.systemui.R;
++import com.android.systemui.power.PowerSourceActivity;
+ import com.android.systemui.sql.SqliteOpenHelper;
+ import com.android.systemui.sql.StartMenuDatabaseField;
+ import com.android.systemui.startupmenu.AppEntry;
+@@ -168,6 +169,10 @@ public class StartupMenuDialog extends BaseDialog
+                 break;
+             case R.id.power_off:
+                 Toast.makeText(getContext(), "打开电源", Toast.LENGTH_SHORT).show();
++                Intent intent = new Intent(getContext(), PowerSourceActivity.class);
++                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
++                        | Intent.FLAG_ACTIVITY_NO_ANIMATION);
++                getContext().startActivity(intent);
+                 dismiss();
+                 break;
+             case R.id.sort_click_layout:
+diff --git a/packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java b/packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java
+new file mode 100644
+index 0000000..499c381
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/power/PowerSourceActivity.java
+@@ -0,0 +1,168 @@
++package com.android.systemui.power;
++
++import android.app.Activity;
++import android.content.Context;
++import android.content.Intent;
++import android.os.Bundle;
++import android.os.PowerManager;
++import android.view.MotionEvent;
++import android.view.View;
++import android.widget.ImageView;
++import android.widget.LinearLayout;
++
++import com.android.systemui.R;
++
++import java.lang.reflect.Method;
++
++public class PowerSourceActivity extends Activity implements View.OnClickListener {
++
++    private static final int WAIT_INTERVAL = 1000; // wait for 1 second.
++    private LinearLayout mPowerOff;
++    private LinearLayout mPowerSleep;
++    private LinearLayout mPowerLock;
++    private LinearLayout mPowerRestart;
++    private ImageView mPowerClose;
++
++    @Override
++    protected void onCreate(Bundle context) {
++        super.onCreate(context);
++        setContentView(R.layout.activity_power_source);
++
++        initView();
++        initListener();
++
++        hideStatusBar();
++        shutDownHideStatusBar();
++    }
++
++    private void initView() {
++        mPowerClose = (ImageView) findViewById(R.id.power_close);
++        mPowerOff = (LinearLayout) findViewById(R.id.power_off);
++        mPowerSleep = (LinearLayout) findViewById(R.id.power_sleep);
++        mPowerLock = (LinearLayout) findViewById(R.id.power_lock);
++        mPowerRestart = (LinearLayout) findViewById(R.id.power_restart);
++    }
++
++    private void initListener() {
++        mPowerClose.setOnClickListener(this);
++        mPowerOff.setOnClickListener(this);
++        mPowerSleep.setOnClickListener(this);
++        mPowerLock.setOnClickListener(this);
++        mPowerRestart.setOnClickListener(this);
++
++        mPowerClose.setOnHoverListener(mHoverListener);
++        mPowerOff.setOnHoverListener(mHoverListener);
++        mPowerSleep.setOnHoverListener(mHoverListener);
++        mPowerLock.setOnHoverListener(mHoverListener);
++        mPowerRestart.setOnHoverListener(mHoverListener);
++
++        mPowerClose.setOnFocusChangeListener(mFocuschangelistener);
++        mPowerOff.setOnFocusChangeListener(mFocuschangelistener);
++        mPowerSleep.setOnFocusChangeListener(mFocuschangelistener);
++        mPowerLock.setOnFocusChangeListener(mFocuschangelistener);
++        mPowerRestart.setOnFocusChangeListener(mFocuschangelistener);
++    }
++
++    View.OnFocusChangeListener mFocuschangelistener = new View.OnFocusChangeListener() {
++        public void onFocusChange(View v, boolean hasFocus) {
++            if (hasFocus) {
++                v.setBackgroundResource(R.mipmap.power_setting_background);
++            } else {
++                v.setBackgroundColor(getResources().getColor(android.R.color.transparent));
++            }
++        }
++    };
++
++    View.OnHoverListener mHoverListener = new View.OnHoverListener() {
++        public boolean onHover(View v, MotionEvent event) {
++            int action = event.getAction();
++            switch (action) {
++                case MotionEvent.ACTION_HOVER_ENTER:
++                    v.setBackgroundResource(R.mipmap.power_setting_background);
++                    break;
++                case MotionEvent.ACTION_HOVER_EXIT:
++                    v.setBackgroundColor(getResources().getColor(android.R.color.transparent));
++                    break;
++            }
++            return false;
++        }
++    };
++
++    private void finishStatusbarPowerLayout() {
++    }
++
++    private void showStatusBar() {
++    }
++
++    private void hideStatusBar() {
++    }
++
++    private void shutDownHideStatusBar() {
++    }
++
++    private void closeButtonShowStatusBar() {
++    }
++
++    private void waitForAWhile() {
++        try {
++            Thread.sleep(WAIT_INTERVAL);
++        } catch (Exception e) {
++            e.printStackTrace();
++        }
++    }
++
++    @Override
++    public void onClick(View v) {
++        showStatusBar();
++        switch (v.getId()) {
++            case R.id.power_off:
++//                try {
++//                    Class<?> ServiceManager = Class.forName("android.os.ServiceManager");
++//                    Method getService =
++//                            ServiceManager.getMethod("getService", java.lang.String.class);
++//                    Object oRemoteService =
++//                            getService.invoke(null, Context.POWER_SERVICE);
++//                    Class<?> cStub =
++//                            Class.forName("android.os.IPowerManager$Stub");
++//                    Method asInterface =
++//                            cStub.getMethod("asInterface", android.os.IBinder.class);
++//                    Object oIPowerManager =
++//                            asInterface.invoke(null, oRemoteService);
++//                    Method shutdown =
++//                            oIPowerManager.getClass().getMethod("shutdown",
++//                                    boolean.class, boolean.class);
++//                    shutdown.invoke(oIPowerManager, false, true);
++//                    //Runtime.getRuntime().exec("su -c \"/system/xbin/poweroff\"");
++//                } catch (Exception e) {
++//                }
++
++                Intent intent = new Intent(Intent.ACTION_REQUEST_SHUTDOWN);
++                intent.putExtra(Intent.EXTRA_KEY_CONFIRM, false);
++                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
++                startActivity(intent);
++                finish();
++                break;
++            case R.id.power_restart:
++                PowerManager pm = (PowerManager) this.getSystemService(Context.POWER_SERVICE);
++                pm.reboot("true");
++                //Runtime.getRuntime().exec("su -c \"/system/bin/reboot\"");
++                break;
++            case R.id.power_lock:
++//                closeButtonShowStatusBar();
++//                Intent intentLock = new Intent("android.intent.action.LOCKNOW");
++//                intentLock.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
++//                        | Intent.FLAG_ACTIVITY_CLEAR_TASK);
++//                startActivity(intentLock);
++                finish();
++                break;
++            case R.id.power_sleep:
++                closeButtonShowStatusBar();
++                finishStatusbarPowerLayout();
++                finish();
++                break;
++            case R.id.power_close:
++                closeButtonShowStatusBar();
++                finish();
++        }
++    }
++}
+-- 
+2.7.4
+
