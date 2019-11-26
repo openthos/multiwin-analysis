@@ -3,6 +3,8 @@
 # 效果图
   ![](https://github.com/openthos/multiwin-analysis/blob/master/seafile/icon/icon_all.jpg)
 # 功能需求
+  - 登录页面
+    - 修改原有的登录页面ui以及逻辑
   - 文件
   - 最近
     - 展示最近打开的文件
