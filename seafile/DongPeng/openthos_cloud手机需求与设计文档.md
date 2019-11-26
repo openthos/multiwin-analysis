@@ -1,7 +1,7 @@
 # OPENTHOS cloud 手机版需求与设计文档
   - openthos云 手机版设计继续沿用seafile原有逻辑，在保留文件所有的功能之外，添加了最近，传输，我的三大模块 
 # 效果图
-
+  ![](https://github.com/openthos/multiwin-analysis/blob/master/seafile/icon/icon_all.jpg)
 # 功能需求
   - 最近
   - 传输
