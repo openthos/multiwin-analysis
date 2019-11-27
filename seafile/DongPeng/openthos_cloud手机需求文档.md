@@ -4,7 +4,10 @@
   ![](https://github.com/openthos/multiwin-analysis/blob/master/seafile/icon/icon_all.jpg)
 # 功能需求
   - 登录页面
-    - 修改原有的登录页面ui以及逻辑 最终的效果如上图⑥⑦
+    - ![](https://github.com/openthos/multiwin-analysis/blob/master/seafile/icon/login3.jpg)
+    - 保持左对齐
+    - 只保留账号和密码输入
+    - 登录按钮右对齐调整
   - 文件图②
     - 保留原seafile逻辑
   - 最近
