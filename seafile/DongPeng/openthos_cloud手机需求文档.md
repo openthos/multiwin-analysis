@@ -1,7 +1,6 @@
 # OPENTHOS cloud 手机版需求文档
   - openthos云 手机版设计继续沿用seafile原有逻辑，在保留文件所有的功能之外，添加" 了最近，传输，我的 "三大模块 
 # 效果图
-  ![](https://github.com/openthos/multiwin-analysis/blob/master/seafile/icon/icon_all.jpg)
 # 功能需求
   - 登录页面
     - ![](https://github.com/openthos/multiwin-analysis/blob/master/seafile/icon/login3.jpg)
