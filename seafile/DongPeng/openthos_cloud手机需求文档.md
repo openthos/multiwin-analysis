@@ -5,8 +5,8 @@
 # 功能需求
   - 登录页面
     - ![](https://github.com/openthos/multiwin-analysis/blob/master/seafile/icon/login3.jpg)
-    - 保持左对齐
-    - 只保留账号和密码输入
+    - 登录页面整体的格式为左对齐
+    - 只保留账号和密码输入框
     - 登录按钮右对齐调整
   - 文件图②
     - 保留原seafile逻辑
