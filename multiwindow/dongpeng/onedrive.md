@@ -16,8 +16,27 @@
 # 功能设计
 ### 登录
 
-### 客户端
-### 服务端
+### [客户端](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/%E5%AE%A2%E6%88%B7%E7%AB%AF.md)
+### [服务端](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/%E6%9C%8D%E5%8A%A1%E7%AB%AF.md)
 
 # OneDrive --> andorid可行性分析
+|OneDrive功能|andorid实现方式|可行性|
+|---|---|---|
+|登录|登录|√|
+|文件共享|文件共享|√|
+|登录|登录|√|
+|文件共享|文件共享|√|
+|登录|登录|√|
+|文件共享|文件共享|√|
+|登录|登录|√|
+|文件共享|文件共享|√|
+|登录|登录|√|
+|文件共享|文件共享|√|
+|登录|登录|√|
+|文件共享|文件共享|√|
+|登录|登录|√|
+|文件共享|文件共享|√|
+
+
+
 
