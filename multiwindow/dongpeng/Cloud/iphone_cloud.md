@@ -16,7 +16,7 @@
 # 功能需求
 ### [登录](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/Cloud/%E7%99%BB%E5%BD%95.md)
 ### [客户端](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/Cloud/%E5%AE%A2%E6%88%B7%E7%AB%AF.md)
-### [服务端](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/Nuts/%E4%BA%91%E7%AB%AF.md)
+### [服务端](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/Cloud/%E4%BA%91%E7%AB%AF.md)
 ### OneDrive --> andorid可行性分析
 |OneDrive功能|andorid|可行性|
 |---|---|---|
