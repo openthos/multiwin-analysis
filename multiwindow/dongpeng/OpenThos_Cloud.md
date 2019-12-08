@@ -14,6 +14,7 @@
 ![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_img/openthos_cloud_login.png)
   - 账户登录功能
 # 主页面
+![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_img/openthos_cloud_home.png)
   - 文件
     - 文件默认查看
     - 文件常规功能
