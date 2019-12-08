@@ -12,14 +12,14 @@
 
 # 登录
 ![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_img/openthos_cloud_login.png)
-  - 账户登录功能
+  - 账户和密码的正确与错误，是与dev.openthos.org服务器校验的
 # 主页面
 ![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_img/openthos_cloud_home.png)
   - 文件
-    - 文件 文件夹数据来自远端
+    - 文件 文件夹数据来自openthos服务器数据
     - 文件常规功能
-      - 下载
-      -  删除
+      - 下载：将其添加到下载列表中，并进行下载。
+      -  删除： 删除此library&云端，的文件，并保持同步
   - 传输
     - 下载中 
       - 下载标识符
