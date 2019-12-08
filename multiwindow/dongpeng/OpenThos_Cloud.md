@@ -9,6 +9,9 @@
 |---|---|
 |登录|登录页面内置一个网址，不在展示，账户和密码均来自openthos 账户联名登录|
 |主页面|原有功能只有文件一个library,扩展功能为：文件，传输，我的三个模块|
+|文件|从云端获取数据，分为个人，公共资源， 共享|
+|传输|从项目中的下载集合，和上传集合中获取数据，分为全部传输数据，传输中， 传输失败，传输暂停|
+|我的|提供了注销账户，账户名展示，可用空间展示|
 
 # 登录
 ![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_img/openthos_cloud_login.png)
