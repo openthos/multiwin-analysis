@@ -1,4 +1,4 @@
-# 坚果云 需求分析
+# iCloud 需求分析
   - 介绍
   - 测试环境
   - 功能需求
@@ -8,10 +8,9 @@
   - 坚果云 --> andorid可行性分析
 
 # 介绍
-  - 坚果云是上海亦存网络科技有限公司推出的一款便捷，安全的专业网盘产品, 不仅支持文件自动同步，共享，备份功能提高了办公效率。还是微软加速器云存储合作伙伴，IBM全球企业扶持的计划成员，同时还支持不同系统如：windows,
-  mac,ios,linux, android, web, windows phone,web 7大系统上的使用。 本次测试的是windows.
+  - iCloud 是苹果公司推出的私有云空间，意在使用者在不同的设备间，通过无线网络推送到用户手中的每个设备上，支持的设备有：iphone、ipod touch、 iPad、mac、网页版；本次测试iphone max +window网页版
 # 测试环境
-  - windows 10 + 坚果云5.1.4 
+  - iphone 13.1.3 + window10网页面
 
 # 功能需求
 ### [登录](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/Cloud/%E7%99%BB%E5%BD%95.md)
