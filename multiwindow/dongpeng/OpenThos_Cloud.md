@@ -11,9 +11,9 @@
 |主页面|原有功能只有文件一个library,扩展功能为：文件，传输，我的三个模块|
 
 # 登录
+![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_img/openthos_cloud_login.png)
   - 账户登录功能
 # 主页面
-![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_img/openthos_cloud_login.png)
   - 文件
     - 文件默认查看
     - 文件常规功能
