@@ -12,7 +12,7 @@
 
 # 登录
 ![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_img/openthos_cloud_login.png)
-  - 账户和密码的正确与错误，是与dev.openthos.org服务器校验的
+  - 账户和密码的正确与错误，现阶段是与内网192.168.0.158服务器校验的，默认外网为dev.openthos.org
 # 主页面
 ![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_img/openthos_cloud_home.png)
   - 文件
