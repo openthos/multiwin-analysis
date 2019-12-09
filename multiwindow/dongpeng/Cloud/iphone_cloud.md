@@ -13,13 +13,13 @@
   -  window 10 + icound7.15 + iphone13.1.3
 
 # 功能需求
-![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/iCloud/icoud_icon/icound_icon.png)
+![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/iCloud/icoud_icon/icound_icon.png)![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/iCloud/icoud_icon/browser_home_icon.png)
 
 |功能|描述|
 |---|---|
 |登陆|使用icound 手机，邮箱注册，|
-|window10 icoud客户端|文件路径默认选择|
-|iphone|客户端数据结构展示|
+|window10 icoud客户端|多是一些配置选项，没有增删改的操作，|
+|iphone|手机的上的照片，通讯录等根据设置中开启云服务后会自动上传云端|
 |网页||
 
 
