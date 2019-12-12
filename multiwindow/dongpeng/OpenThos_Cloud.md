@@ -21,13 +21,14 @@
 ![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_img/openthos_cloud_login.png)
   - 账户和密码的正确与错误，现阶段是与内网192.168.0.158服务器校验的，默认外网为dev.openthos.org
 # 主页面
-![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_img/openthos_cloud_home.png)
   - 文件
+    - ![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_img/openthos_cloud_home.png)
     - 文件 文件夹数据来自openthos服务器数据
     - 文件常规功能
       - 下载：将其添加到下载列表中，并进行下载。
       -  删除： 删除此library&云端，的文件，并保持同步
   - 传输：打开此library 自动获取下载&上传列表中的数据并展示
+    - ![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_img/openthos_transs_icon.png)
     - 下载中 ： 
       - 下载标识符
       - 暂停开始按钮
@@ -39,6 +40,7 @@
     - 已经完成 
       - 文件删除功能
   - 我的
+    - ![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_img/openthos_account.png)
     - 展示网盘使用量
     - 账户名称
     - 注销账户
