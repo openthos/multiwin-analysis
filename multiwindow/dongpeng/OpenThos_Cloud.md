@@ -6,7 +6,9 @@
 # 介绍
   - openthos云是基于seafile实现的一个网盘存储app，在保留seafile主页面功能同时，对其部分功能进行了拆分和扩展，提高用户使用习惯
 # 功能需求
+  - 项目功能图
 ![](https://github.com/openthos/multiwin-analysis/blob/master/multiwindow/dongpeng/seafile_img/openthos_xmind_icon.png)
+
 |功能模块|描述|
 |---|---|
 |登录|登录页面内置一个网址，不在展示，账户和密码均来自openthos 账户联名登录|
