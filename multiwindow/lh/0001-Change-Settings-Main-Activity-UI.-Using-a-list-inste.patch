@@ -1,0 +1,1374 @@
+From 5ef8ad010e90f04936306eadb04e6fdf366843e0 Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Thu, 11 Jun 2020 08:41:18 +0000
+Subject: [PATCH] Change Settings Main Activity UI. Using a list instead
+ homepage to show all entry.
+
+Using a Extra to mark Settings Page activity.
+
+Also update resources and icon.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ res/drawable/ic_apps.png                           | Bin 0 -> 627 bytes
+ res/drawable/ic_apps.xml                           |  30 -----------
+ res/drawable/ic_devices_other.png                  | Bin 0 -> 312 bytes
+ res/drawable/ic_devices_other.xml                  |  32 ------------
+ res/drawable/ic_settings_about.png                 | Bin 0 -> 723 bytes
+ res/drawable/ic_settings_about.xml                 |  31 ------------
+ res/drawable/ic_settings_accessibility.png         | Bin 0 -> 434 bytes
+ res/drawable/ic_settings_accessibility.xml         |  25 ----------
+ res/drawable/ic_settings_accounts.png              | Bin 0 -> 670 bytes
+ res/drawable/ic_settings_accounts.xml              |  29 -----------
+ res/drawable/ic_settings_applications.png          | Bin 0 -> 745 bytes
+ res/drawable/ic_settings_applications.xml          |  25 ----------
+ res/drawable/ic_settings_battery.png               | Bin 0 -> 314 bytes
+ res/drawable/ic_settings_battery.xml               |  25 ----------
+ res/drawable/ic_settings_display.png               | Bin 0 -> 894 bytes
+ res/drawable/ic_settings_display.xml               |  28 -----------
+ res/drawable/ic_settings_security.png              | Bin 0 -> 602 bytes
+ res/drawable/ic_settings_security.xml              |  25 ----------
+ res/drawable/ic_settings_sound.png                 | Bin 0 -> 1079 bytes
+ res/drawable/ic_settings_sound.xml                 |  30 -----------
+ res/drawable/ic_settings_storage.png               | Bin 0 -> 414 bytes
+ res/drawable/ic_settings_storage.xml               |  25 ----------
+ res/drawable/ic_settings_wireless.png              | Bin 0 -> 1021 bytes
+ res/drawable/ic_settings_wireless.xml              |  25 ----------
+ res/layout/dashboard.xml                           |  33 ++++++++-----
+ res/layout/dashboard_tile.xml                      |  11 +++--
+ res/layout/search_panel.xml                        |   1 +
+ res/layout/settings_main_dashboard.xml             |   1 +
+ res/res/drawable/googleg_light_color_24_white.png  | Bin 0 -> 704 bytes
+ res/res/drawable/ic_apps_white.png                 | Bin 0 -> 500 bytes
+ res/res/drawable/ic_devices_other_white.png        | Bin 0 -> 289 bytes
+ res/res/drawable/ic_settings_about_white.png       | Bin 0 -> 527 bytes
+ .../drawable/ic_settings_accessibility_white.png   | Bin 0 -> 277 bytes
+ res/res/drawable/ic_settings_accounts_white.png    | Bin 0 -> 441 bytes
+ .../drawable/ic_settings_applications_white.png    | Bin 0 -> 507 bytes
+ res/res/drawable/ic_settings_battery_white.png     | Bin 0 -> 291 bytes
+ res/res/drawable/ic_settings_display_white.png     | Bin 0 -> 629 bytes
+ res/res/drawable/ic_settings_security_white.png    | Bin 0 -> 412 bytes
+ res/res/drawable/ic_settings_sound_white.png       | Bin 0 -> 831 bytes
+ res/res/drawable/ic_settings_storage_white.png     | Bin 0 -> 348 bytes
+ res/res/drawable/ic_settings_wireless_white.png    | Bin 0 -> 682 bytes
+ src/com/android/settings/SettingsActivity.java     |  55 +++++++++++++++++++++
+ .../settings/dashboard/DashboardAdapter.java       |  45 +++++++++++++++--
+ .../android/settings/dashboard/DashboardData.java  |   5 +-
+ .../dashboard/DashboardFeatureProviderImpl.java    |   3 +-
+ .../dashboard/conditional/FocusRecyclerView.java   |   4 ++
+ 46 files changed, 137 insertions(+), 351 deletions(-)
+ create mode 100644 res/drawable/ic_apps.png
+ delete mode 100644 res/drawable/ic_apps.xml
+ create mode 100644 res/drawable/ic_devices_other.png
+ delete mode 100644 res/drawable/ic_devices_other.xml
+ create mode 100644 res/drawable/ic_settings_about.png
+ delete mode 100644 res/drawable/ic_settings_about.xml
+ create mode 100644 res/drawable/ic_settings_accessibility.png
+ delete mode 100644 res/drawable/ic_settings_accessibility.xml
+ create mode 100644 res/drawable/ic_settings_accounts.png
+ delete mode 100644 res/drawable/ic_settings_accounts.xml
+ create mode 100644 res/drawable/ic_settings_applications.png
+ delete mode 100644 res/drawable/ic_settings_applications.xml
+ create mode 100644 res/drawable/ic_settings_battery.png
+ delete mode 100644 res/drawable/ic_settings_battery.xml
+ create mode 100644 res/drawable/ic_settings_display.png
+ delete mode 100644 res/drawable/ic_settings_display.xml
+ create mode 100644 res/drawable/ic_settings_security.png
+ delete mode 100644 res/drawable/ic_settings_security.xml
+ create mode 100644 res/drawable/ic_settings_sound.png
+ delete mode 100644 res/drawable/ic_settings_sound.xml
+ create mode 100644 res/drawable/ic_settings_storage.png
+ delete mode 100644 res/drawable/ic_settings_storage.xml
+ create mode 100644 res/drawable/ic_settings_wireless.png
+ delete mode 100644 res/drawable/ic_settings_wireless.xml
+ create mode 100644 res/res/drawable/googleg_light_color_24_white.png
+ create mode 100644 res/res/drawable/ic_apps_white.png
+ create mode 100644 res/res/drawable/ic_devices_other_white.png
+ create mode 100644 res/res/drawable/ic_settings_about_white.png
+ create mode 100644 res/res/drawable/ic_settings_accessibility_white.png
+ create mode 100644 res/res/drawable/ic_settings_accounts_white.png
+ create mode 100644 res/res/drawable/ic_settings_applications_white.png
+ create mode 100644 res/res/drawable/ic_settings_battery_white.png
+ create mode 100644 res/res/drawable/ic_settings_display_white.png
+ create mode 100644 res/res/drawable/ic_settings_security_white.png
+ create mode 100644 res/res/drawable/ic_settings_sound_white.png
+ create mode 100644 res/res/drawable/ic_settings_storage_white.png
+ create mode 100644 res/res/drawable/ic_settings_wireless_white.png
+
+diff --git a/res/drawable/ic_apps.png b/res/drawable/ic_apps.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..5b5b5b27908c058420ba2d1fa2001bace939381a
+GIT binary patch
+literal 627
+zcmV-(0*w8MP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px%ElET{R9Fe^mOV&YQ545tUcL}5l!B3fNIpt}%@Pn?92}*Cv!f1vfs=G-9hA1S
+zL$|6^7Qs;$heC%Iiy)mUf&}yBkbvM2BvKPzp1&(E@C<or-c9`&-i5<C@7&yT{`}85
+z_eN2i<uKqd@P8O^nZtxaA>I7_(6*|opR(EP$3`BtVLS)zfU&BA$7-WP|Dns}`ps`|
+zkT~*I*LCTbQU?KWL(-{yKEG!M9gD>x)oS${zNp#XsVxiULoS!w3x~s#fLbA050kN#
+zPN%;{qtSUy)4q2K!2COz(bj!FU%>12{;gCh7XpY8upSHs`-EL8m97n6Th%<;wwa+s
+zTCG;wr5wFvY5-C2U-|w1TCrFhXp5lDrfo1rgN~VE?qe5_l<)y^U1*tQ8%%Q&O7@Ok
+zITe0rpFvFuTV{2A=~1#DJR>JG^J*rONx9wb34lmFD>7g%>5rczykmp11+d?sKLcnK
+zK)={Oek^7#80&EoPB$mS=Mz4F-Rb82e|^g^Gt6D`8bC(`|AJ^j=$B1i;DbmcGQ@Wb
+zvAtx#DD`@MCmxT#;09i%U-~>APcJ|glgZ>uSlI@JR9vZPBH;)ld<F{}g+k#3R#f^W
+zQ7)Gk*z31ViE%&*j5tfu0J0`*u79DrUQ%>+oz)_M1IB_F<zCM)9rs>wt3xt=W8{~Z
+z#97Y2Y8B(r%EaiOBk%c}G05dOhx};;=*fJEM4}}_PX@?I>@d&`1Gl`&w)M=jt@8i?
+N002ovPDHLkV1h%*9TETl
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/drawable/ic_apps.xml b/res/drawable/ic_apps.xml
+deleted file mode 100644
+index 9f00141..0000000
+--- a/res/drawable/ic_apps.xml
++++ /dev/null
+@@ -1,30 +0,0 @@
+-<!--
+-    Copyright (C) 2017 The Android Open Source Project
+-
+-    Licensed under the Apache License, Version 2.0 (the "License");
+-    you may not use this file except in compliance with the License.
+-    You may obtain a copy of the License at
+-
+-         http://www.apache.org/licenses/LICENSE-2.0
+-
+-    Unless required by applicable law or agreed to in writing, software
+-    distributed under the License is distributed on an "AS IS" BASIS,
+-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-    See the License for the specific language governing permissions and
+-    limitations under the License.
+--->
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-        android:width="24dp"
+-        android:height="24dp"
+-        android:viewportWidth="24.0"
+-        android:viewportHeight="24.0"
+-        android:tint="?android:attr/colorControlNormal">
+-    <path
+-        android:pathData="M6 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6 12c1.1 0 2-.9 2-2s-.9-2-2-2-2
+-.9-2 2 .9 2 2 2zm-6 0c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0-6c1.1 0 2-.9
+-2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6 0c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2
+-2zm4-8c0 1.1 .9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zm-4 2c1.1 0 2-.9
+-2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6 6c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2
+-2zm0 6c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"
+-        android:fillColor="#FFFFFFFF"/>
+-</vector>
+diff --git a/res/drawable/ic_devices_other.png b/res/drawable/ic_devices_other.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..e7a570e2a988d6ff0a1d3e1bbdafbd322169bd64
+GIT binary patch
+literal 312
+zcmV-80muG{P)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px#@<~KNR9Fe^R#6UvAPg0<gAgt<uf^B!hdX#14q}WaVWZ1PI<Z7Z+%%~_w6BCd
+zo)p@3{ILRc3J5%1Yi+TAv@NCd(=_>%=avi@LkJJ-|H$?!&led0Bimt~XPYJ*H7cc^
+z>$T+?_@~cgDD_#HODL0-HpLp_&bhk~qQ@AvjWGlE_u5TlfJnR`Z6Qe$89u<2qNh@(
+z`pm$aGL9p)xi|iKckHq(RcGf^$}kz~AG0!)GFdf2>lv#dYd>2%z^#sM7a2%MO@!u|
+zik0x1HAQKmtyslQ`JUMlunFVRrew=Xo0^Dli|mr=OF@oZR)H7D@G%<nD|EB~0000<
+KMNUMnLSTYz1A|fk
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/drawable/ic_devices_other.xml b/res/drawable/ic_devices_other.xml
+deleted file mode 100644
+index b22e483..0000000
+--- a/res/drawable/ic_devices_other.xml
++++ /dev/null
+@@ -1,32 +0,0 @@
+-<!--
+-    Copyright (C) 2017 The Android Open Source Project
+-
+-    Licensed under the Apache License, Version 2.0 (the "License");
+-    you may not use this file except in compliance with the License.
+-    You may obtain a copy of the License at
+-
+-         http://www.apache.org/licenses/LICENSE-2.0
+-
+-    Unless required by applicable law or agreed to in writing, software
+-    distributed under the License is distributed on an "AS IS" BASIS,
+-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-    See the License for the specific language governing permissions and
+-    limitations under the License.
+--->
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-        android:width="24dp"
+-        android:height="24dp"
+-        android:viewportWidth="24.0"
+-        android:viewportHeight="24.0"
+-        android:tint="?android:attr/colorControlNormal">
+-    <path
+-        android:fillColor="#FFFFFFFF"
+-        android:pathData="M3,6h17c0.55,0,1-0.45,1-1v0c0-0.55-0.45-1-1-1H3C1.9,4,1,4.9,1,6v12c0,1.1,0.9,2,2,2h3c0.55,0,1-0.45,1-1v0
+-        c0-0.55-0.45-1-1-1H3V6z
+-        M13,12H9v1.78C8.39,14.33,8,15.11,8,16c0,0.89,0.39,1.67,1,2.22V20h4v-1.78c0.61-0.55,1-1.34,1-2.22
+-        s-0.39-1.67-1-2.22V12z
+-        M11,17.5c-0.83,0-1.5-0.67-1.5-1.5s0.67-1.5,1.5-1.5s1.5,0.67,1.5,1.5S11.83,17.5,11,17.5z
+-        M22,8h-6
+-        c-0.5,0-1,0.5-1,1v10c0,0.5,0.5,1,1,1h6c0.5,0,1-0.5,1-1V9C23,8.5,22.5,8,22,8z
+-        M21,18h-4v-8h4V18z" />
+-</vector>
+diff --git a/res/drawable/ic_settings_about.png b/res/drawable/ic_settings_about.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..864588bdf1fb69399dbc7aa3e07c1c546b537c4f
+GIT binary patch
+literal 723
+zcmV;^0xbQBP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px%jY&j7R9Fe^S4~R-Q51F57$XQ&f<86_${^SesBO!rMeQPJ9RyLW+C=pS`Uyen
+zRzZt)eGpV2L5oOK)K%Cbloq1-)wwa5%-r{8#IZ&A;Ng4cop<k<JNLc0dOU+Rh(LD{
+zP`ac4vLlhmbgR|U(I?SIuu@PI<<;l&J!CSOk6)(qQCDJgU7xDeYCCYg3>O;b27*3;
+zU!ospv)NP3TO5zW9EpiWqiVfg--m%M^kL2rhe1dJk=jJ0?znX`<}(B4c|0B;uU4xU
+zz*o?R%<DFDdWCDjV6adsl^$)l9;p}-QZAS8VPx9QkYt^FEQUg%&tkE7E8&U7(5o>b
+z(u<I`Z$xM=91cH0P_hl0242&=JvDM<rVR)N$ct;Q*Lx^f?u3<Qvw4Dt9P0!-$E+AS
+zH6T&4+BS%}!l^m1C4zwHj5ZpLJrS2ZO`4`1VZ*j)Q!hBg*Hl%VNG6l-W;<+TKw2^r
+z-I^mhLzPNpfwN~3LpLjk8b@{uLv$87TNW`;u5&~YM#-Dc=h@dS+5?>R!HJoa7;$9@
+z56t@D#L!2t-;MQQ5d#&4ek&3Au!uo&z5an1)`vw5)gur@Wk5gM4QJdU#wd)a9_d^2
+z`~7E}af=v(bj*=m!k*LV^aE#$6=PIr32sBL81AKAqyby~2`?*rU1#x8yQb^AR{=l!
+zA>urj%dxjFaoEVvf>A1N(AcH+g2S;Yvn8$cs8pm14bho{5n&W%4ve*zKp-%mN~PXp
+zT&Wn^NTniGXc*3;tAusa=+)r#*a{(=j-Qq)G@~$DcbG@dl&m-m=T5~t7V~2;7K??c
+z9>Eh+B7Xmg!|(T>IQ-JhdPDaJ9beI@0cX$#5%_-*_yQX6(ihogL@EFP002ovPDHLk
+FV1i98MFju=
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/drawable/ic_settings_about.xml b/res/drawable/ic_settings_about.xml
+deleted file mode 100644
+index 887fca6..0000000
+--- a/res/drawable/ic_settings_about.xml
++++ /dev/null
+@@ -1,31 +0,0 @@
+-<!--
+-    Copyright (C) 2016 The Android Open Source Project
+-
+-    Licensed under the Apache License, Version 2.0 (the "License");
+-    you may not use this file except in compliance with the License.
+-    You may obtain a copy of the License at
+-
+-         http://www.apache.org/licenses/LICENSE-2.0
+-
+-    Unless required by applicable law or agreed to in writing, software
+-    distributed under the License is distributed on an "AS IS" BASIS,
+-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-    See the License for the specific language governing permissions and
+-    limitations under the License.
+--->
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-        android:width="24.0dp"
+-        android:height="24.0dp"
+-        android:viewportWidth="24.0"
+-        android:viewportHeight="24.0"
+-        android:tint="?android:attr/colorControlNormal">
+-    <path
+-        android:fillColor="#FF000000"
+-        android:pathData="M12,17L12,17c0.55,0 1,-0.45 1,-1v-4c0,-0.55 -0.45,-1 -1,-1l0,0c-0.55,0 -1,0.45 -1,1v4C11,16.55 11.45,17 12,17z"/>
+-    <path
+-        android:fillColor="#FF000000"
+-        android:pathData="M12,2c-5.52,0 -10,4.48 -10,10s4.48,10 10,10s10,-4.48 10,-10S17.52,2 12,2zM12,20c-4.41,0 -8,-3.59 -8,-8s3.59,-8 8,-8s8,3.59 8,8S16.41,20 12,20z"/>
+-    <path
+-        android:fillColor="#FF000000"
+-        android:pathData="M12,9.1L12,9.1c0.61,0 1.1,-0.49 1.1,-1.1l0,0c0,-0.61 -0.49,-1.1 -1.1,-1.1l0,0c-0.61,0 -1.1,0.49 -1.1,1.1l0,0C10.9,8.61 11.39,9.1 12,9.1z"/>
+-</vector>
+diff --git a/res/drawable/ic_settings_accessibility.png b/res/drawable/ic_settings_accessibility.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..d64097a2554d7394cd2001536a9293d836e4dcb6
+GIT binary patch
+literal 434
+zcmV;j0ZsmiP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px$Y)M2xR9FdPU>F6XAut*O)CmDbLdGa5DVhHJ_iq9tBctB`|Nk#BF)<a~yLaz2
+zK7HES+HBvye{TZnivy_x>RH6e$ys;x>eXNP^fBX;)YR0J{Qdj)37{HPAZ7z%S)hYL
+zB_$;ny?OKI3ogC9yu7VIhm-^5c|jPc$L8<fzijW{zu$vP4@jH|pX84pKYW4m0%&Rk
+zpyFu42reu{5F!i=*u;?KL2SH^L03#`K3>OgaByq}I^YAEBR)XI(S#9PP#Qt-AS`TR
+z=xXq$8Bn?q5)#@6jB{;Z0u}^nJ_9r~`u6SHH_;73=1WOQ9Rj5hpgv`w_!pp_X`lrB
+z`t|F-$m&MfLox(L3q4%XhBs@E7J9gXZM4wC6*8mZgCztA7JB43lqM}bavTEELz9*s
+zxsJiss>3FRZa&@;7+o=~`8071wpJZBF?7$dpbJog4{Fr`yDIQTILIL&F>07SYQ|^?
+c4B8L?0HQ+XU?GOADgXcg07*qoM6N<$f|BI4Q2+n{
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/drawable/ic_settings_accessibility.xml b/res/drawable/ic_settings_accessibility.xml
+deleted file mode 100644
+index 4cf5182..0000000
+--- a/res/drawable/ic_settings_accessibility.xml
++++ /dev/null
+@@ -1,25 +0,0 @@
+-<!--
+-    Copyright (C) 2016 The Android Open Source Project
+-
+-    Licensed under the Apache License, Version 2.0 (the "License");
+-    you may not use this file except in compliance with the License.
+-    You may obtain a copy of the License at
+-
+-         http://www.apache.org/licenses/LICENSE-2.0
+-
+-    Unless required by applicable law or agreed to in writing, software
+-    distributed under the License is distributed on an "AS IS" BASIS,
+-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-    See the License for the specific language governing permissions and
+-    limitations under the License.
+--->
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-        android:width="24.0dp"
+-        android:height="24.0dp"
+-        android:viewportWidth="24.0"
+-        android:viewportHeight="24.0"
+-        android:tint="?android:attr/colorControlNormal">
+-    <path
+-        android:fillColor="#FFFFFFFF"
+-        android:pathData="M20.75,6.99c-0.14,-0.55 -0.69,-0.87 -1.24,-0.75C17.13,6.77 14.48,7 12,7S6.87,6.77 4.49,6.24c-0.55,-0.12 -1.1,0.2 -1.24,0.75l0,0C3.11,7.55 3.45,8.12 4,8.25C5.61,8.61 7.35,8.86 9,9v12c0,0.55 0.45,1 1,1h0c0.55,0 1,-0.45 1,-1v-5h2v5c0,0.55 0.45,1 1,1h0c0.55,0 1,-0.45 1,-1V9c1.65,-0.14 3.39,-0.39 5,-0.75C20.55,8.12 20.89,7.55 20.75,6.99L20.75,6.99zM12,6c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2s-2,0.9 -2,2S10.9,6 12,6z"/>
+-</vector>
+diff --git a/res/drawable/ic_settings_accounts.png b/res/drawable/ic_settings_accounts.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..959226ced9a107cb5ef05a82f59d9a56d786133f
+GIT binary patch
+literal 670
+zcmV;P0%84$P)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px%SV=@dR9Fe^Ry|0=KooA;rdBPb4Nl@vN^Ox2T?7}!>Mjl{2qN7T+yp1VL01=X
+zbP-$xom^a{Ac%v7qSO*>(WTlSMID;{_??&`q25oh;E;pI-Q|7vy)Q4hcjs`}&CY<G
+zfxpRsWR)foi6k41#yZxI!TMnjuv5R^zn#fsJ}?$;!eWxiq`Ock?6%wORYdEwUUj?O
+zOZj~MQdCVRGAc(X6xsw}iw2S;sU*vCJeSM8&~Rp-%lv>g$ES%SBS*ln*7Y}=&7oSY
+zc0%Jb`<&(nw0W!5T80>zhS7b<&H}{y^*K*3BnCp_Jfs9eM8k%8@dPI%MugZ3R!9s|
+zpXCh#tOmR1#S@&67^l;DNP_SLz$ZG!_I~5R>KN9p&~e{=rBZng1OlWSOc@-e2?Uos
+z9?wj<T>dn<s8gZL5GK@_9R%CMu>A|O>T<beMQaS<5-xhWfNmTII`_ZmEoBB-=|P1}
+z;B%3Rtl&+0Fs`8}KH*%t#*h1G<?V#T;D4D!&=m-nL9kv*z+1BO;NMqO^_7A%xVXeb
+zqtO9P(+++_7zh}XGDNLG5IN77jk&dBvDjd}UMJT9a&HlBeRzSnU@)lR(7a$RW{SaO
+z=?o+Z77@cgttd*mTCJ)y9JS7b!{Kqf*#wP%(<gyvgN3Dv!QxRCfq<XM#S)W7FiZE@
+z4kFJxJTp9^ioq_pLTMktb|y!_4Xkch&6ogR0^|fcYCe@pEi&L@#{s#F7mLL(zJCm+
+zAeaxm54{Zg!1x_Kv4Yp@y~}2^6_x<oZ)d>HKsPe*1xS0rbZ?t(E&u=k07*qoM6N<$
+Ef?~2TDgXcg
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/drawable/ic_settings_accounts.xml b/res/drawable/ic_settings_accounts.xml
+deleted file mode 100644
+index 154c09c..0000000
+--- a/res/drawable/ic_settings_accounts.xml
++++ /dev/null
+@@ -1,29 +0,0 @@
+-<!--
+-    Copyright (C) 2016 The Android Open Source Project
+-
+-    Licensed under the Apache License, Version 2.0 (the "License");
+-    you may not use this file except in compliance with the License.
+-    You may obtain a copy of the License at
+-
+-         http://www.apache.org/licenses/LICENSE-2.0
+-
+-    Unless required by applicable law or agreed to in writing, software
+-    distributed under the License is distributed on an "AS IS" BASIS,
+-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-    See the License for the specific language governing permissions and
+-    limitations under the License.
+--->
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-        android:width="24.0dp"
+-        android:height="24.0dp"
+-        android:viewportWidth="24.0"
+-        android:viewportHeight="24.0"
+-        android:tint="?android:attr/colorControlNormal">
+-    <path
+-        android:fillColor="#FFFFFFFF"
+-        android:pathData="M3.0,5.0
+-        l0.0,14.0c0.0,1.0 0.89,2.0 2.0,2.0l14.0,0.0c1.1,0.0 2.0,-0.9 2.0,-2.0
+-        L21.0,5.0c0.0,-1.1 -0.9,-2.0 -2.0,-2.0
+-        L5.0,3.0c-1.11,0.0 -2.0,0.9 -2.0,2.0zm12.0,4.0c0.0,1.66 -1.34,3.0 -3.0,3.0s-3.0,-1.34 -3.0,-3.0 1.34,-3.0 3.0,-3.0 3.0,1.34 3.0,3.0zm-9.0,8.0c0.0,-2.0 4.0,-3.1 6.0,-3.1s6.0,1.1 6.0,3.1l0.0,1.0
+-        l-12.0,0l0.0,-1.0z"/>
+-</vector>
+diff --git a/res/drawable/ic_settings_applications.png b/res/drawable/ic_settings_applications.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..4a42bd794b8b491a1d0ef8b7d5dfc7f66ef26f94
+GIT binary patch
+literal 745
+zcmV<F0v7#=P)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px%qe(<TR9Fe^R6S@@Q51eJi5d-P=+J^LNnWxTjDd8r2yrWdAZQR&Ft~`5gW@FA
+ziY`{HyF)jp4h|jM)I}7!hy(;<5+RESbw~&aBzb;cFzw5`KY6Vw1bi0`_ug~9@0@eb
+zx%V1|Kl}>#75LvOkW3~IL5}{*xyh#=FFpb)P&%DH*z5H^_xt^)DvTFB`Se47Uhqmx
+zEEanX>BZym(@K!WKpy$@qk(Okl$9YO8jU_OO>@h(?HAjOT`b5WpMG{hQ$um8TM#>u
+zNL*5*L<_2NnLP4Et6Zb43@OE8@g+{jyYnoc&xhr1MzzGDDl6oXKWbI)Otoppg4dAm
+zcDrxk{6V!^eS%=2dc8i61mlp|Kp=1g!GD4AGaL?Yw%hHS*gp=1Lg&im^1B^R`jw|-
+z=mKS5M}YHKzDH7Lu+}~KK5$<nk;vInskBADmoc_YbdpM?vX~N(!;r->i2!2I@5xrH
+z^#gZpnU$n++!$LKIJ=GDs}N5gmm=T?wCoC6R#(^uYHc!j33q_n)3bI5MQgtWgTVzP
+z#JeRO$~IY+brFnJDQgc(R5pd5cq5m~9Z=DOGD9YliQq-Nfz5eIZJh2E<O}qtAiAo4
+z2W}0RImirTI8Jmro!=NAhYIH`txU7oybsWECy<HYSzo7c?X<bqXvZRO_c*(4sL)b2
+zn~l2l+)I-I;f4%62_1YNYcv|X0>ThVjk}UVZ#M;`VGP<tJse)eByb%Zw&^u+3~D*_
+zgC%SmsN4m&UU>gVWZn(>yEozdn!@H*Tfp9RD~Eg7q%njx;cFkcD?<kpo@Wb%g7A2R
+z${^?`B(yx?;DWnKrNU3NB^ahfAzVWIx=Tpz;eIDrtJQ?q!kyXgBy|3#Dj8j(zRj<|
+b)K}mS598lD%1?UE00000NkvXXu0mjfBzIA{
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/drawable/ic_settings_applications.xml b/res/drawable/ic_settings_applications.xml
+deleted file mode 100644
+index c783ef9..0000000
+--- a/res/drawable/ic_settings_applications.xml
++++ /dev/null
+@@ -1,25 +0,0 @@
+-<!--
+-    Copyright (C) 2016 The Android Open Source Project
+-
+-    Licensed under the Apache License, Version 2.0 (the "License");
+-    you may not use this file except in compliance with the License.
+-    You may obtain a copy of the License at
+-
+-         http://www.apache.org/licenses/LICENSE-2.0
+-
+-    Unless required by applicable law or agreed to in writing, software
+-    distributed under the License is distributed on an "AS IS" BASIS,
+-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-    See the License for the specific language governing permissions and
+-    limitations under the License.
+--->
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-        android:width="24.0dp"
+-        android:height="24.0dp"
+-        android:viewportWidth="24.0"
+-        android:viewportHeight="24.0"
+-        android:tint="?android:attr/colorControlNormal">
+-    <path
+-        android:fillColor="#FFFFFFFF"
+-        android:pathData="M5.0,16.0c0.0,3.87 3.13,7.0 7.0,7.0s7.0,-3.13 7.0,-7.0l0.0,-4.0L5.0,12.0l0.0,4.0zM16.12,4.37l2.1,-2.1 -0.82,-0.83 -2.3,2.31C14.16,3.28 13.12,3.0 12.0,3.0s-2.1,0.28 -3.0,0.75L6.6,1.44l-0.8,0.83 2.1,2.1C6.14,5.64 5.0,7.68 5.0,10.0l0.0,1.0l14.0,0.0l0.0,-1.0c0.0,-2.32 -1.14,-4.36 -2.88,-5.63zM9.0,9.0c-0.55,0.0 -1.0,-0.45 -1.0,-1.0s0.45,-1.0 1.0,-1.0 1.0,0.45 1.0,1.0 -0.45,1.0 -1.0,1.0zm6.0,0.0c-0.55,0.0 -1.0,-0.45 -1.0,-1.0s0.45,-1.0 1.0,-1.0 1.0,0.45 1.0,1.0 -0.45,1.0 -1.0,1.0z"/>
+-</vector>
+diff --git a/res/drawable/ic_settings_battery.png b/res/drawable/ic_settings_battery.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..ea84b3ddbe731e8aa2d478e7c201cfe21349ab27
+GIT binary patch
+literal 314
+zcmV-A0mc4_P)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px#^hrcPR9Fe^l~E3ZAPj~b;UI)~5O=b%la1ZO2M<EnC>cpX#h}QRrM}n#{rUZb
+zwCm_00z}{s30&|u^?g6!{LFY9N1f_(JYbA@;QZt`0x{c52=S6qs@X)v0nmqimLwxG
+zc!4Xp;e1D|r)heY)UBFvBC14aVJ*~GGqa#yZz%m$obzjrOue0v5@SrG)Q8que<Yfl
+z`CRG9P&l6~b@|Pl%&gJ>DKgCuF!Vondj?F$<vwk028@KOj158D+)OawTE(nU=FF&2
+zxbv+`>sHM;=l4>vqw6D7X}>rso~z&dP0*}z0yIYihyW2F0u>3o0na}+`m<m;H2?qr
+M07*qoM6N<$f<bSI3jhEB
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/drawable/ic_settings_battery.xml b/res/drawable/ic_settings_battery.xml
+deleted file mode 100644
+index 6afc5d0..0000000
+--- a/res/drawable/ic_settings_battery.xml
++++ /dev/null
+@@ -1,25 +0,0 @@
+-<!--
+-    Copyright (C) 2016 The Android Open Source Project
+-
+-    Licensed under the Apache License, Version 2.0 (the "License");
+-    you may not use this file except in compliance with the License.
+-    You may obtain a copy of the License at
+-
+-         http://www.apache.org/licenses/LICENSE-2.0
+-
+-    Unless required by applicable law or agreed to in writing, software
+-    distributed under the License is distributed on an "AS IS" BASIS,
+-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-    See the License for the specific language governing permissions and
+-    limitations under the License.
+--->
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-        android:width="24dp"
+-        android:height="24dp"
+-        android:viewportWidth="24.0"
+-        android:viewportHeight="24.0"
+-        android:tint="?android:attr/colorControlNormal">
+-    <path
+-        android:fillColor="#FF000000"
+-        android:pathData="M15.67,4H14V2h-4v2H8.33C7.6,4 7,4.6 7,5.33v15.33C7,21.4 7.6,22 8.33,22h7.33c0.74,0 1.34,-0.6 1.34,-1.33V5.33C17,4.6 16.4,4 15.67,4z"/>
+-</vector>
+diff --git a/res/drawable/ic_settings_display.png b/res/drawable/ic_settings_display.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..c9222813b7ec71eb514e0e7dca45d3c6cbb00cc3
+GIT binary patch
+literal 894
+zcmV-^1A+XBP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px&I7vi7R9Fe^S3QUmK@`rP;f#<!kVA8t-%C=4z!gE8YYuEJMQkjzl3ZaYTpH`E
+zY{cS<vk<Wn4vgR#|C(!*R2mXVL=0TakD5Rdla1dC8Q2UvlU>}x!&?|;-@Na=`R2`=
+zx3d<@@$)}KAQTF1p-s$KtIZ52X8AZeWRl5b$gEXIqtSD@Tu!=pyJ#{ZG8ha#c)i}`
+zPN$O>;h-l~6_{5dOgtV>jz*(*#bR-#-EKb<;iTh8%xy|e>ZL%5l8C^*PL19rP>V1!
+zWJD3c%4z9YbW4z5$ei)IS#;mfxYOxeFO^Ckd5l_?k|E%X(2~R9$hTUpDl?}2uhnYj
+zeLi2p@Arp^bRZDuH5!c}!vurDUccX81(6$zh>(qy85-$hu~=q29`8&hlQ?ImSgqD=
+zkhoJQ6#ATQp(xF6E$eVNd>hI5mUNi-n$2cQASgaWZXNPH5ZtU*tM3zu#91wS)5a(w
+zNW?J+?PfBWlUj}=k;p~pe*m|qr8i}aas-onq9!83CIaR<$V|{*Wn-rHa2zx;0kCB>
+zL#NN7W(?ykwT$-y_Ma8AWzr!p4mgZRB;1Btxxl|=jtmTQYU7zaB?A&pB&Wsgb{}#W
+zO%aKGs3^)QPMOn?*<$C(APT~x4kACvQMcPop)1h4>;XQ71$<RwWc~@K`)IpduFt?L
+zs4th*6KK8T)UANb8g$RK^rEqa6_^=PWkt1hW0G5_xcm6vePKGj_jo*y5tTD`yZs8P
+z_B5hAMoZQm88W8Iimn7gdvttxhZGTv=b_&~&ScBw^4vD@cwQFf2oGd3RaRUr9zec?
+zRzW+UWCei~+8QGAn}}2@l^y5|J-W7uzP|L)tJmvFv)TNGkLN>d84(GiT>yy;NYJr=
+zLR$kOuNeze<W+2Gi^+f0v-=3bf8VGhB7)k|L(_F1l17Gz42Q#)L;}}<n~2JHBZMd-
+z_=ui{O%}bEt|KygAsM=}(p8a+^<0cZlg#cz(+e85_5|d85mtDb(&_X!B;un*M6d-5
+z|C><kHjz(vLE@>1h$-WG$mpF&7#Y0|%*6duWP}N<cf~j)1eN|b>GgGtI}#E213iv3
+UAjtxRT>t<807*qoM6N<$f@1!f1^@s6
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/drawable/ic_settings_display.xml b/res/drawable/ic_settings_display.xml
+deleted file mode 100644
+index de71508..0000000
+--- a/res/drawable/ic_settings_display.xml
++++ /dev/null
+@@ -1,28 +0,0 @@
+-<!--
+-    Copyright (C) 2016 The Android Open Source Project
+-
+-    Licensed under the Apache License, Version 2.0 (the "License");
+-    you may not use this file except in compliance with the License.
+-    You may obtain a copy of the License at
+-
+-         http://www.apache.org/licenses/LICENSE-2.0
+-
+-    Unless required by applicable law or agreed to in writing, software
+-    distributed under the License is distributed on an "AS IS" BASIS,
+-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-    See the License for the specific language governing permissions and
+-    limitations under the License.
+--->
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-        android:width="24.0dp"
+-        android:height="24.0dp"
+-        android:viewportWidth="24.0"
+-        android:viewportHeight="24.0"
+-        android:tint="?android:attr/colorControlNormal">
+-    <path
+-        android:fillColor="#FFFFFFFF"
+-        android:pathData="M20,15.31l2.6-2.6c0.39-0.39,0.39-1.02,0-1.41L20,8.69V5c0-0.55-0.45-1-1-1h-3.69l-2.6-2.6c-0.39-0.39-1.02-0.39-1.41,0
+-L8.69,4H5C4.45,4,4,4.45,4,5v3.69l-2.6,2.6c-0.39,0.39-0.39,1.02,0,1.41l2.6,2.6V19c0,0.55,0.45,1,1,1h3.69l2.6,2.6
+-c0.39,0.39,1.02,0.39,1.41,0l2.6-2.6H19c0.55,0,1-0.45,1-1V15.31z
+-M12,18V6c3.31,0,6,2.69,6,6S15.31,18,12,18z"/>
+-</vector>
+diff --git a/res/drawable/ic_settings_security.png b/res/drawable/ic_settings_security.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..0bd8bb0d3a5f7992e3d597765768f62bcd964b46
+GIT binary patch
+literal 602
+zcmV-g0;T<lP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px%6iGxuR9Fe^S3O9>KooA0E|!AWLAsSTLdVV(K?U84E+V+PJ2*KSUDZk51c$CJ
+z77?Tl*#bhxf<pQ;7OS;_SSmL4JFp?W<}R0_OG)9lci;QodtYDgj%z3se1Z-H9r&9L
+zNaLnSCX?xYzrQX?(i&zJd2V4}$K&y$VHllp@(PR5G)>Ou^H~%o#n&;?jDj7ADiUEB
+zH<e1|nZX-@xni=}>{O%CSS7`gIEQ(5Bm*C?5N9B+K*ZH*wI?2(D<+jnX_jT}^Ah;+
+z)$4U`J=ssP|K?7X7+IDNyxK3?(aGwJ=(iT(g+)kC4(lhO@o`R~Z!x5ZQylh;Zknb}
+z<G5RvoIDZRw;0B~qcd<34K^p(z;-JrBj^m(5PQk(3^wJP&14wl)X*o1L2WZ|8|I1$
+zhr^d(wrsYG0WpgrCkao86PNHINEupDi&m@Ejm2Uz3a(HtUrPvii9{k>&1Un97s%}l
+z35-Ugr<fjjNxXazvsW&cKRkI}1mag!b*|UzJ;0n1;X64Ha)uY)juT_qo}D3qc*mN!
+z_BWBZ%Sz;igMXJuBzE0=ZkUi55?HNP?-fOvC#G8>8iSBy2+8TX{!RN>YwnxWEeOYW
+z8XNioW5dl4>=i<`@zWF-ekSZ&%peo?(K3$oAw(_wVr_^x$2dY4-v>ND^VnhrMet`X
+o13QB&;Hp$AeGc$op4blj0B{eo#r_Q6^#A|>07*qoM6N<$g73Wuw*UYD
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/drawable/ic_settings_security.xml b/res/drawable/ic_settings_security.xml
+deleted file mode 100644
+index 34accd0..0000000
+--- a/res/drawable/ic_settings_security.xml
++++ /dev/null
+@@ -1,25 +0,0 @@
+-<!--
+-    Copyright (C) 2016 The Android Open Source Project
+-
+-    Licensed under the Apache License, Version 2.0 (the "License");
+-    you may not use this file except in compliance with the License.
+-    You may obtain a copy of the License at
+-
+-         http://www.apache.org/licenses/LICENSE-2.0
+-
+-    Unless required by applicable law or agreed to in writing, software
+-    distributed under the License is distributed on an "AS IS" BASIS,
+-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-    See the License for the specific language governing permissions and
+-    limitations under the License.
+--->
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-        android:width="24.0dp"
+-        android:height="24.0dp"
+-        android:viewportWidth="24.0"
+-        android:viewportHeight="24.0"
+-        android:tint="?android:attr/colorControlNormal">
+-    <path
+-        android:fillColor="#FFFFFFFF"
+-        android:pathData="M18.0,8.0l-1.0,0.0L17.0,6.0c0.0,-2.76 -2.24,-5.0 -5.0,-5.0S7.0,3.24 7.0,6.0l0.0,2.0L6.0,8.0c-1.1,0.0 -2.0,0.9 -2.0,2.0l0.0,10.0c0.0,1.0 0.9,2.0 2.0,2.0l12.0,0.0c1.1,0.0 2.0,-0.9 2.0,-2.0L20.0,10.0c0.0,-1.1 -0.9,-2.0 -2.0,-2.0zm-6.0,9.0c-1.1,0.0 -2.0,-0.9 -2.0,-2.0s0.9,-2.0 2.0,-2.0 2.0,0.9 2.0,2.0 -0.9,2.0 -2.0,2.0zm3.1,-9.0L8.9,8.0L8.9,6.0c0.0,-1.71 1.39,-3.1 3.1,-3.1 1.71,0.0 3.1,1.39 3.1,3.1l0.0,2.0z"/>
+-</vector>
+diff --git a/res/drawable/ic_settings_sound.png b/res/drawable/ic_settings_sound.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..9c4c87b78ff3a8bc2934e8218dcaea60490af50b
+GIT binary patch
+literal 1079
+zcmV-71jze|P)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px&@kvBMR9Fe^R!dJ)Q4sDc^u@zAXvH+KKy8air6E2F33la!g}TAGa;=GRYvKl0
+z>JKow)x?!-3^6gTEE+&fuvn~pYmHTCf+DnqKB?baILWoWMY+%g2`4$7IdkUBe4Uvy
+z=Sn2IV+TY)zFimx2M6WZY}UE3u<%W+&20m-yu5s0DwXaB7`Iq3GO-8w=S(KkO{}l-
+zWz~4A)!IN)Xn)IK+S}VN!|)v;<3h4xvDk^(+uhy0r+j})U|L&S`&U<2A0j=k$_-ar
+zH#IeRai*}ewA9<x)urR>i3Ve_SZt+I=_%%CIJn3+TF&!RGc`4}3^3!+$)e62RQOC^
+z6c|Lrkjv$slR-q~-1PMHZ)Q-4mZv5bi)9oF#Rq`WdORL0JELF>qh_<&1tk|-3sLM}
+zfP60u_D3R-uR=O}8Knld%$Z81PIPv5zV!KgxlkxH-`3U^1JL%Ko}L&*tO5)H!5rcn
+z6X1(7ne04(ycgKxMEFyO5w%h{9QKnVr0QKhpFf3ObOZ|AIfKCvnVXw40jLqOPz4xf
+z9HEplUJNZ13ioi%4iLwJ!QdCnB=|7WYq8tyL9f@Fo}8Rq0qA+u9S25K&HN8Ir0^E>
+zv~d1_>9@4Ba4AhDljNKmNYf8wLJNS}nt?$I-@w~2{`DF3A~Sh*yWJV2_ZMa}hXg+w
+zjV4JvZkDEIV90?|seD2dfclBj0FX2yp;=o=B#n)YE5t*lt|=Hw!Mf9Z%sD8vgF3c0
+z8jZPiURhHxa=HA#x}yYh4ywe=vUNNjXTY*G1%qpRiJT%5ubFcyR;;<ykPOd)nkdq@
+zQZq2PvM1qV7>-{=qtOUCbh%tAfYD>l)0zefmwUlc$dyfRO=au9=rgwgBvn^eca2$_
+zot-^Md_zM+oXIGaDDX7(ovKX_-zX(^po~taRI2lVK;UPY{I4bY%yob%QNyDRdMwd_
+z55f6&a!fL()2T)WZiZfv))iooJ2!1q8ES<125Mp4X0x3IpjZ_>3Hr<@wuiSzgO-0B
+zw)42|ADKLnNSKM&>2z_T6<}b*4LME0fd)2;D?6IWWF}D;1JL&fD)NMji;H#uQPkJh
+zzr_pBU1fZNG$T?bL@G*e7pZT$fKiO&sDnO)HVaT=_?$S+^DD^0p$~I{eQKZtRH&(=
+z0GM_-99)V-fuTcq{sX8RCkii$<ud@fLh@>Z9!Z+CPbmY4KCnvMAkWCiNRge}bY$2;
+zzu!NL{8O7B1E@z#{x8Z>hG$@6W@cuAuP+)58KHlx*Xsw6vd4U*8}a2S+elZ`9wH;f
+xSKD3G!jLEfwK&w#(a};1ySp}bBd{YP@CVLQx^gi%a<2dY002ovPDHLkV1nGt?HK?7
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/drawable/ic_settings_sound.xml b/res/drawable/ic_settings_sound.xml
+deleted file mode 100644
+index 7054d78..0000000
+--- a/res/drawable/ic_settings_sound.xml
++++ /dev/null
+@@ -1,30 +0,0 @@
+-<!--
+-    Copyright (C) 2016 The Android Open Source Project
+-
+-    Licensed under the Apache License, Version 2.0 (the "License");
+-    you may not use this file except in compliance with the License.
+-    You may obtain a copy of the License at
+-
+-         http://www.apache.org/licenses/LICENSE-2.0
+-
+-    Unless required by applicable law or agreed to in writing, software
+-    distributed under the License is distributed on an "AS IS" BASIS,
+-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-    See the License for the specific language governing permissions and
+-    limitations under the License.
+--->
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-        android:width="24.0dp"
+-        android:height="24.0dp"
+-        android:viewportWidth="24.0"
+-        android:viewportHeight="24.0"
+-        android:tint="?android:attr/colorControlNormal">
+-    <path
+-        android:fillColor="#FFFFFFFF"
+-        android:pathData="M3 10v4c0 .55 .45 1 1 1h3l3.29 3.29c.63 .63 1.71 .18
+-1.71-.71V6.41c0-.89-1.08-1.34-1.71-.71L7 9H4c-.55 0-1 .45-1 1zm13.5 2A4.5 4.5 0
+-0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 4.46v.19c0 .38 .25 .71 .61
+-.85C17.18 6.54 19 9.06 19 12s-1.82 5.46-4.39 6.5c-.36 .14 -.61 .47 -.61 .85
+-v.19c0 .63 .63 1.08 1.22 .86 a8.995 8.995 0 0 0 0-16.8c-.59-.23-1.22 .23 -1.22
+-.86 z"/>
+-</vector>
+diff --git a/res/drawable/ic_settings_storage.png b/res/drawable/ic_settings_storage.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..2960b30262c17b9d3b75cd27d7e51b816f18e06c
+GIT binary patch
+literal 414
+zcmV;P0b%}$P)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px$SV=@dR9Fe^ma%SwFc5|VilV+jmJW=-z>)`umDgxrBXh~thv+Lr>LVmW9s$J2
+z$TKiN&k~7FuJ1Uf6c!^{@!dJ+&;Qwm)yh9!0k6O`3It}FG)?oa>po2XU+f?V+As_c
+zMN!<iJRujHD%SV?1{QeEvh0=1ISY&i0HAH#w%<yr7Yb-i1t@=2RliDWj*a8Ezx(uf
+zRQg@hG+z*VzsK?KY|5ZX-;yLbBKy%@0!EkY^Fe?*i@?DA)_I-x3|a`;g=2gogG}IG
+zV9K)0nK{XjGYmc{WL6^pcZ}h&n=B06oL6WU`(NF?V>kO4%;j0hZK$9s`<k)tYFnZ?
+ze5^7UAc~?r*b4h3{kpEjCrb=7faDSYW6bn0!wSWT4Iq&zR>qf!($klTQU?4AS`N+i
+z5pR0&241{O@DZf+C!?zr)cCO%CaVm<>~*7(d%st}D}WUE0lH#k-BUzTsQ>@~07*qo
+IM6N<$f>u+vJpcdz
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/drawable/ic_settings_storage.xml b/res/drawable/ic_settings_storage.xml
+deleted file mode 100644
+index 36dcc38..0000000
+--- a/res/drawable/ic_settings_storage.xml
++++ /dev/null
+@@ -1,25 +0,0 @@
+-<!--
+-    Copyright (C) 2017 The Android Open Source Project
+-
+-    Licensed under the Apache License, Version 2.0 (the "License");
+-    you may not use this file except in compliance with the License.
+-    You may obtain a copy of the License at
+-
+-         http://www.apache.org/licenses/LICENSE-2.0
+-
+-    Unless required by applicable law or agreed to in writing, software
+-    distributed under the License is distributed on an "AS IS" BASIS,
+-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-    See the License for the specific language governing permissions and
+-    limitations under the License.
+--->
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-        android:width="24dp"
+-        android:height="24dp"
+-        android:viewportWidth="24.0"
+-        android:viewportHeight="24.0"
+-        android:tint="?android:attr/colorControlNormal">
+-    <path
+-        android:fillColor="#FF000000"
+-        android:pathData="M20,16L4,16c-1.1,0 -2,0.9 -2,2s0.9,2 2,2h16c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2zM5,19.1c-0.61,0 -1.1,-0.49 -1.1,-1.1 0,-0.61 0.49,-1.1 1.1,-1.1s1.1,0.49 1.1,1.1c0,0.61 -0.49,1.1 -1.1,1.1zM4,8h16c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2L4,4c-1.1,0 -2,0.9 -2,2s0.9,2 2,2zM5,4.9c0.61,0 1.1,0.49 1.1,1.1 0,0.61 -0.49,1.1 -1.1,1.1S3.9,6.61 3.9,6c0,-0.61 0.49,-1.1 1.1,-1.1zM20,10L4,10c-1.1,0 -2,0.9 -2,2s0.9,2 2,2h16c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2zM5,13.1c-0.61,0 -1.1,-0.49 -1.1,-1.1 0,-0.61 0.49,-1.1 1.1,-1.1s1.1,0.49 1.1,1.1c0,0.61 -0.49,1.1 -1.1,1.1z"/>
+-</vector>
+diff --git a/res/drawable/ic_settings_wireless.png b/res/drawable/ic_settings_wireless.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..dcbaff3aef112642126bdd8169aba755cbf67ccf
+GIT binary patch
+literal 1021
+zcmV<Z0|NYsP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px&w@E}nR9Fe^mR(4bQ5eUaQ#aH|oyKgMIzP6MgdzfsaF~J@X`p$NWKdm%c@rfR
+zRA@;-c9XYR(2Yt|2oY#qqy{ZWi9S?jn_mzkO+iB4EVq8gROWc!xlONP2OiEj&v`!n
+z@AI{Vg@slq0-*@}hY?T&`b~Lxc`=KNi+h%rmvt_eONYKzp-{}TPbrnkDb7EttE(*y
+z4Gpe9ZTkf#D=RA#$7N7C&W^a<?ubns%_8?YJUqNBDk`dbczD>piTuj5PcWI8nWX@@
+zh4X_#8V6t4x^VJNM1b=YG_6vpTnh^eI`}KmLO!4OGWHbSMT9!I-y9novv8JOl3<8L
+zK54jvu|kYYpxqo98QD29GV)#4lEedc4q&H(r#fuKVyhj%jW(OjDj^=W0gTCHikO&~
+zxQ}8jij(ZOH5$#Mfq{YFQp*1Fa&vPNh};$I)uH1C(7Dmk(ROeBbudPwQR8qpo+4lZ
+zNK15dbp7Dq;F7n(R_-}DIl85#rB-Z|3Lj}{X_tC>dj720REh&aMyJ!+%h3Sp)8w{!
+zdU|?!O-O35s;W|ASQi%;XCQj<EJbl~v14dx$Sox=cr!CIze-9<I_!3P3{ko`H#b+5
+zn3(u%c6Qb&-d7?c!Z<%a|B%+aPCmbi2k#}E_xJZ7hF=aH!&o+ZxThRnE7EC(x;eif
+z6{6rJS4Kug4Kf8aH8r(sV_-c^k{YW_y<T5QS2b}pLJo}dvA>1vfcnWUIxPiC<!*uw
+z{bMO!!fOQ72O+cB@(D)F7rLQs)%YNhYf4Q`?Ih0*Uxtaamce)uJyEnt0D7E|kWfn_
+zEcnus1w%BB5{)M)E2yIjq)*HW*?N$2VlWtXP*?T5U4@3QQz_ThLSGULKz8y)R%nue
+zcEVz@j0xdjm&b>F8Xq4o3fN9|cJ^N8jyhmP83j64FUE(=^9oxsGQJe3hbZPz1+{dX
+zwCzWBHzZn9{QmTkisz)_4d;MYKwxOcDpGeBFX@mSFn!#`F6NaUD&!u^ZiaWBdG(pI
+z-^*_>0BOe2Wt@mMy@sP#-d^ZF6%jjyTqAGsbl(|K_}+4I_YFf!PH2_?4IuXz;RRAa
+zgpAc{b@JA#R;%;4b_2?`svFw26al|$M#>9+zKW=kGTwHP!jI4cM*p0YtUtV<!BEg=
+zsR{9Sz;oG>lau$E&E`c<roZPv3V4G}tybFx<Gm-7$TS2C#M4etXIeQaJw1ICazi(Q
+rGP0dY0Lmq0E!$}`WGfT_e<Sc06y%GizO1~g00000NkvXXu0mjfX8g*=
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/drawable/ic_settings_wireless.xml b/res/drawable/ic_settings_wireless.xml
+deleted file mode 100644
+index 0c894eb..0000000
+--- a/res/drawable/ic_settings_wireless.xml
++++ /dev/null
+@@ -1,25 +0,0 @@
+-<!--
+-    Copyright (C) 2016 The Android Open Source Project
+-
+-    Licensed under the Apache License, Version 2.0 (the "License");
+-    you may not use this file except in compliance with the License.
+-    You may obtain a copy of the License at
+-
+-         http://www.apache.org/licenses/LICENSE-2.0
+-
+-    Unless required by applicable law or agreed to in writing, software
+-    distributed under the License is distributed on an "AS IS" BASIS,
+-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-    See the License for the specific language governing permissions and
+-    limitations under the License.
+--->
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-        android:width="24.0dp"
+-        android:height="24.0dp"
+-        android:viewportWidth="24.0"
+-        android:viewportHeight="24.0"
+-        android:tint="?android:attr/colorControlNormal">
+-    <path
+-        android:fillColor="#FFFFFFFF"
+-        android:pathData="M23.66,8.11c0.39,-0.48 0.29,-1.19 -0.22,-1.54C21.67,5.36 17.55,3 12,3 6.44,3 2.33,5.36 0.56,6.57c-0.51,0.35 -0.61,1.06 -0.23,1.54L11.16,21.6c0.42,0.53 1.23,0.53 1.66,0L23.66,8.11z"/>
+-</vector>
+diff --git a/res/layout/dashboard.xml b/res/layout/dashboard.xml
+index 536c00a..0031e07 100644
+--- a/res/layout/dashboard.xml
++++ b/res/layout/dashboard.xml
+@@ -14,17 +14,28 @@
+      limitations under the License.
+ -->
+ 
+-<com.android.settings.dashboard.conditional.FocusRecyclerView
+-    xmlns:android="http://schemas.android.com/apk/res/android"
+-    android:id="@+id/dashboard_container"
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:app="http://schemas.android.com/apk/res-auto"
+     android:layout_width="match_parent"
+     android:layout_height="match_parent"
+-    android:clipChildren="false"
+-    android:clipToPadding="false"
+-    android:focusable="false"
+-    android:paddingStart="@dimen/dashboard_padding_start"
+-    android:paddingEnd="@dimen/dashboard_padding_end"
+-    android:paddingTop="@dimen/dashboard_padding_top"
+-    android:paddingBottom="@dimen/dashboard_padding_bottom"
+-    android:scrollbars="vertical"/>
++    android:orientation="horizontal">
+ 
++    <com.android.settings.dashboard.conditional.FocusRecyclerView
++        xmlns:android="http://schemas.android.com/apk/res/android"
++        android:id="@+id/dashboard_container"
++        android:layout_width="227dp"
++        android:layout_height="match_parent"
++        android:clipChildren="false"
++        android:clipToPadding="false"
++        android:focusable="false"
++        android:paddingStart="8dp"
++        android:paddingEnd="8dp"
++        android:paddingTop="80dp"
++        android:background="#C8F2F2F2"
++        android:scrollbars="vertical"/>
++
++    <LinearLayout
++        android:background="#FFFFFFFF"
++        android:layout_height="match_parent"
++        android:layout_width="match_parent"/>
++ </LinearLayout>
+diff --git a/res/layout/dashboard_tile.xml b/res/layout/dashboard_tile.xml
+index e35dbff..0f4ad60 100644
+--- a/res/layout/dashboard_tile.xml
++++ b/res/layout/dashboard_tile.xml
+@@ -21,17 +21,16 @@
+     android:layout_height="wrap_content"
+     android:background="?android:attr/selectableItemBackground"
+     android:gravity="center_vertical"
+-    android:minHeight="@dimen/dashboard_tile_minimum_height"
+     android:clickable="true"
+     android:focusable="true">
+ 
+     <ImageView
+         android:id="@android:id/icon"
+-        android:layout_width="@dimen/dashboard_tile_image_size"
+-        android:layout_height="@dimen/dashboard_tile_image_size"
++        android:layout_width="23dp"
++        android:layout_height="23dp"
+         android:scaleType="centerInside"
+-        android:layout_marginStart="@dimen/dashboard_tile_image_margin"
+-        android:layout_marginEnd="@dimen/dashboard_tile_image_margin" />
++        android:layout_marginStart="10dp"
++        android:layout_marginEnd="18dp" />
+ 
+     <LinearLayout
+         android:layout_width="match_parent"
+@@ -42,6 +41,7 @@
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:singleLine="true"
++            android:textSize="15dp"
+             android:textAppearance="@style/TextAppearance.TileTitle"
+             android:ellipsize="marquee"
+             android:fadingEdge="horizontal" />
+@@ -53,6 +53,7 @@
+             android:textColor="?android:attr/textColorSecondary"
+             android:maxLines="1"
+             android:ellipsize="end"
++            android:visibility="gone"
+             android:paddingEnd="@dimen/dashboard_tile_image_margin" />
+ 
+     </LinearLayout>
+diff --git a/res/layout/search_panel.xml b/res/layout/search_panel.xml
+index b8e7ae1..edc46ec 100644
+--- a/res/layout/search_panel.xml
++++ b/res/layout/search_panel.xml
+@@ -25,6 +25,7 @@
+         android:id="@+id/search_bar_container"
+         android:layout_width="match_parent"
+         android:layout_height="wrap_content"
++        android:visibility="gone"
+         android:background="@color/suggestion_condition_background">
+         <android.support.v7.widget.CardView
+             android:id="@+id/search_bar"
+diff --git a/res/layout/settings_main_dashboard.xml b/res/layout/settings_main_dashboard.xml
+index 8e83cff..7349c94 100644
+--- a/res/layout/settings_main_dashboard.xml
++++ b/res/layout/settings_main_dashboard.xml
+@@ -24,6 +24,7 @@
+     android:orientation="vertical">
+     <FrameLayout
+         android:id="@+id/search_bar_container"
++        android:visibility="gone"
+         android:layout_width="match_parent"
+         android:layout_height="wrap_content"
+         android:background="@color/suggestion_condition_background">
+diff --git a/res/res/drawable/googleg_light_color_24_white.png b/res/res/drawable/googleg_light_color_24_white.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..28eaebd89849234e86ae2ff7c25b27ba46bc5ec8
+GIT binary patch
+literal 704
+zcmV;x0zdtUP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px%dPzh<R9Fe^mc2_{K@`PzjWGr#D6%9b7NTH41S6y{kjg?uR8okQt&POO(ppF<
+zXyw14jfhRKw1~S2f`y3MXd#*)hKOj0lDzz`?yQ%`ynQq4TDcbvb7$t<^X{APM51J+
+z5%3#<q#ym39RxuewHELaRD)yi9jqslNh$BwNZ=Ki274gN{?U;E<KS`8GeYzU_yjJ1
+zk8MNla!n|9nh<+|*dpi*iT<R%3J$;-NP#Bs9#jBhS2!a~-GXT-sFXy&KG2q?(hVNj
+zL}{-EAHfMQ_5-KZ#&>EXSf*yps8L>lF{fZiaG!$>umzf3<E%UcWQ`b;M0%{mJdMQE
+zf@gUs@m&bWuF;Ftc|_vXJsBh-+t*myGrYKTve+}3P<9tr-9wF!x2Z&AM_6}_hom#L
+z+`@dV+EzIq{;ImwC1Ht~w{}J}qWdP?WlN@Bk>o&gv8RyQU5NQOWtPq=)poA@V!D59
+zVz!adH?CX-F17=yBZk;O|8kadWaHYBIaI_}<wv^A|8F`sA_;V`uH>m<On<|)C2Z4_
+zq4zS&cpDPQ1s328su;Oo-HZf217lNeQPC`f>cB4}NEv<s<P9EHf#>)#-vt}-GfHn0
+zKlbU8`<RfyHzn{DzcNSgaEKcM^7=E@?-71OCGs7(Gzyd}pvFfCz9gbAT(g^eWO50O
+zBBpJZN^hJJ99bhWHF`wkU32H>#AHa6YVZY2fOa4st^|#s56l6*SgBq=uo~lj!l@sz
+z58zZ(3$SHk?lvOfED=nBS)kVu)ku?F<F#1bw^%kiK2V1%9~l5GKu%V<&*U1BlT{A1
+mC6M7{4k$}j8i9u~0{;OlYubhPFIsQ_0000<MNUMnLSTYj(KxXH
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/res/drawable/ic_apps_white.png b/res/res/drawable/ic_apps_white.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..11feca269e04b2fb08d2bfa6389ad0e9f3d65494
+GIT binary patch
+literal 500
+zcmV<Q0So?#P)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px$u1Q2eR9Fe^mQN@|Q544KO~Qnd{Mk{6WT|W{tSx43$wFjpW2IMivan=lY01XI
+zP9sWFnuRD*wwi2|k_Nw1&zn1w`+Dz;c~bY(*ZJ<b_nz~;bMKudlX2!c;5yKR4t%C>
+zzWEthbMV*PiLsqPi)|ui{DO5w@CL@g98l-fZj|Elp64CmL*xDrGdKYwVK4#F-kEg~
+zLh(E}2UlQ~*aNkf6V$gaC1D)<U{NpV1h2-13OpCU2uD)iRHHej3JDHD2gn)8Uf}Ow
+zz=$QH8ZokG#;9@(e+2tMY&-CYokmQ3ku~nhtpqucMO<FE#(qQ0DI&@gKS0zb{0?3K
+zo<>l(C-SOQC(BR~a8nJ1Y+8~rDut0~;)lf{ny39l2WHv3U?vK9Yn}gLi9MtdGr`A>
+zBIuH|J3wBSV2{`tbA#|P(3nMcv}U%*s7tEh+d*5vyWs^8*L>OcZQ2VwMS^=O?&7aO
+z7Cwnz0ewJaS}{_rA8e?qS~h9!j3rg$VJF7c!<x?UG@E7!7y?`1*(N6SIIm9rW-I~u
+qmG)B?U@M529^0IYyAJ%j4txRd@enllEmJrE0000<MNUMnLSTZx$={~{
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/res/drawable/ic_devices_other_white.png b/res/res/drawable/ic_devices_other_white.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..0689aef05bc525a0df9d50f26532bd89b565b7c1
+GIT binary patch
+literal 289
+zcmV++0p9+JP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px#+et)0R9Fe^Rsjx!FbK5Ee&nC_4eK}dn*OY#n;2|3W=(7~fy5M!3iO1=VQ_H<
+z+879Od(JsZyMvxW2#NDNSy|SpvU`|`lRQ`v>rB<2E+XHmYQ?P1-ijB47<XoF!AyP6
+zprSW8U5+CG<xz$1g}3VX10E`dVwOT)M(jhycmpFwFU3rA&rtJbbTY=5J&_uDW^B)T
+zDQ3JF^vRr=7G|b04T?k*#KM(0Ur2kW9&KwBlNMkHc1Fx!T69tcZ~nRW21cLOnL*6d
+n(}ea(JW9jRli_pMeHr)w0`qixks3;>00000NkvXXu0mjf?;v+1
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/res/drawable/ic_settings_about_white.png b/res/res/drawable/ic_settings_about_white.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..a2f0a17aa53b9c546d582fb4a23a8c902e123daf
+GIT binary patch
+literal 527
+zcmV+q0`UEbP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px$$w@>(R9Fe^m$6C%K@f&>f>;PP5)f@tS@{Ba2Zh-926+e5#l}vHJb*7?C28yw
+z8wpyftyW^Ig<uNLZ{Wn-?i|^<>=wce{3JW~?>~Pwce`_~Rujz%*j6C3(f`<ap6@W)
+z2Ag0Nyn$CR$+GN&&$NMoEpP&!K~;Ql;SwBx+CR4Pmms<Vj=?9e#2w^rrLgq^VjJMr
+z;=tif8TYMqJw760<i!!MI~;fgLK9S!zh;pYaZP`d=!MoV@t7$0NJv~m8io+zyn}YB
+z(7XW?<f#e0S%;zrKQu=3>X)vgdK#)+gC{ridZ}PBSkjW@_ABx+(#weKYC@hFT+7bd
+z(Z~^VdzzMK29j*?mN;Vjx9+rR4b6<4HK{|bp_!3GFLkIjG&6GgrVh1+W=7h8)S=eU
+z%uH}HP3-1I)A!62jnS1xj+nd9v^+Bf=}aR>$~~eZtM5gXnRA%;9y?Crkk!vkQtZTC
+zAm>QT7@JJYl5x?G=;R5lwOM`hcLWAN8ly!*jC9P!wFwCIfHX#RV$7t)R>U=hU>l4;
+z=za76S8Wws?ccHWw3Uud8Y3wpZGfD<?n|6(XtIyU%be}0VNw&#3jEs@_yN__`dCu0
+R4K4rx002ovPDHLkV1n|a^ZEb)
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/res/drawable/ic_settings_accessibility_white.png b/res/res/drawable/ic_settings_accessibility_white.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..8909c880124a7cb0b522a33ab9f694d31ff925a0
+GIT binary patch
+literal 277
+zcmV+w0qXvVP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px#&q+i<R9Fe^mdy>qFbst&4%wlDbfwPHIoO3&dgZ_X;j@$jM8=kAKnB^;Q=0fE
+z&Wlrdno^R1WZ+8-)LIvC0k<|T-qzR^uz|fnzKiE)>IpD|D|i%{&z2*4*}Rv{@^N)U
+zTl<J@zFN-M2qV4hmXGL8o<SHrM~ib!!U_q+DBv(xl!<r@gsGWOuZd*xr>B-qsB4l8
+z!xXSeS1$ew1JqdoV>`Wf$!Uo&Jjt<6??5uY-|2m-?K~^2YHNzw;3X<0P5}=-TZT&p
+bUNUe8t1%rHX3Ecx00000NkvXXu0mjfBRz5i
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/res/drawable/ic_settings_accounts_white.png b/res/res/drawable/ic_settings_accounts_white.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..23f63a896be45dbd546d60f90674815cb9e315bc
+GIT binary patch
+literal 441
+zcmV;q0Y?6bP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px$b4f%&R9Fe^mOV=YK@f)TBq4>tKu9In2q8rZ8;cY|Ec^#{{u3?i4C(V5Qlv;D
+z*oc*2DcEQP5fQWq1hMb~6+EATyCz(2o!m#R*nx*-cjso_o4cD^$FXKBU@NfT3V5Ek
+z4JR;xPZ&W5mNSz^vI6wr7sBkG#a1SQNOTycU}|m5yq2mU5;Wm^D)FpoKW#DHS(!uD
+zMf8eB(2~X(-=@O9h;Lot?`XwnVyk_%Vy+b#e(=3h`0HGG2lDd*i*y9#<J0!V<frKc
+z50(lo{&x_FNn>>92})H;T(<$zcd8)sS9pd?*L9y5(=|l2VE`WxWjAc@LnU!V1g*g_
+zXibh6dx;4m*eX0g96Lxv5DL!YsPM0qv(HW}K?K-JKu8ec%p}J2Z`w2kQ0yCHnZ#U>
+z>|K#C%JnpA^Iv<^cnyx=3cf&Na{L^^E|_lIQ8hgR7Py0TXn-`kvX303q=IigkBql8
+jzZXVpwgR>SnOEQsyR;5E-E%WV00000NkvXXu0mjfd3d<r
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/res/drawable/ic_settings_applications_white.png b/res/res/drawable/ic_settings_applications_white.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..a91d331905ab2dd9f43bc772d399d0d16ec39d8b
+GIT binary patch
+literal 507
+zcmV<X0R;YuP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px$wMj%lR9Fe^mN84iKp2Lbs#O%U2zC$$h3*Ra2mA*G-31qMQt<~!2RG^L59sLT
+z;OOK~5OEPi1Sb*cq6o!B<MT-Z=D1wWUakn{gNJZ;@B7}DOGsNP6;+%-aRUGC1i~;J
+zg-MtD7Qf`UWRwV~z%3lR1c^V&skr1wLoN7##eRas7x`QL_!Az2s?de=#De8Oe38Fu
+zX)((P+XAUIvog7ge*N2pKe^&CBCrhC@Bm{rQKF0V;w#&DL^GTv41(a3z+H6msP^HI
+zvG`VC0ctP~U3i8|*o1jl6+hQ}iv~`h2WRjKrjnQb2B!1vf;2*x;0k_QZy1`8`2?(*
+zCTJVp!KE%R&slAlCL&<Rr31x#$9N`fFXKGM2FS~sXLSf0F>b6bVwiwOr3-1S9g)@K
+zJ-Q>1t6F>Ne#S9wdFj+@$0in}DO1%&i=eI%y)dW!BBy<jHsXyvT&KuvSmo07vgU4N
+zDzC>RS*Nzm#J@#i@>Nf|W^|8fRwvAPuEt#sshPSjV+T=F6?z!UzrUV`Tu+f4-+`|e
+x<!7$0ecd~w(+y<qPc<`;J1#aUPQcd*d;uYr;Yup=f7k#3002ovPDHLkV1iR@<T(HU
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/res/drawable/ic_settings_battery_white.png b/res/res/drawable/ic_settings_battery_white.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..72b956b3dadebd0d2379c53ddefd4c2a7e2516f4
+GIT binary patch
+literal 291
+zcmV+;0o?wHP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px#-AP12R9Fe^Rsjx!APkhnhvCbHKVvUrZL=j7S_2btF(tv+(q50ViqmAn6fgyD
+zsDRt<DW&AM_L=w2xtQbUWKte*mJMWB?V=7SgCi6R9UX{|MI^{sa-t97pW0fbKf>l;
+zm9Z42l7ZFG0wly@em61#em|G+sFpot`c>vgk(*>uOAIITd8HYlZ+|`nmY2DVj3)hG
+zDKor*p;<jBgR>aJ$p8ZnQ~bJLL538O4$3_;fwF$T#MV@m3@~3?!H&kWe+uEeIEt_4
+p*F2_0&9((oz!WeAOo6@%ya8S7GOK4tAaei!002ovPDHLkV1m5NbvXb4
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/res/drawable/ic_settings_display_white.png b/res/res/drawable/ic_settings_display_white.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..5d0567d8d00c9de4d2a040a69253c4865e44f631
+GIT binary patch
+literal 629
+zcmV-*0*d{KP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px%FG)l}R9Fe^mc2>?K@>(4H4wofoe&JMQLMzqfDka14`3ZZ@ENRQA=n6tV56=0
+z1_}y7Y<&R{#Y(WTP(iG8J)dO5WLRdi*+~)2g~QIw{rhIJyV*=;X#e2^f*@!>;A5{N
+zK8pCNF*ss4{b^sjrdA1h+q{IpE9|)h;a`SEOw1fH&#>=`bNWc$1DR8hs|dNF5Q&*{
+z#m4$11Y|q0!Bzk{I$eoKFC?rjAy5nFx-uVuGE|@n^Dtq><XAg~bSGjKwZ{}+f;+J7
+zi-ldt+c|xi(`XaaRASa(779><1CZ|)ihU6f7NvnsM9ofMJX|-gtm`LxgEMp8>zLxY
+zM|2t@Qb^bk{|3nF;hNVgh0Cgrb=82l2e?WiV$2LC*?xI7v)Sx*D`v8Fy)knfW5unQ
+z{+Rk^=<nl7e22Bgv8sDPR_M%%o)NbXpQcyImbL3EuH$4lg{+xujo(}I1+GoY7d2Jf
+zlj(@5pGoq^^+@4wST!3&joJMa>x*z1<@d5i6TQ&%XjfeY@n3-cWF@LUM)5r8g{Jq&
+zhTVm=DUcA^y6yKqr%4gc)eY0*dkVT)oA3cTk^Tvxxc+@}=FXVc;R;^h6Yk*<I({1F
+zGiF|@F~!2~k)x!ABm{I?J%10idm2J|{vMGKko7Kz<Pv!KFp?0EZMS!tWI*C5=*Dz@
+z7~yX~5LcU!ZK%Y>rSj9D0kLAbX_Dj(+)ceyF@H`>ljGP*btJ>&K{|mSQ=dF&|B!Go
+P00000NkvXXu0mjfc5);B
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/res/drawable/ic_settings_security_white.png b/res/res/drawable/ic_settings_security_white.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..a7febb56e9ecb659758644a5dcebcd0ba1a8535d
+GIT binary patch
+literal 412
+zcmV;N0b~A&P)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px$R!KxbR9Fe^l(A|8K@f(Gq%j8V@&tmVU~6*$Yabzn4-qT`4cLgKwNGGWm+~Na
+zhuBz$kVLJ-M$Yd<kK@?Q?&^AhV+TH5XU3U-e?4<K7tR6az&|?>1VI&^;T=9<0xc+9
+zT^dXB(10P#K^7YdGibwuHDL@ZKzQ5m)?Z*6J3bIP7dlwINEie9U@cT)@~Vb3>zNbt
+zazof~Fmuk>Fy%1g)^w8WD@o>g1pCbHnanp9b6gVN;UmNs<h^*4&e>QDLq)gsC3zhU
+zQIGopM^+>b&Y6TE(OZ=>tEf|c@B~kisCz9+YUfx|f?u!^UG2rPMpSexDEVf_y=;ee
+zo*_l}xKL1Ad!eckAr)AjDQK*kZ(K)66SjteUg<yQUtX<`!F5<@3L0Ha$Vn;-$}s&y
+z&=0lNsXvuh7CypTOw@|=0LrNd5G`SO4W8gmRCl?|Ij{$|n#^gW9YL%B0000<MNUMn
+GLSTZP#Hhsp
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/res/drawable/ic_settings_sound_white.png b/res/res/drawable/ic_settings_sound_white.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..0bf37092f475637a297fca58df92924cdd6dcb31
+GIT binary patch
+literal 831
+zcmV-F1Hk-=P)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px%`AI}UR9Fe^mdR@rQ4q#w%xIj5;1U%V5HV_uAjE^l1cE5U1w~Kd$+JT6DtPLX
+z{sV$n#hWJ&qIhx%5pSZ12yP=7gAf;tlbA)u-#2*`-Zb6QX4*c8Dfp(=S5^J$_3O#y
+z=IMXhfl8&)1iI5a^MW*sLu)Ui_l0b8QvXUb?8telp81o?#4Z)0VpBIm;!`BP6qP*2
+zwgY=N>z0N6shS~SFA1-LhvCF^^k?{{ff`!w$2HsxiP}kY6TAf{{G?%-*xAwK^Z7CS
+zgJ1%5;%l<_hMFP48WP-b2@g}?n<b3lHKQT^Cvi`~60ptI6ihHqp?%0gJvxqa73d}L
+z`+9-Sr_t;Md&qx}HIrZjxrA-AIJ$PMmT&|hiKYoS;;(cI0<)oafbE{HQ5^-lJX;a{
+z7}zRX?3n1Z9u;ujwxls!_s#%?Hpx%?DC`wjk4@u|Z5%cNHb{?cM$VLUf%PhS#mi$O
+ztrmCokBU=+nKi>xKc+|k4pOKMuAR`q{Q_F0JJODcS~6>9CV%dR<GPQG$_Oo{z%?pS
+zG3#bD0@3OjR{hoevdGgXo!p#tGwWQTPhRn6WHn@DjZI|T%t=>qz$(LasBJVd7xe>;
+zXVwgdwu=G*xXZzP4bNd)3|j&8Ivd#+d@QqOsB{th0B5Z#e4~>;cs7l)OvB~aW_XG?
+z8pN^EOBN^g<Iv~godQ^+9oPbfRM^=xBE9C-<_a=~=zd7|RV_XT)X*W4mVBo#<9lH`
+zv3iwvgDLRb?C>@x`#a^i6GRgCfX`qUbXqvFC@|gU*t>u(zu7-j$gM!%r4B!K&N2zw
+zK?!^ZeM$fq1yRYc>mz9gwR(`z4}kq3-TxUz@RFkXOYjEVBH`(%Cd@|ss34tKjjRXg
+zzIlTE7raWb2iOAQI7x=_>6(84uEoVg*mq*nS$#x~uMz&nO+4vBa2<$(q)f!rjLeUZ
+zdYgQIqRi7xQ9xrF0+pl%#M@UoDKwp*rq-s*Fu!_!2maw5_zfi8i(Ny*155w_002ov
+JPDHLkV1oU;h{gZ_
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/res/drawable/ic_settings_storage_white.png b/res/res/drawable/ic_settings_storage_white.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..1113aa56d04b34b25cd23609b103a296c1ad2b47
+GIT binary patch
+literal 348
+zcmV-i0i*tjP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px$7D+@wR9Fe^mB9_dFbqWtLWm8xumwjBbPwj>OnPGoRzP9|7>iT*7HyS-gY7CU
+zAlXvX)OFmKZ>Oy)H&?(F7)gN`W56hFPbAz)$a5*6(DNnoTmiKCly52+VpwC`0JO>h
+znPFxMOJ7FexNlnD7S~JqJe`|i(!~Sk2dH!8)_wzqIL^NW!-}xr2n+bS9x<gF1qMAE
+zOcZUf83xT4hrCF$MuK@D$z7938FNy`y~D8a^mh<Ui-llPwKFc1?P@M?3ZGP_o&h`B
+z<EHK%$_biTeX`UrEl5x@q+x0pb(v^~7-mbUq`6udFH=rR)Tc4m2n%xgIKP*PQ-yqg
+ub((6NqLAB3X}{Dn^wp)|<_fq1k^(Pnqo5P-RdS600000<MNUMnLSTXzag3P&
+
+literal 0
+HcmV?d00001
+
+diff --git a/res/res/drawable/ic_settings_wireless_white.png b/res/res/drawable/ic_settings_wireless_white.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..e817bb82d4a7346effefa94e5f0544ad47c6018f
+GIT binary patch
+literal 682
+zcmV;b0#*HqP)<h;3K|Lk000e1NJLTq001KZ001Kh1^@s69@(>500001b5ch_0Itp)
+z=>Px%WJyFpR9Fe^)?H}LVHg1LGn?<PvaGQYn~Mn-WNJ5vk{c;fTS<ygZsgL1!mh>*
+zrIZ`xW>;K^tIez|B>A|olDLp;h>OYh{GK|e&d!<hwY3%JsbB9o@5l2#=RN=b|C~gk
+z9OV-zpTIwO0u{x6rs3h?+14zjE~!>K#6Z$JZGS~Y#c%EShXNWoMi)QG7avUMWIu}v
+zttjWoNVHv|GptW0e5$?0UE&1dGzN)NNS#!)E$pD480+M;)9Tk27m8@%HW9BlN^DY8
+zShJ3HKJk;QtSBgniB()A;x&hvTF~MgljK-H2VWSXEywgk!h~wNi8#-+oC``Al(UYT
+zM8qCdS!r}O@sj*iCs&(WNj=T1qK3+><QW|?hjT>qGH=8b9dV4;Sv_JP?TxWWvXMyi
+zoL^+dcO5;PU`^Wcte3|3afvCZ!JKzfYLW%Jy>6$8uiT-Rx4b7J?wloTW&@G?2B+Lb
+z542+oMKp4ch-b7iBVSf?YB|mT5m%U%Z{1(VE#68zygt%KL8q9W(3-iNCLWZJDeSh+
+zNHX8TK_0R^eXNw%a-=?3S1Ie`R$ocpucXlAay3w$Yknz5AJ3m%>|`yA`9@sKJzR6a
+zc591{qKfg!_Sm6=WyI!jS4A7omj*U5hdz!d>WOyzLm_90xX-rHcF;eagS;Ug{jH<T
+z8*`t;hlql*AK@9<&556uc!)M<43*!ObOJ?Pz?nPv8n)<*KT$P2;<AhOvvy)bAqU8e
+z7dmE6Y$bM!P3g<1X77X-lG;!q3yJ?h5hqjqlh!IC{#ad@v;xW-|JNt*2Q!#TY<a<u
+QlmGw#07*qoM6N<$g73ybH2?qr
+
+literal 0
+HcmV?d00001
+
+diff --git a/src/com/android/settings/SettingsActivity.java b/src/com/android/settings/SettingsActivity.java
+index 27b9be5..60916f1 100644
+--- a/src/com/android/settings/SettingsActivity.java
++++ b/src/com/android/settings/SettingsActivity.java
+@@ -49,6 +49,7 @@ import android.view.View.OnClickListener;
+ import android.view.ViewGroup;
+ import android.widget.Button;
+ import android.widget.Toolbar;
++import android.widget.LinearLayout;
+ import com.android.internal.util.ArrayUtils;
+ import com.android.settings.Settings.WifiSettingsActivity;
+ import com.android.settings.backup.BackupSettingsActivity;
+@@ -157,6 +158,52 @@ public class SettingsActivity extends SettingsDrawerActivity
+     private CharSequence mInitialTitle;
+     private int mInitialTitleResId;
+ 
++    private int[][] settingsContentResId = {
++        new int[]{R.string.network_dashboard_title,
++                  R.drawable.wifi,
++                  R.drawable.wifi_white},
++
++        new int[]{R.string.connected_devices_dashboard_title,
++                  R.drawable.connected_device,
++                  R.drawable.connected_device_white},
++
++        new int[]{R.string.notifications_title,
++                  R.drawable.notification,
++                  R.drawable.notification_white},
++
++        new int[]{R.string.power_usage_summary_title,
++                  R.drawable.battery,
++                  R.drawable.batter_white},
++
++        new int[]{R.string.display_settings_title,
++                  R.drawable.display,
++                  R.drawable.display_white},
++
++        new int[]{R.string.sound_settings,
++                  R.drawable.sound,
++                  R.drawable.sound_white},
++
++        new int[]{R.string.android_x86_options_title,
++                  R.drawable.android,
++                  R.drawable.android_white},
++
++        new int[]{R.string.storage_settings,
++                  R.drawable.storage,
++                  R.drawable.storage_white},
++
++        new int[]{R.string.security_settings_title,
++                  R.drawable.security,
++                  R.drawable.security_white},
++
++        new int[]{R.string.account_dashboard_title,
++                  R.drawable.account,
++                  R.drawable.account_white},
++
++        new int[]{R.string.accessibility_settings,
++                  R.drawable.accessibility,
++                  R.drawable.accessibility_white},
++    };
++
+     private static final String[] LIKE_SHORTCUT_INTENT_ACTION_ARRAY = {
+             "android.settings.APPLICATION_DETAILS_SETTINGS"
+     };
+@@ -297,6 +344,7 @@ public class SettingsActivity extends SettingsDrawerActivity
+ 
+         setContentView(mIsShowingDashboard ?
+                 R.layout.settings_main_dashboard : R.layout.settings_main_prefs);
++                //R.layout.new_settings_main_layout : R.layout.settings_main_prefs);
+ 
+         mContent = findViewById(R.id.main_content);
+ 
+@@ -404,6 +452,8 @@ public class SettingsActivity extends SettingsDrawerActivity
+         if (DEBUG_TIMING) {
+             Log.d(LOG_TAG, "onCreate took " + (System.currentTimeMillis() - startTime) + " ms");
+         }
++
++        getWindow().setType(5);
+     }
+ 
+     @VisibleForTesting
+@@ -696,6 +746,11 @@ public class SettingsActivity extends SettingsDrawerActivity
+         finish();
+     }
+ 
++    @Override
++    public void finish() {
++        finishAndRemoveTask();
++    }
++
+     /**
+      * Start a new fragment.
+      *
+diff --git a/src/com/android/settings/dashboard/DashboardAdapter.java b/src/com/android/settings/dashboard/DashboardAdapter.java
+index 6fee28b..b28902b 100644
+--- a/src/com/android/settings/dashboard/DashboardAdapter.java
++++ b/src/com/android/settings/dashboard/DashboardAdapter.java
+@@ -17,12 +17,15 @@ package com.android.settings.dashboard;
+ 
+ import android.app.Activity;
+ import android.content.Context;
++import android.content.pm.PackageManager;
++import android.content.pm.ApplicationInfo;
+ import android.content.res.Resources;
+ import android.content.res.TypedArray;
+ import android.graphics.Color;
+ import android.graphics.drawable.Drawable;
+ import android.graphics.drawable.Icon;
+ import android.os.Bundle;
++import android.os.SystemClock;
+ import android.support.annotation.VisibleForTesting;
+ import android.support.v7.util.DiffUtil;
+ import android.support.v7.widget.LinearLayoutManager;
+@@ -84,6 +87,7 @@ public class DashboardAdapter extends RecyclerView.Adapter<DashboardAdapter.Dash
+     private SuggestionAdapter mSuggestionAdapter;
+     private SuggestionDismissController mSuggestionDismissHandler;
+     private SuggestionDismissController.Callback mCallback;
++    private DashboardItemHolder prevHolder = null;
+ 
+     @VisibleForTesting
+     DashboardData mDashboardData;
+@@ -93,6 +97,7 @@ public class DashboardAdapter extends RecyclerView.Adapter<DashboardAdapter.Dash
+         public void onClick(View v) {
+             //TODO: get rid of setTag/getTag
+             mDashboardFeatureProvider.openTileIntent((Activity) mContext, (Tile) v.getTag());
++            v.setBackgroundColor(0xFF6F3AA4);
+         }
+     };
+ 
+@@ -248,7 +253,19 @@ public class DashboardAdapter extends RecyclerView.Adapter<DashboardAdapter.Dash
+                 final Tile tile = (Tile) mDashboardData.getItemEntityByPosition(position);
+                 onBindTile(holder, tile);
+                 holder.itemView.setTag(tile);
+-                holder.itemView.setOnClickListener(mTileClickListener);
++                holder.itemView.setOnClickListener(v-> {
++                    //TODO: get rid of setTag/getTag
++                    mDashboardFeatureProvider.openTileIntent((Activity) mContext, (Tile) v.getTag());
++                    if (prevHolder != null && prevHolder != holder) {
++                        prevHolder.itemView.setBackgroundColor(0x00000000);
++                        prevHolder.title.setTextColor(0xFF000000);
++                        prevHolder.icon.setImageDrawable(prevHolder.iconDrawable);
++                    }
++                    prevHolder = holder;
++                    v.setBackgroundColor(0xFF6F3AA4);
++                    holder.icon.setImageDrawable(holder.whiteDrawable);
++                    holder.title.setTextColor(0xFFFFFFFF);
++                });
+                 break;
+             case R.layout.suggestion_condition_container:
+                 onBindConditionAndSuggestion(
+@@ -463,11 +480,31 @@ public class DashboardAdapter extends RecyclerView.Adapter<DashboardAdapter.Dash
+             itemView.removeAllViews();
+             itemView.addView(tile.remoteViews.apply(itemView.getContext(), itemView));
+         } else {
+-            holder.icon.setImageDrawable(mCache.getIcon(tile.icon));
++            holder.iconDrawable = mCache.getIcon(tile.icon);
++            try{
++                PackageManager pm = mContext.getPackageManager();
++                ApplicationInfo ai = pm.getApplicationInfo(
++                                        tile.intent.getComponent().getPackageName(),
++                                        PackageManager.MATCH_UNINSTALLED_PACKAGES);
++                Resources res = pm.getResourcesForApplication(ai);
++                String resName = res.getResourceName(tile.icon.getResId());
++                resName = resName.substring(resName.indexOf("/") + 1);
++                Resources mRes = mContext.getResources();
++                int resId = mRes.getIdentifier(resName + "_white",
++                                                "drawable", mContext.getPackageName());
++                holder.whiteDrawable = mRes.getDrawable(resId);
++                if (resName.indexOf("google") != -1) {
++                    int id = mRes.getIdentifier(resName, "drawable", mContext.getPackageName());
++                    holder.iconDrawable = mRes.getDrawable(id);
++                }
++            } catch (Exception e) {
++                Log.e(TAG, tile.intent.getComponent() + " add failed", e);
++            }
++            holder.icon.setImageDrawable(holder.iconDrawable);
+             holder.title.setText(tile.title);
+             if (!TextUtils.isEmpty(tile.summary)) {
+                 holder.summary.setText(tile.summary);
+-                holder.summary.setVisibility(View.VISIBLE);
++                holder.summary.setVisibility(View.GONE);
+             } else {
+                 holder.summary.setVisibility(View.GONE);
+             }
+@@ -555,6 +592,8 @@ public class DashboardAdapter extends RecyclerView.Adapter<DashboardAdapter.Dash
+ 
+     public static class DashboardItemHolder extends RecyclerView.ViewHolder {
+         public final ImageView icon;
++        public Drawable iconDrawable;
++        public Drawable whiteDrawable;
+         public final TextView title;
+         public final TextView summary;
+ 
+diff --git a/src/com/android/settings/dashboard/DashboardData.java b/src/com/android/settings/dashboard/DashboardData.java
+index b9941c5..fba757c 100644
+--- a/src/com/android/settings/dashboard/DashboardData.java
++++ b/src/com/android/settings/dashboard/DashboardData.java
+@@ -205,6 +205,9 @@ public class DashboardData {
+      */
+     private void addToItemList(Object item, int type, int stableId, boolean add) {
+         if (add) {
++            if (item instanceof Tile) {
++                Tile tile = (Tile) item;
++            }
+             mItems.add(new Item(item, type, stableId));
+         }
+     }
+@@ -508,4 +511,4 @@ public class DashboardData {
+         }
+     }
+ 
+-}
+\ No newline at end of file
++}
+diff --git a/src/com/android/settings/dashboard/DashboardFeatureProviderImpl.java b/src/com/android/settings/dashboard/DashboardFeatureProviderImpl.java
+index 88cf666..a5efa78 100644
+--- a/src/com/android/settings/dashboard/DashboardFeatureProviderImpl.java
++++ b/src/com/android/settings/dashboard/DashboardFeatureProviderImpl.java
+@@ -202,7 +202,8 @@ public class DashboardFeatureProviderImpl implements DashboardFeatureProvider {
+                 .putExtra(SettingsActivity.EXTRA_SOURCE_METRICS_CATEGORY,
+                         MetricsEvent.DASHBOARD_SUMMARY)
+                 .putExtra(SettingsDrawerActivity.EXTRA_SHOW_MENU, true)
+-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
++                .putExtra(Intent.EXTRA_LAUNCH_SETTINGS_PAGE, true)
++                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+         launchIntentOrSelectProfile(activity, tile, intent, MetricsEvent.DASHBOARD_SUMMARY);
+     }
+ 
+diff --git a/src/com/android/settings/dashboard/conditional/FocusRecyclerView.java b/src/com/android/settings/dashboard/conditional/FocusRecyclerView.java
+index af51ed5..d1de087 100644
+--- a/src/com/android/settings/dashboard/conditional/FocusRecyclerView.java
++++ b/src/com/android/settings/dashboard/conditional/FocusRecyclerView.java
+@@ -15,7 +15,11 @@
+  */
+ package com.android.settings.dashboard.conditional;
+ 
++import android.R;
+ import android.content.Context;
++import android.view.View;
++import android.view.ViewGroup;
++import android.widget.TextView;
+ import android.support.annotation.Nullable;
+ import android.support.v7.widget.RecyclerView;
+ import android.util.AttributeSet;
+-- 
+2.7.4
+

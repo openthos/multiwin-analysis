@@ -1,0 +1,1101 @@
+From d16c2c1ad1c97f7008e6489e091def91c9210d4f Mon Sep 17 00:00:00 2001
+From: ladehunter <ladehunter@gmail.com>
+Date: Thu, 11 Jun 2020 08:31:11 +0000
+Subject: [PATCH] Now show Settings by a double PhoneWindow in one TaskRecord.
+ Top one is
+
+current Settings Page and the bottom is main Settins Activity.
+
+Using a EXTRA flag to judge if the intent is creating for Settins Page.
+
+Change Settins Page PhoneWindow's content root to show the settings list
+
+in main Activity. Also change touch region to make sure motionEvent drop
+
+on settings list could be send to main activity.
+
+For TaskRecord and WindowState, make sure main Activity is VISIBLE during
+
+top activity is focused, and all animation of Settings Page is disabled
+
+so the activity looks more like a tab.
+
+Signed-off-by: ladehunter <ladehunter@gmail.com>
+---
+ core/java/android/app/Activity.java                |  12 ++
+ core/java/android/app/ActivityManager.java         |   2 +-
+ core/java/android/app/ActivityThread.java          |   9 ++
+ core/java/android/app/IActivityManager.aidl        |   1 +
+ core/java/android/content/Intent.java              |   3 +
+ core/java/android/service/quicksettings/Tile.java  |   2 +-
+ core/java/android/view/View.java                   |  12 ++
+ core/java/android/view/ViewRootImpl.java           |   9 ++
+ core/java/android/view/Window.java                 |   5 +
+ core/java/android/view/WindowManager.java          |   7 +
+ .../com/android/internal/policy/DecorView.java     | 144 ++++++++++++++++++++-
+ .../com/android/internal/policy/PhoneWindow.java   |   7 +
+ .../android/internal/widget/DecorCaptionView.java  |  32 ++++-
+ core/res/res/drawable/settings_btn_close.png       | Bin 0 -> 354 bytes
+ core/res/res/drawable/settings_btn_maximize.png    | Bin 0 -> 244 bytes
+ core/res/res/drawable/settings_btn_minimize.png    | Bin 0 -> 171 bytes
+ core/res/res/values/dimens.xml                     |   2 +
+ core/res/res/values/symbols.xml                    |  16 +++
+ .../res/layout/settings_with_drawer.xml            |   2 +-
+ .../android/server/am/ActivityManagerService.java  |   8 ++
+ .../java/com/android/server/am/ActivityRecord.java |  13 ++
+ .../java/com/android/server/am/ActivityStack.java  |   9 ++
+ .../com/android/server/am/ActivityStarter.java     |   3 +
+ .../java/com/android/server/am/TaskRecord.java     |  11 ++
+ .../com/android/server/wm/AppWindowAnimator.java   |   6 +-
+ services/core/java/com/android/server/wm/Task.java |  16 +++
+ .../android/server/wm/WindowManagerService.java    |  15 ++-
+ .../java/com/android/server/wm/WindowState.java    |  17 ++-
+ test-runner/api/android-test-mock-current.txt      |   3 +
+ 29 files changed, 349 insertions(+), 17 deletions(-)
+ create mode 100644 core/res/res/drawable/settings_btn_close.png
+ create mode 100644 core/res/res/drawable/settings_btn_maximize.png
+ create mode 100644 core/res/res/drawable/settings_btn_minimize.png
+
+diff --git a/core/java/android/app/Activity.java b/core/java/android/app/Activity.java
+index 268b2b7..bb9e02b 100644
+--- a/core/java/android/app/Activity.java
++++ b/core/java/android/app/Activity.java
+@@ -3268,6 +3268,15 @@ public class Activity extends ContextThemeWrapper
+     }
+ 
+     @Override
++    public boolean isTaskFocuesed() {
++        try {
++            return ActivityManager.getService().isTaskFocused(mToken);
++        } catch (Exception e) {
++            return false;
++        }
++    }
++
++    @Override
+     public int getWindowRunMode() {
+         try {
+             return ActivityManager.getService().getTaskRunMode(getTaskId(), getPackageName());
+@@ -7060,6 +7069,9 @@ public class Activity extends ContextThemeWrapper
+         mWindow.setCallback(this);
+         mWindow.setOnWindowDismissedCallback(this);
+         mWindow.getLayoutInflater().setPrivateFactory(this);
++        if (intent.getBooleanExtra(Intent.EXTRA_LAUNCH_SETTINGS_PAGE, false)) {
++            mWindow.setIsSettingsPage();
++        }
+         if (info.softInputMode != WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED) {
+             mWindow.setSoftInputMode(info.softInputMode);
+         }
+diff --git a/core/java/android/app/ActivityManager.java b/core/java/android/app/ActivityManager.java
+index 9cc494e..a12a2d7 100644
+--- a/core/java/android/app/ActivityManager.java
++++ b/core/java/android/app/ActivityManager.java
+@@ -848,7 +848,7 @@ public class ActivityManager {
+         }
+ 
+         public static boolean isAlwaysOnTop(int stackId) {
+-            return stackId == PINNED_STACK_ID;
++            return stackId == PINNED_STACK_ID || stackId == FREEFORM_WORKSPACE_STACK_ID;
+         }
+ 
+         /**
+diff --git a/core/java/android/app/ActivityThread.java b/core/java/android/app/ActivityThread.java
+index 7fb40d6..e18e133 100644
+--- a/core/java/android/app/ActivityThread.java
++++ b/core/java/android/app/ActivityThread.java
+@@ -108,6 +108,7 @@ import android.util.SparseIntArray;
+ import android.util.SuperNotCalledException;
+ import android.view.ContextThemeWrapper;
+ import android.view.Display;
++import android.view.Gravity;
+ import android.view.ThreadedRenderer;
+ import android.view.View;
+ import android.view.ViewDebug;
+@@ -3721,6 +3722,14 @@ public final class ActivityThread {
+                 if (a.mVisibleFromClient) {
+                     if (!a.mWindowAdded) {
+                         a.mWindowAdded = true;
++                        boolean launchSettingsPage = r.intent.getBooleanExtra(
++                                                        Intent.EXTRA_LAUNCH_SETTINGS_PAGE, false);
++                        if (launchSettingsPage) {
++                            decor.setHasWindowShadow(false);
++                            decor.setIsSettingsPage();
++                            decor.setAppBlur(false);
++                            l.isSettingsPage = true;
++                        }
+                         wm.addView(decor, l);
+                     } else {
+                         // The activity will get a callback for this {@link LayoutParams} change
+diff --git a/core/java/android/app/IActivityManager.aidl b/core/java/android/app/IActivityManager.aidl
+index 467741a..ec168f7 100644
+--- a/core/java/android/app/IActivityManager.aidl
++++ b/core/java/android/app/IActivityManager.aidl
+@@ -444,6 +444,7 @@ interface IActivityManager {
+     void notifyCleartextNetwork(int uid, in byte[] firstPacket);
+     int createStackOnDisplay(int displayId);
+     int getFocusedStackId();
++    boolean isTaskFocused(in IBinder token);
+     int getTaskRunMode(int taskId, String packageName);
+     int getTaskRunModeForPackageName(String packageName);
+     void setTaskBoundsMode(int taskId, in Rect bounds, int taskBoundsMode);
+diff --git a/core/java/android/content/Intent.java b/core/java/android/content/Intent.java
+index 08acfb6..4200fab 100644
+--- a/core/java/android/content/Intent.java
++++ b/core/java/android/content/Intent.java
+@@ -4926,6 +4926,9 @@ public class Intent implements Parcelable, Cloneable {
+     public static final String EXTRA_AUTO_LAUNCH_SINGLE_CHOICE =
+             "android.intent.extra.AUTO_LAUNCH_SINGLE_CHOICE";
+ 
++    public static final String EXTRA_LAUNCH_SETTINGS_PAGE = 
++            "android.intent.extra.LAUNCH_SETTINGS_PAGE";
++
+     /**
+      * Used as an int value for {@link #EXTRA_MEDIA_RESOURCE_TYPE}
+      * to represent that a video codec is allowed to use.
+diff --git a/core/java/android/service/quicksettings/Tile.java b/core/java/android/service/quicksettings/Tile.java
+index 4b81a72..cfca008 100644
+--- a/core/java/android/service/quicksettings/Tile.java
++++ b/core/java/android/service/quicksettings/Tile.java
+@@ -220,4 +220,4 @@ public final class Tile implements Parcelable {
+             return new Tile[size];
+         }
+     };
+-}
+\ No newline at end of file
++}
+diff --git a/core/java/android/view/View.java b/core/java/android/view/View.java
+index 781f3ea..dbe0637 100644
+--- a/core/java/android/view/View.java
++++ b/core/java/android/view/View.java
+@@ -4039,6 +4039,7 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
+     private Drawable mDefaultFocusHighlight;
+     private Drawable mDefaultFocusHighlightCache;
+     private boolean mDefaultFocusHighlightSizeChanged;
++    private boolean mHasWindowShadow = true;
+     /**
+      * True if the default focus highlight is needed on the target device.
+      */
+@@ -5639,6 +5640,9 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
+     public void setAppBlur(boolean isBlur) {
+     }
+ 
++    public void setIsSettingsPage() {
++    }
++
+     /**
+      * Returns the size of the horizontal faded edges used to indicate that more
+      * content in this view is visible.
+@@ -24280,6 +24284,14 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
+         }
+     }
+ 
++    public void setHasWindowShadow(boolean hasShadow) {
++        mHasWindowShadow = hasShadow;
++    }
++
++    public boolean getHasWindowShadow() {
++        return mHasWindowShadow;
++    }
++
+     /**
+      * Gets the pointer icon for the current view.
+      */
+diff --git a/core/java/android/view/ViewRootImpl.java b/core/java/android/view/ViewRootImpl.java
+index 9c82bf4..be139a5 100644
+--- a/core/java/android/view/ViewRootImpl.java
++++ b/core/java/android/view/ViewRootImpl.java
+@@ -210,6 +210,8 @@ public final class ViewRootImpl implements ViewParent,
+      */
+     private boolean mForceNextConfigUpdate;
+ 
++    private boolean mHasWindowShadow = true;
++
+     /**
+      * Signals that compatibility booleans have been initialized according to
+      * target SDK versions.
+@@ -673,6 +675,7 @@ public final class ViewRootImpl implements ViewParent,
+         synchronized (this) {
+             if (mView == null) {
+                 mView = view;
++                mHasWindowShadow = view.getHasWindowShadow();
+                 initPaint();
+ 
+                 mAttachInfo.mDisplayState = mDisplay.getState();
+@@ -3194,6 +3197,7 @@ public final class ViewRootImpl implements ViewParent,
+     }
+ 
+     private void drawWindowShadowIfNeeded(Canvas canvas) {
++        if (!mHasWindowShadow) return;
+         RectF archRect = new RectF(0, 0, mWindowShadowSize * 2 ,mWindowShadowSize * 2);
+ 
+         canvas.save();
+@@ -6207,6 +6211,7 @@ public final class ViewRootImpl implements ViewParent,
+                 params.type = mOrigWindowType;
+             }
+         }
++
+         int relayoutResult = mWindowSession.relayout(
+                 mWindow, mSeq, params,
+                 (int) (mView.getMeasuredWidth() * appScale + 0.5f),
+@@ -7492,6 +7497,10 @@ public final class ViewRootImpl implements ViewParent,
+         invalidate();
+     }
+ 
++    public void setHasWindowShadow(boolean hasShadow) {
++        mHasWindowShadow = hasShadow;
++    }
++
+     void changeCanvasOpacity(boolean opaque) {
+         Log.d(mTag, "changeCanvasOpacity: opaque=" + opaque);
+         if (mAttachInfo.mThreadedRenderer != null) {
+diff --git a/core/java/android/view/Window.java b/core/java/android/view/Window.java
+index 998c989..13bb0c6 100644
+--- a/core/java/android/view/Window.java
++++ b/core/java/android/view/Window.java
+@@ -629,6 +629,8 @@ public abstract class Window {
+         /** Returns current window run mode. */
+         int getWindowRunMode();
+ 
++        boolean isTaskFocuesed();
++
+         /** Returns the current stack Id for the window. */
+         int getWindowStackId() throws RemoteException;
+ 
+@@ -2353,6 +2355,9 @@ public abstract class Window {
+         mCloseOnSwipeEnabled = closeOnSwipeEnabled;
+     }
+ 
++    public void setIsSettingsPage() {
++    }
++
+     /**
+      * @return {@code true} if the close on swipe is enabled.
+      * @hide
+diff --git a/core/java/android/view/WindowManager.java b/core/java/android/view/WindowManager.java
+index 86bc2f2..701f52e 100644
+--- a/core/java/android/view/WindowManager.java
++++ b/core/java/android/view/WindowManager.java
+@@ -1851,6 +1851,8 @@ public interface WindowManager extends ViewManager {
+         @Deprecated
+         public float preferredRefreshRate;
+ 
++        public boolean isSettingsPage = false;
++
+         /**
+          * Id of the preferred display mode for the window.
+          * <p>
+@@ -1958,6 +1960,7 @@ public interface WindowManager extends ViewManager {
+         public CharSequence accessibilityTitle;
+ 
+         public boolean needWindowShadow = false;
++        public boolean exclude = false;
+ 
+         /**
+          * Sets a timeout in milliseconds before which the window will be hidden
+@@ -2152,6 +2155,7 @@ public interface WindowManager extends ViewManager {
+             TextUtils.writeToParcel(accessibilityTitle, out, parcelableFlags);
+             out.writeInt(mColorMode);
+             out.writeLong(hideTimeoutMilliseconds);
++            out.writeInt(isSettingsPage ? 1 : 0);
+         }
+ 
+         public static final Parcelable.Creator<LayoutParams> CREATOR
+@@ -2207,6 +2211,7 @@ public interface WindowManager extends ViewManager {
+             accessibilityTitle = TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(in);
+             mColorMode = in.readInt();
+             hideTimeoutMilliseconds = in.readLong();
++            isSettingsPage = in.readInt() != 0;
+         }
+ 
+         @SuppressWarnings({"PointlessBitwiseExpression"})
+@@ -2442,6 +2447,8 @@ public interface WindowManager extends ViewManager {
+             // This can't change, it's only set at window creation time.
+             hideTimeoutMilliseconds = o.hideTimeoutMilliseconds;
+ 
++            isSettingsPage = o.isSettingsPage;
++
+             return changes;
+         }
+ 
+diff --git a/core/java/com/android/internal/policy/DecorView.java b/core/java/com/android/internal/policy/DecorView.java
+index 50fe638..fddf007 100644
+--- a/core/java/com/android/internal/policy/DecorView.java
++++ b/core/java/com/android/internal/policy/DecorView.java
+@@ -44,6 +44,8 @@ import android.app.ActivityManager;
+ import android.content.Context;
+ import android.content.res.Configuration;
+ import android.content.res.Resources;
++import android.content.pm.PackageManager;
++import android.content.pm.ApplicationInfo;
+ import android.graphics.Canvas;
+ import android.graphics.Color;
+ import android.graphics.LinearGradient;
+@@ -88,6 +90,8 @@ import android.view.animation.AnimationUtils;
+ import android.view.animation.Interpolator;
+ import android.widget.FrameLayout;
+ import android.widget.PopupWindow;
++import android.widget.ImageView;
++import android.widget.LinearLayout;
+ 
+ import static android.app.ActivityManager.StackId;
+ import static android.app.ActivityManager.StackId.FULLSCREEN_WORKSPACE_STACK_ID;
+@@ -206,6 +210,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+     private View mStatusGuard;
+     // View added at runtime to draw under the navigation bar area
+     private View mNavigationGuard;
++    private LinearLayout mSettingsActionBar;
+ 
+     private final ColorViewState mStatusColorViewState =
+             new ColorViewState(STATUS_BAR_COLOR_VIEW_ATTRIBUTES);
+@@ -263,6 +268,8 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+     private final Rect mFloatingInsets = new Rect();
+     private boolean mApplyFloatingVerticalInsets = false;
+     private boolean mApplyFloatingHorizontalInsets = false;
++    private boolean mIsSettingsPage = false;
++    private boolean mIgnoreSettings = false;
+ 
+     private int mResizeMode = RESIZE_MODE_INVALID;
+     private final int mResizeShadowSize;
+@@ -658,8 +665,83 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+         return changed;
+     }
+ 
++    private void initialSettingsActionBarIfNeeded() {
++        if (mContentRoot != null && mIsSettingsPage && mSettingsActionBar == null && !mIgnoreSettings) {
++            try {
++                PackageManager pm = mContext.getPackageManager();
++                String packageName = mContext.getPackageName();
++                ApplicationInfo ai = pm.getApplicationInfo(packageName,
++                                                PackageManager.MATCH_UNINSTALLED_PACKAGES);
++                Resources res = pm.getResourcesForApplication(ai);
++                int actionBarId = res.getIdentifier("action_bar", "id", packageName);
++                View actionBar = mContentRoot.findViewById(actionBarId);
++                if (actionBar == null) {
++                    return;
++                }
++
++                Drawable abBackground = actionBar.getBackground();
++                actionBar.setElevation(0);
++                if (!(abBackground instanceof ColorDrawable)) {
++                    setCaptionVisiblity(mDecorCaptionView.hasCaption());
++                    mDecorCaptionView.setBackgroundColor(0x00000000);
++                    mIgnoreSettings = true;
++                    return;
++                }
++                ColorDrawable sabDrawable = new ColorDrawable(((ColorDrawable) abBackground).getColor());
++
++                ViewGroup actionBarParent = (ViewGroup) actionBar.getParent();
++                ViewGroup.LayoutParams ablp = actionBar.getLayoutParams();
++                LinearLayout.LayoutParams abllp = new LinearLayout.LayoutParams(0, ablp.height, 1);
++                actionBarParent.removeView(actionBar);
++
++                ImageView settingsMin, settingsMax, settingsClose;
++                settingsMin = new ImageView(mContext);
++                settingsMin.setImageResource(R.drawable.settings_btn_minimize);
++                settingsMax = new ImageView(mContext);
++                settingsMax.setImageResource(R.drawable.settings_btn_maximize);
++                settingsClose = new ImageView(mContext);
++                settingsClose.setImageResource(R.drawable.settings_btn_close);
++
++                LinearLayout.LayoutParams minLp, maxLp, closeLp;
++                minLp = new LinearLayout.LayoutParams((int)dipToPx(30), (int)dipToPx(30));
++                minLp.gravity = Gravity.CENTER_VERTICAL;
++                minLp.rightMargin = (int)dipToPx(2);
++                maxLp = new LinearLayout.LayoutParams((int)dipToPx(30), (int)dipToPx(30));
++                maxLp.gravity = Gravity.CENTER_VERTICAL;
++                maxLp.rightMargin = (int)dipToPx(2);
++                closeLp = new LinearLayout.LayoutParams((int)dipToPx(30), (int)dipToPx(30));
++                closeLp.gravity = Gravity.CENTER_VERTICAL;
++                closeLp.rightMargin = (int)dipToPx(9);
++
++                mSettingsActionBar = new LinearLayout(mContext);
++                mSettingsActionBar.setOrientation(LinearLayout.HORIZONTAL);
++                mSettingsActionBar.addView(actionBar, abllp);
++                mSettingsActionBar.addView(settingsMin, minLp);
++                mSettingsActionBar.addView(settingsMax, maxLp);
++                mSettingsActionBar.addView(settingsClose, closeLp);
++                mSettingsActionBar.setBackground(sabDrawable);
++                
++                actionBar.setOnTouchListener(mDecorCaptionView);
++                settingsMin.setOnClickListener(view -> {
++                    mDecorCaptionView.minimizeWindow();
++                });
++                settingsMax.setOnClickListener(view -> {
++                    mDecorCaptionView.maximizeWindow();
++                });
++                settingsClose.setOnClickListener(view -> {
++                    mWindow.dispatchOnWindowDismissed(true, false);
++                });
++
++                actionBarParent.addView(mSettingsActionBar, 0, ablp);
++            } catch (Exception e) {
++                Log.e(TAG, "get action failed", e);
++            }
++        }
++    }
++
+     @Override
+     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
++        initialSettingsActionBarIfNeeded();
+         final DisplayMetrics metrics = getContext().getResources().getDisplayMetrics();
+         final boolean isPortrait =
+                 getResources().getConfiguration().orientation == ORIENTATION_PORTRAIT;
+@@ -774,8 +856,17 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+         }
+     }
+ 
++    private void setSettingsPageBackgroundIfNeeded() {
++        if (mIsSettingsPage) {
++            setBackgroundColor(0x00000000);
++            if (mDecorCaptionView != null) {
++                mDecorCaptionView.setBackgroundColor(0x00000000);
++            }
++        }
++    }
++
+     private void setBlur(boolean hasWindowFocus) {
+-        if (mDecorCaptionView != null) {
++        if (mDecorCaptionView != null && !mIsSettingsPage) {
+             Point initial = new Point();
+             try {
+                 PhoneWindow.WindowManagerHolder.sWindowManager.
+@@ -817,6 +908,18 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+     }
+ 
+     @Override
++    public boolean hasWindowFocus() {
++        if (mAppBlur) {
++            final Window.WindowControllerCallback callback =
++                    mWindow.getWindowControllerCallback();
++            if (callback != null) {
++                return callback.isTaskFocuesed();
++            }
++        }
++        return super.hasWindowFocus();
++    }
++
++    @Override
+     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+         super.onLayout(changed, left, top, right, bottom);
+         getOutsets(mOutsets);
+@@ -837,6 +940,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+         // our shadow elevation.
+ 
+         setBlur(hasWindowFocus());
++        setSettingsPageBackgroundIfNeeded();
+ 
+         updateElevation();
+         mAllowUpdateElevation = true;
+@@ -1050,6 +1154,19 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+         mAppBlur = isBlur;
+     }
+ 
++    @Override
++    public void setIsSettingsPage() {
++        mIsSettingsPage = true;
++    }
++
++    public void setIsSettingsPage(boolean isSettingsPage) {
++        mIsSettingsPage = isSettingsPage;
++    }
++
++    public boolean getIsSettingsPage() {
++        return mIsSettingsPage;
++    }
++
+     public boolean getAppBlur() {
+         return mAppBlur;
+     }
+@@ -1230,6 +1347,10 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+                 lp.rightMargin = consumedRight;
+                 lp.bottomMargin = consumedBottom;
+                 lp.leftMargin = consumedLeft;
++                if (mIsSettingsPage) {
++                    lp.leftMargin = getResources().
++                                        getDimensionPixelSize(R.dimen.settings_list_width);
++                }
+                 mContentRoot.setLayoutParams(lp);
+ 
+                 if (insets == null) {
+@@ -1657,7 +1778,8 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+             mDecorCaptionView.setWindowFocus(hasWindowFocus);
+         }
+ 
+-        setBlur(hasWindowFocus);
++        setBlur(hasWindowFocus());
++        setSettingsPageBackgroundIfNeeded();
+ 
+         updateElevation();
+     }
+@@ -1989,7 +2111,8 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+             }
+         } else if (mDecorCaptionView != null) {
+             // We might have to change the kind of surface before we do anything else.
+-            mDecorCaptionView.onConfigurationChanged(mDecorCaptionView.hasCaption());
++            mDecorCaptionView.onConfigurationChanged(mDecorCaptionView.hasCaption()
++                                                                && !mIsSettingsPage);
+             enableCaption(mDecorCaptionView.hasCaption());
+         }
+         updateAvailableWidth();
+@@ -2036,9 +2159,16 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+                 addView(mDecorCaptionView,
+                         new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
+             }
+-            mDecorCaptionView.addView(root,
+-                    new ViewGroup.MarginLayoutParams(MATCH_PARENT, MATCH_PARENT));
+-            setCaptionVisiblity(mDecorCaptionView.hasCaption());
++            ViewGroup.MarginLayoutParams lp =
++                        new ViewGroup.MarginLayoutParams(MATCH_PARENT, MATCH_PARENT);
++            if (mIsSettingsPage) {
++                lp.leftMargin = getResources().
++                                    getDimensionPixelSize(R.dimen.settings_list_width);
++                setBackgroundColor(0x00000000);
++                mDecorCaptionView.setBackgroundColor(0x00000000);
++            }
++            mDecorCaptionView.addView(root, lp);
++            setCaptionVisiblity(mDecorCaptionView.hasCaption() && !mIsSettingsPage);
+         } else {
+ 
+             // Put it below the color views.
+@@ -2092,7 +2222,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
+             if (decorCaptionView == null) {
+                 decorCaptionView = inflateDecorCaptionView(inflater);
+             }
+-            decorCaptionView.setPhoneWindow(mWindow, true /*showDecor*/);
++            decorCaptionView.setPhoneWindow(mWindow, !mIsSettingsPage /*showDecor*/);
+         } else {
+             decorCaptionView = null;
+         }
+diff --git a/core/java/com/android/internal/policy/PhoneWindow.java b/core/java/com/android/internal/policy/PhoneWindow.java
+index 7d84430..7547dfa 100644
+--- a/core/java/com/android/internal/policy/PhoneWindow.java
++++ b/core/java/com/android/internal/policy/PhoneWindow.java
+@@ -283,6 +283,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
+     private Boolean mSharedElementsUseOverlay;
+ 
+     private boolean mIsStartingWindow;
++    private boolean mIsSettingsPage = false;
+     protected int mTheme = -1;
+ 
+     private int mDecorCaptionShade = DECOR_CAPTION_SHADE_AUTO;
+@@ -2664,6 +2665,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
+         } else {
+             mDecor.setWindow(this);
+         }
++        mDecor.setIsSettingsPage(mIsSettingsPage);
+         if (mContentParent == null) {
+             mContentParent = generateLayout(mDecor);
+ 
+@@ -3859,4 +3861,9 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
+             mDecor.updateLogTag(params);
+         }
+     }
++
++    @Override
++    public void setIsSettingsPage() {
++        mIsSettingsPage = true;
++    }
+ }
+diff --git a/core/java/com/android/internal/widget/DecorCaptionView.java b/core/java/com/android/internal/widget/DecorCaptionView.java
+index 31493a8..dc8a76c 100644
+--- a/core/java/com/android/internal/widget/DecorCaptionView.java
++++ b/core/java/com/android/internal/widget/DecorCaptionView.java
+@@ -19,7 +19,9 @@ package com.android.internal.widget;
+ import android.app.AlertDialog;
+ import android.content.Context;
+ import android.graphics.drawable.Drawable;
++import android.graphics.Canvas;
+ import android.graphics.Color;
++import android.graphics.Paint;
+ import android.graphics.Rect;
+ import android.os.RemoteException;
+ import android.os.SystemClock;
+@@ -177,6 +179,12 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         mCaption = getChildAt(0);
+     }
+ 
++    @Override
++    public void setBackgroundColor(int color) {
++        super.setBackgroundColor(color);
++        mCaption.setBackgroundColor(color);
++    }
++
+     public void setWindowFocus(boolean focus) {
+         mWindowFocused = focus;
+     }
+@@ -328,7 +336,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+         final boolean primaryButton = (e.getButtonState() & MotionEvent.BUTTON_PRIMARY) != 0;
+         switch (e.getActionMasked()) {
+             case MotionEvent.ACTION_DOWN:
+-                if (!mShow) {
++                if (!mShow && v.getVisibility() != View.VISIBLE) {
+                     // When there is no caption we should not react to anything.
+                     return false;
+                 }
+@@ -507,6 +515,21 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     }
+ 
+     @Override
++    protected void onDraw(Canvas canvas) {
++        MarginLayoutParams lp = (MarginLayoutParams) mContent.getLayoutParams();
++        if (lp.leftMargin > 0) {
++            Paint p = new Paint();
++            p.setColor(0xFFFFFFFF);
++            Rect backgroundRect = new Rect();
++            final int captionHeight = mCaption.getMeasuredHeight();
++            backgroundRect.set(lp.leftMargin, captionHeight,
++                        lp.leftMargin + mContent.getMeasuredWidth(),
++                        captionHeight + mContent.getMeasuredHeight());
++            canvas.drawRect(backgroundRect, p);
++        }
++    }
++
++    @Override
+     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+         final int captionHeight;
+         if (mCaption.getVisibility() != View.GONE) {
+@@ -530,7 +553,8 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+             if (mOverlayWithAppContent) {
+                 mContent.layout(0, 0, mContent.getMeasuredWidth(), mContent.getMeasuredHeight());
+             } else {
+-                mContent.layout(0, captionHeight, mContent.getMeasuredWidth(),
++                MarginLayoutParams lp = (MarginLayoutParams) mContent.getLayoutParams();
++                mContent.layout(lp.leftMargin, captionHeight, lp.leftMargin + mContent.getMeasuredWidth(),
+                         captionHeight + mContent.getMeasuredHeight());
+             }
+             if (mContent.getBackground() != null) {
+@@ -592,7 +616,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     /**
+      * Minimize the window by move task back.
+      **/
+-    private void minimizeWindow() {
++    public void minimizeWindow() {
+         Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
+         if (callback != null) {
+             callback.moveTaskBack();
+@@ -602,7 +626,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
+     /**
+      * Maximize the window by moving it to the maximized workspace stack.
+      **/
+-    private void maximizeWindow() {
++    public void maximizeWindow() {
+         Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
+         if (callback != null) {
+             try {
+diff --git a/core/res/res/drawable/settings_btn_close.png b/core/res/res/drawable/settings_btn_close.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..0d0f65e6a1297484939aae0b355d5802ff421b2b
+GIT binary patch
+literal 354
+zcmeAS@N?(olHy`uVBq!ia0vp^x**KK1|+Sd9?b$$jKx9jP7LeL$-D%zWjtLRLn1ie
+zPP@%}$biR{Tju~rY@_C{^D3!A67177v`bp@7|e>6?wfNY%z5IDiEC8qRIa-RF4Qn^
+zU|>O@1eXOmr?Z}T+^Kl|>+$!$hpbK?EuXc1TGYwsR^f-I?G`JJWVq?wqVtSr?zKOO
+zZ&$qzQCwNMx{F&@OjxA5{oFaJ%PpDz)+Fh)`?LCepSIa)=k9<D!pRFm!YA9F^h?>k
+zEmz;<|2Kt)ypr{yvt+#P-p};ynUHo!{?exFmty}lulCXuYW!pJ!*fo*Nk;7FJEeD>
+zHE*9g+jKI`-egw2_0pnZp9r0QU)h3Kmp)6)KcIDF*8VDHl?6((_ddMg%KUKl-_ymh
+mXLyg#a+X2z(S!ROdl-|vV`m;Y8L<i&XbhgNelF{r5}E)~bCJ9N
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable/settings_btn_maximize.png b/core/res/res/drawable/settings_btn_maximize.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..84a6ccbf530e89faa00008ffaebf6c5ae2de352c
+GIT binary patch
+literal 244
+zcmeAS@N?(olHy`uVBq!ia0vp^x**KK1|+Sd9?b$$jKx9jP7LeL$-D$|)_J-(hD30_
+zy>^zjL4l_s(1h=hn$fJq57lxOwH9n$GWEsN&k9HWEvc+fV3A`HaA05r6QK!#i}?>q
+zJl0$IMPOUaxusJs2L%+HXFHzv-y~Q2KW(M0o%AkVEw6QxR~;>i3eSF2v9@p4eQ$|h
+ztCbz3GF=<)J0F}W<y57${1Q(lYkC&P%awDyjNjMp+FDb*HzZA}ZI5&M%Nm~D{lcFt
+fT6qw*Za%<!!-=oY{%g1((B%xCu6{1-oD!M<UMN_q
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/drawable/settings_btn_minimize.png b/core/res/res/drawable/settings_btn_minimize.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..d58eeb2650dfa5710bd25f2358e0e2f38a661d22
+GIT binary patch
+literal 171
+zcmeAS@N?(olHy`uVBq!ia0vp^x**KK1|+Sd9?b$$jKx9jP7LeL$-D$|QaxQ9Ln1ie
+zUO32mK!Jlb;BJerw0Y{}TZ_$|lW(1VoWgYIe73Kkf<prXBNGdU0EBU$>&vU19XnRl
+zmwldTS!SI5-}gmzY{8?yEqc!_3a|4a6oPbo=sv(AY{$X;G$|tnXd#2AtDnm{r-UW|
+DZss+i
+
+literal 0
+HcmV?d00001
+
+diff --git a/core/res/res/values/dimens.xml b/core/res/res/values/dimens.xml
+index bd8d981..0436527 100644
+--- a/core/res/res/values/dimens.xml
++++ b/core/res/res/values/dimens.xml
+@@ -620,4 +620,6 @@
+     <dimen name="caption_close_margin_right">20dp</dimen>
+     <dimen name="caption_setting_margin_right">32dp</dimen>
+     <dimen name="caption_margin_left">10dp</dimen>
++
++    <dimen name="settings_list_width">227dp</dimen>
+ </resources>
+diff --git a/core/res/res/values/symbols.xml b/core/res/res/values/symbols.xml
+index 9527940..3b599f7 100644
+--- a/core/res/res/values/symbols.xml
++++ b/core/res/res/values/symbols.xml
+@@ -1603,6 +1603,9 @@
+   <java-symbol type="drawable" name="jog_tab_target_yellow" />
+   <java-symbol type="drawable" name="magnified_region_frame" />
+   <java-symbol type="drawable" name="menu_background" />
++  <java-symbol type="drawable" name="settings_btn_minimize" />
++  <java-symbol type="drawable" name="settings_btn_maximize" />
++  <java-symbol type="drawable" name="settings_btn_close" />
+   <java-symbol type="id" name="action_mode_bar_stub" />
+   <java-symbol type="id" name="button0" />
+   <java-symbol type="id" name="button4" />
+@@ -3103,4 +3106,17 @@
+   <java-symbol type="integer" name="config_stableDeviceDisplayWidth" />
+   <java-symbol type="integer" name="config_stableDeviceDisplayHeight" />
+   <java-symbol type="style" name="CaptionAlertDialogStyle" />
++
++
++    <!-- The decor caption dimens -->
++    <java-symbol type="dimen" name="caption_button_width"/>
++    <java-symbol type="dimen" name="caption_button_height"/>
++    <java-symbol type="dimen" name="caption_height"/>
++    <java-symbol type="dimen" name="caption_text_size"/>
++    <java-symbol type="dimen" name="caption_margin_right"/>
++    <java-symbol type="dimen" name="caption_close_margin_right"/>
++    <java-symbol type="dimen" name="caption_setting_margin_right"/>
++    <java-symbol type="dimen" name="caption_margin_left"/>
++
++    <java-symbol type="dimen" name="settings_list_width"/>
+ </resources>
+diff --git a/packages/SettingsLib/res/layout/settings_with_drawer.xml b/packages/SettingsLib/res/layout/settings_with_drawer.xml
+index 55c192d..999c54a 100644
+--- a/packages/SettingsLib/res/layout/settings_with_drawer.xml
++++ b/packages/SettingsLib/res/layout/settings_with_drawer.xml
+@@ -41,6 +41,6 @@
+             android:id="@+id/content_frame"
+             android:layout_width="match_parent"
+             android:layout_height="fill_parent"
+-            android:background="?android:attr/windowBackground" />
++            android:background="#00000000" />
+     </LinearLayout>
+ </android.support.v4.widget.DrawerLayout>
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index 5ad4dfb..cfe4069 100644
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -3218,6 +3218,14 @@ public class ActivityManagerService extends IActivityManager.Stub
+         setFocusedTask(taskId, true);
+     }
+ 
++    @Override
++    public boolean isTaskFocused(IBinder token) {
++            int taskId = ActivityRecord.getTaskForActivityLocked(token, false);
++            TaskRecord focusedTask = getFocusedStack().topTask();
++            int focusedTaskId = focusedTask == null ? -1 : focusedTask.taskId;
++            return taskId == focusedTaskId;
++    }
++
+     public void setFocusedTask(int taskId, boolean clear) {
+         enforceCallingPermission(MANAGE_ACTIVITY_STACKS, "setFocusedTask()");
+         if (DEBUG_FOCUS) Slog.d(TAG_FOCUS, "setFocusedTask: taskId=" + taskId);
+diff --git a/services/core/java/com/android/server/am/ActivityRecord.java b/services/core/java/com/android/server/am/ActivityRecord.java
+index ebf632f..30a65be 100644
+--- a/services/core/java/com/android/server/am/ActivityRecord.java
++++ b/services/core/java/com/android/server/am/ActivityRecord.java
+@@ -225,6 +225,7 @@ final class ActivityRecord extends ConfigurationContainer implements AppWindowCo
+     final String processName; // process where this component wants to run
+     final String taskAffinity; // as per ActivityInfo.taskAffinity
+     final boolean stateNotNeeded; // As per ActivityInfo.flags
++    final boolean isSettingsPage; // using for judge settings page.
+     boolean fullscreen; // covers the full screen?
+     final boolean noDisplay;  // activity is not displayed?
+     private final boolean componentSpecified;  // did caller specify an explicit component?
+@@ -828,6 +829,18 @@ final class ActivityRecord extends ConfigurationContainer implements AppWindowCo
+ 
+         mRotationAnimationHint = aInfo.rotationAnimation;
+ 
++        if (sourceRecord != null) {
++            if (sourceRecord.isSettingsPage) {
++                intent.putExtra(Intent.EXTRA_LAUNCH_SETTINGS_PAGE, true);
++                intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
++                if (aInfo.launchMode != 0) {
++                    aInfo.launchMode = LAUNCH_SINGLE_TOP;
++                }
++            }
++        }
++
++        isSettingsPage = intent.getBooleanExtra(Intent.EXTRA_LAUNCH_SETTINGS_PAGE, false);
++
+         if (options != null) {
+             pendingOptions = options;
+             mLaunchTaskBehind = pendingOptions.getLaunchTaskBehind();
+diff --git a/services/core/java/com/android/server/am/ActivityStack.java b/services/core/java/com/android/server/am/ActivityStack.java
+index 1e311f44..6db9563 100644
+--- a/services/core/java/com/android/server/am/ActivityStack.java
++++ b/services/core/java/com/android/server/am/ActivityStack.java
+@@ -1835,6 +1835,9 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
+                                     null /* description */);
+                             r.mUpdateTaskThumbnailWhenHidden = false;
+                         }
++                        if (r.isSettingsPage && activityNdx == 1) {
++                            behindFullscreenActivity = stackInvisible;
++                        }
+                         continue;
+                     }
+                     final boolean isTop = r == top;
+@@ -1858,6 +1861,9 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
+                             behindTranslucentActivity = true;
+                         }
+                     }
++                    if (r.isSettingsPage && activityNdx == 1) {
++                        behindFullscreenActivity = stackInvisible;
++                    }
+                     if (reallyVisible) {
+                         if (DEBUG_VISIBILITY) Slog.v(TAG_VISIBILITY, "Make visible? " + r
+                                 + " finishing=" + r.finishing + " state=" + r.state);
+@@ -3536,6 +3542,9 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
+                 if (DEBUG_VISIBILITY) Slog.v(TAG_VISIBILITY,
+                         "Stopping visible=" + r.visible + " for " + r);
+                 if (!r.visible) {
++                    if (r.intent.getComponent().getClassName().equals("com.android.settings.Settings")) {
++                        return;
++                    }
+                     r.setVisible(false);
+                 }
+                 EventLogTags.writeAmStopActivity(
+diff --git a/services/core/java/com/android/server/am/ActivityStarter.java b/services/core/java/com/android/server/am/ActivityStarter.java
+index 2e2f7c3..aba4372 100644
+--- a/services/core/java/com/android/server/am/ActivityStarter.java
++++ b/services/core/java/com/android/server/am/ActivityStarter.java
+@@ -2037,6 +2037,9 @@ class ActivityStarter {
+     }
+ 
+     private void addOrReparentStartingActivity(TaskRecord parent, String reason) {
++        if ((mIntent.getFlags() & Intent.FLAG_ACTIVITY_CLEAR_TASK) == Intent.FLAG_ACTIVITY_CLEAR_TASK) {
++            parent.performClearTaskForReuseLocked(parent.getRootActivity(), 0);
++        }
+         if (mStartActivity.getTask() == null || mStartActivity.getTask() == parent) {
+             parent.addActivityToTop(mStartActivity);
+         } else {
+diff --git a/services/core/java/com/android/server/am/TaskRecord.java b/services/core/java/com/android/server/am/TaskRecord.java
+index 55702aa..5b5332b 100644
+--- a/services/core/java/com/android/server/am/TaskRecord.java
++++ b/services/core/java/com/android/server/am/TaskRecord.java
+@@ -38,6 +38,7 @@ import android.content.res.Configuration;
+ import android.graphics.Bitmap;
+ import android.graphics.Point;
+ import android.graphics.Rect;
++import android.os.Binder;
+ import android.os.Debug;
+ import android.os.ParcelFileDescriptor;
+ import android.os.RemoteException;
+@@ -724,6 +725,9 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+             // Note here we always set the replacing window first, as the flags might be needed
+             // during the relaunch. If we end up not doing any relaunch, we clear the flags later.
+             windowManager.setWillReplaceWindow(topActivity.appToken, animate);
++            if (topActivity.isSettingsPage) {
++                windowManager.setWillReplaceWindow(getRootActivity().appToken, animate);
++            }
+         }
+ 
+         windowManager.deferSurfaceLayout();
+@@ -778,6 +782,9 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+             }
+             if (!animate) {
+                 toStack.mNoAnimActivities.add(topActivity);
++                if (topActivity.isSettingsPage) {
++                    toStack.mNoAnimActivities.add(getRootActivity());
++                }
+             }
+ 
+             // We might trigger a configuration change. Save the current task bounds for freezing.
+@@ -814,6 +821,10 @@ final class TaskRecord extends ConfigurationContainer implements TaskWindowConta
+             // window), we need to clear the replace window settings. Otherwise, we schedule a
+             // timeout to remove the old window if the replacing window is not coming in time.
+             windowManager.scheduleClearWillReplaceWindows(topActivity.appToken, !kept);
++            if (topActivity.isSettingsPage) {
++                windowManager.scheduleClearWillReplaceWindows(getRootActivity().appToken, !kept);
++            }
++
+         }
+ 
+         if (!deferResume) {
+diff --git a/services/core/java/com/android/server/wm/AppWindowAnimator.java b/services/core/java/com/android/server/wm/AppWindowAnimator.java
+index c76b905..7fb6b06 100644
+--- a/services/core/java/com/android/server/wm/AppWindowAnimator.java
++++ b/services/core/java/com/android/server/wm/AppWindowAnimator.java
+@@ -133,7 +133,11 @@ public class AppWindowAnimator {
+             anim.initialize(width, height, parentWidth, parentHeight);
+         }
+         anim.restrictDuration(WindowManagerService.MAX_ANIMATION_DURATION);
+-        anim.scaleCurrentDuration(mService.getTransitionAnimationScaleLocked());
++        if (mAppToken.findMainWindow().mAttrs.isSettingsPage) {
++            anim.scaleCurrentDuration(0);
++        } else {
++            anim.scaleCurrentDuration(mService.getTransitionAnimationScaleLocked());
++        }
+         int zorder = anim.getZAdjustment();
+         int adj = 0;
+         if (zorder == Animation.ZORDER_TOP) {
+diff --git a/services/core/java/com/android/server/wm/Task.java b/services/core/java/com/android/server/wm/Task.java
+index d1457db..caace46 100644
+--- a/services/core/java/com/android/server/wm/Task.java
++++ b/services/core/java/com/android/server/wm/Task.java
+@@ -651,6 +651,11 @@ class Task extends WindowContainer<AppWindowToken> implements DimLayer.DimLayerU
+         return token != null ? token.findMainWindow() : null;
+     }
+ 
++    WindowState getRootVisibleAppMainWindow() {
++        final AppWindowToken token = getRootVisibleAppToken();
++        return token != null ? token.findMainWindow() : null;
++    }
++
+     AppWindowToken getTopFullscreenAppToken() {
+         for (int i = mChildren.size() - 1; i >= 0; i--) {
+             final AppWindowToken token = mChildren.get(i);
+@@ -662,6 +667,17 @@ class Task extends WindowContainer<AppWindowToken> implements DimLayer.DimLayerU
+         return null;
+     }
+ 
++    AppWindowToken getRootVisibleAppToken() {
++        for (int i = 0; i < mChildren.size(); i++) {
++            final AppWindowToken token = mChildren.get(i);
++            // skip hidden (or about to hide) apps
++            if (!token.mIsExiting && !token.isClientHidden() && !token.hiddenRequested) {
++                return token;
++            }
++        }
++        return null;
++    }
++
+     AppWindowToken getTopVisibleAppToken() {
+         for (int i = mChildren.size() - 1; i >= 0; i--) {
+             final AppWindowToken token = mChildren.get(i);
+diff --git a/services/core/java/com/android/server/wm/WindowManagerService.java b/services/core/java/com/android/server/wm/WindowManagerService.java
+index cceba5a..bf8078e 100644
+--- a/services/core/java/com/android/server/wm/WindowManagerService.java
++++ b/services/core/java/com/android/server/wm/WindowManagerService.java
+@@ -1454,6 +1454,10 @@ public class WindowManagerService extends IWindowManager.Stub
+                 displayContent.mTapExcludedWindows.add(win);
+             }
+ 
++            if (attrs.exclude) {
++                displayContent.mTapExcludedWindows.add(win);
++            }
++
+             origId = Binder.clearCallingIdentity();
+ 
+             win.attach();
+@@ -2262,7 +2266,7 @@ public class WindowManagerService extends IWindowManager.Stub
+             focusMayChange = isDefaultDisplay;
+             win.mAnimatingExit = true;
+             win.mWinAnimator.mAnimating = true;
+-        } else if (win.mWinAnimator.isAnimationSet()) {
++        } else if (win.mWinAnimator.isAnimationSet() && transit != 0) {
+             // Currently in a hide animation... turn this into
+             // an exit.
+             win.mAnimatingExit = true;
+@@ -4967,6 +4971,15 @@ public class WindowManagerService extends IWindowManager.Stub
+                     //                   + " to " + newFocus);
+                     if (newFocus != null) {
+                         if (DEBUG_FOCUS_LIGHT) Slog.i(TAG_WM, "Gaining focus: " + newFocus);
++                        if (newFocus.mAttrs.isSettingsPage) {
++                            Task focusTask = newFocus.getTask();
++                            if (focusTask != null) {
++                                WindowState root = focusTask.getRootVisibleAppMainWindow();
++                                if (root != null) {
++                                    root.reportFocusChangedSerialized(true, mInTouchMode);
++                                }
++                            }
++                        }
+                         newFocus.reportFocusChangedSerialized(true, mInTouchMode);
+                         notifyFocusChanged();
+                     }
+diff --git a/services/core/java/com/android/server/wm/WindowState.java b/services/core/java/com/android/server/wm/WindowState.java
+index d4ed79e..195ad08 100644
+--- a/services/core/java/com/android/server/wm/WindowState.java
++++ b/services/core/java/com/android/server/wm/WindowState.java
+@@ -18,6 +18,7 @@ package com.android.server.wm;
+ 
+ import static android.app.ActivityManager.ENABLE_TASK_SNAPSHOTS;
+ import static android.app.ActivityManager.StackId;
++import static android.app.ActivityManager.StackId.BACKGROUND_STACK_ID;
+ import static android.app.ActivityManager.StackId.FREEFORM_WORKSPACE_STACK_ID;
+ import static android.app.ActivityManager.StackId.INVALID_STACK_ID;
+ import static android.app.ActivityManager.StackId.PINNED_STACK_ID;
+@@ -143,6 +144,7 @@ import android.view.WindowManager;
+ import android.view.WindowManagerPolicy;
+ 
+ import com.android.internal.util.ToBooleanFunction;
++import com.android.internal.R;
+ import com.android.server.input.InputWindowHandle;
+ import com.android.server.am.ActivityManagerService;
+ 
+@@ -778,6 +780,11 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
+             // appears.
+             return;
+         }
++
++        if (getStackId() == BACKGROUND_STACK_ID) {
++            //do noting with backgroundstack
++            return;
++        }
+         mHaveFrame = true;
+ 
+         final Task task = getTask();
+@@ -2282,6 +2289,14 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
+             }
+             region.set(mTmpRect);
+             cropRegionToStackBoundsIfNeeded(region);
++            if (mAttrs.isSettingsPage) {
++                int captionHeight = mContext.getResources().
++                                        getDimensionPixelSize(R.dimen.caption_height);
++                int listWidth = mContext.getResources().
++                                        getDimensionPixelSize(R.dimen.settings_list_width);
++                region.op(new Rect(mFrame.left, mFrame.top + captionHeight,
++                                   mFrame.left + listWidth, mFrame.bottom), Region.Op.DIFFERENCE);
++            }
+         } else {
+             // Not modal or full screen modal
+             getTouchableRegion(region);
+@@ -3392,7 +3407,7 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
+             return;
+         }
+         if (mWinAnimator != null && mWinAnimator.mSurfaceController != null) {
+-            if (!isTaskFocused()) {
++            if (!isTaskFocused() || mAttrs.isSettingsPage) {
+                 mWinAnimator.mSurfaceController.setBlur(false, null);
+                 mIsBlur = false;
+             } else if (setBlurRect()) {
+diff --git a/test-runner/api/android-test-mock-current.txt b/test-runner/api/android-test-mock-current.txt
+index 93bbf6c..0852527 100644
+--- a/test-runner/api/android-test-mock-current.txt
++++ b/test-runner/api/android-test-mock-current.txt
+@@ -106,6 +106,7 @@ package android.test.mock {
+     method public int getWallpaperDesiredMinimumHeight();
+     method public int getWallpaperDesiredMinimumWidth();
+     method public void grantUriPermission(java.lang.String, android.net.Uri, int);
++    method public boolean isCompatContext();
+     method public boolean isCredentialProtectedStorage();
+     method public boolean isDeviceProtectedStorage();
+     method public boolean moveDatabaseFrom(android.content.Context, java.lang.String);
+@@ -165,6 +166,7 @@ package android.test.mock {
+     method public void unbindService(android.content.ServiceConnection);
+     method public void unregisterReceiver(android.content.BroadcastReceiver);
+     method public void updateDisplay(int);
++    method public void updateRunMode(int);
+   }
+ 
+   public deprecated class MockCursor implements android.database.Cursor {
+@@ -339,6 +341,7 @@ package android.test.mock {
+     method public android.content.pm.VerifierDeviceIdentity getVerifierDeviceIdentity();
+     method public android.content.res.XmlResourceParser getXml(java.lang.String, int, android.content.pm.ApplicationInfo);
+     method public void grantRuntimePermission(java.lang.String, java.lang.String, android.os.UserHandle);
++    method public void grantRuntimeVirPermission(java.lang.String, java.lang.String, android.os.UserHandle);
+     method public boolean hasSystemFeature(java.lang.String);
+     method public boolean hasSystemFeature(java.lang.String, int);
+     method public int installExistingPackage(java.lang.String) throws android.content.pm.PackageManager.NameNotFoundException;
+-- 
+2.7.4
+
